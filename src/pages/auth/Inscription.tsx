@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../supabase'
+import CryptoJS from 'crypto-js'
 
 type Props = { retour: () => void; allerVersConnexion: () => void }
 
@@ -9,22 +10,24 @@ export default function Inscription({ retour, allerVersConnexion }: Props) {
   const [erreur, setErreur] = useState('')
 
   const sInscrire = async () => {
-    if (!pseudo || !motDePasse) {
-      setErreur('Remplis tous les champs')
-      return
-    }
-
-    const { error } = await supabase
-      .from('comptes')
-      .insert({ pseudo, mot_de_passe: motDePasse, role: 'joueur' })
-
-    if (error) {
-      setErreur('Ce pseudo est déjà pris')
-      return
-    }
-
-    allerVersConnexion()
+  if (!pseudo || !motDePasse) {
+    setErreur('Remplis tous les champs')
+    return
   }
+
+  const motDePasseHashe = CryptoJS.SHA256(motDePasse).toString()
+
+  const { error } = await supabase
+    .from('comptes')
+    .insert({ pseudo, mot_de_passe: motDePasseHashe, role: 'joueur' })
+
+  if (error) {
+    setErreur('Ce pseudo est déjà pris')
+    return
+  }
+
+  allerVersConnexion()
+}
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white">

@@ -8,19 +8,27 @@ import Sidebar from './components/Sidebar'
 import DashboardAdmin from './pages/admin/DashboardAdmin'
 import DashboardJoueur from './pages/joueur/DashboardJoueur'
 import PNJ from './pages/admin/PNJ'
+import Joueurs from './pages/admin/Joueurs'
 import Sessions from './pages/shared/Sessions'
 import MonPersonnage from './pages/joueur/MonPersonnage'
+import LancerDes from './pages/shared/LancerDes'
+import GererMJ from './pages/admin/GererMJ'
 
 type PageAuth = 'accueil' | 'connexion' | 'inscription'
 
 function PageCourante() {
   const pageCourante = useStore(s => s.pageCourante)
-  const compte = useStore(s => s.compte)
+  const roleEffectif = useStore(s => s.roleEffectif)
+
+  const estAdminOuMJ = roleEffectif === 'admin' || roleEffectif === 'mj'
 
   if (pageCourante === 'sessions') return <Sessions />
-  if (pageCourante === 'pnj' && compte?.role === 'admin') return <PNJ />
+  if (pageCourante === 'gerer-mj' && estAdminOuMJ) return <GererMJ />
+  if (pageCourante === 'lancer-des') return <LancerDes />
   if (pageCourante === 'mon-personnage') return <MonPersonnage />
-  if (compte?.role === 'admin') return <DashboardAdmin />
+  if (pageCourante === 'pnj' && estAdminOuMJ) return <PNJ />
+  if (pageCourante === 'joueurs' && estAdminOuMJ) return <Joueurs />
+  if (estAdminOuMJ) return <DashboardAdmin />
   return <DashboardJoueur />
 }
 

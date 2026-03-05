@@ -1,23 +1,47 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
+import { useStore } from '../../store/useStore'
 import CreerPersonnage from '../shared/CreerPersonnage'
 
-type PNJ = { id: string; nom: string; hp_actuel: number; hp_max: number }
+type PNJ = { id: string; nom: string; hp_actuel: number; hp_max: number; est_pnj: boolean }
 
 export default function PNJ() {
   const [pnjs, setPnjs] = useState<PNJ[]>([])
   const [creer, setCreer] = useState(false)
+  const setPnjControle = useStore(s => s.setPnjControle)
+  const setPageCourante = useStore(s => s.setPageCourante)
+  const sessionActive = useStore(s => s.sessionActive)
 
   useEffect(() => { chargerPnjs() }, [])
 
   const chargerPnjs = async () => {
-    const { data } = await supabase.from('personnages').select('*').eq('est_pnj', true)
-    if (data) setPnjs(data)
+    if (!sessionActive) return
+
+    const { data } = await supabase
+      .from('session_joueurs')
+      .select('personnages(*)')
+      .eq('id_session', sessionActive.id)
+
+    if (data) {
+      const persos = data
+        .map((d: any) => d.personnages)
+        .filter((p: any) => p.est_pnj === true)
+      setPnjs(persos)
+    }
   }
 
   const supprimerPnj = async (id: string) => {
+    await supabase.from('session_joueurs').delete().eq('id_personnage', id)
+    await supabase.from('personnage_stats').delete().eq('id_personnage', id)
+    await supabase.from('inventaire').delete().eq('id_personnage', id)
+    await supabase.from('personnage_competences').delete().eq('id_personnage', id)
     await supabase.from('personnages').delete().eq('id', id)
     chargerPnjs()
+  }
+
+  const gererPnj = (pnj: PNJ) => {
+    setPnjControle(pnj)
+    setPageCourante('mon-personnage')
   }
 
   if (creer) return <CreerPersonnage estPnj={true} retour={() => { setCreer(false); chargerPnjs() }} />
@@ -44,7 +68,10 @@ export default function PNJ() {
               <p className="text-gray-400 text-sm mt-1">HP : {pnj.hp_actuel} / {pnj.hp_max}</p>
             </div>
             <div className="flex gap-2">
-              <button className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm transition">
+              <button
+                onClick={() => gererPnj(pnj)}
+                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm transition"
+              >
                 Gérer
               </button>
               <button

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
+import CryptoJS from 'crypto-js'
 
 type Props = { retour: () => void }
 
@@ -10,21 +11,23 @@ export default function Connexion({ retour }: Props) {
   const [erreur, setErreur] = useState('')
   const setCompte = useStore(s => s.setCompte)
 
-  const seConnecter = async () => {
-    const { data, error } = await supabase
-      .from('comptes')
-      .select('*')
-      .eq('pseudo', pseudo)
-      .eq('mot_de_passe', motDePasse)
-      .single()
+ const seConnecter = async () => {
+  const motDePasseHashe = CryptoJS.SHA256(motDePasse).toString()
 
-    if (error || !data) {
-      setErreur('Pseudo ou mot de passe incorrect')
-      return
-    }
+  const { data, error } = await supabase
+    .from('comptes')
+    .select('*')
+    .eq('pseudo', pseudo)
+    .eq('mot_de_passe', motDePasseHashe)
+    .single()
 
-    setCompte(data)
+  if (error || !data) {
+    setErreur('Pseudo ou mot de passe incorrect')
+    return
   }
+
+  setCompte(data)
+}
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white">

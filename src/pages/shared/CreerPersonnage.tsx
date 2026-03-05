@@ -8,6 +8,7 @@ type Props = { estPnj: boolean; retour: () => void }
 
 export default function CreerPersonnage({ estPnj, retour }: Props) {
   const compte = useStore(s => s.compte)
+  const sessionActive = useStore(s => s.sessionActive)
   const [nom, setNom] = useState('')
   const [stats, setStats] = useState<Stat[]>([])
   const [jets, setJets] = useState<StatJet[]>([])
@@ -41,14 +42,29 @@ export default function CreerPersonnage({ estPnj, retour }: Props) {
   }
 
   const confirmer = async () => {
+    const constitution = jets.find(j => j.stat.nom === 'Constitution')
+    const intelligence = jets.find(j => j.stat.nom === 'Intelligence')
+    const force = jets.find(j => j.stat.nom === 'Force')
+    const agilite = jets.find(j => j.stat.nom === 'Agilité')
+
+    const hp = constitution ? constitution.valeur * 4 : 0
+    const mana = intelligence ? intelligence.valeur * 10 : 0
+    const stam = (force && agilite && constitution)
+      ? Math.round((force.valeur + agilite.valeur + constitution.valeur) / 3 * 10)
+      : 0
+
     const { data: personnage, error } = await supabase
       .from('personnages')
       .insert({
         nom,
         est_pnj: estPnj,
         lie_au_compte: estPnj ? null : compte?.id,
-        hp_max: 100,
-        hp_actuel: 100
+        hp_max: hp,
+        hp_actuel: hp,
+        mana_max: mana,
+        mana_actuel: mana,
+        stam_max: stam,
+        stam_actuel: stam,
       })
       .select()
       .single()
@@ -62,6 +78,14 @@ export default function CreerPersonnage({ estPnj, retour }: Props) {
         valeur: j.valeur
       }))
     )
+
+    // Lier le personnage à la session active
+    if (sessionActive) {
+      await supabase.from('session_joueurs').insert({
+        id_session: sessionActive.id,
+        id_personnage: personnage.id
+      })
+    }
 
     retour()
   }
@@ -118,10 +142,7 @@ export default function CreerPersonnage({ estPnj, retour }: Props) {
                 onClick={() => relancerStat(index)}
                 disabled={rerollsRestants <= 0}
                 className={`px-2 py-1 rounded-lg text-xs transition
-                  ${rerollsRestants <= 0
-                    ? 'bg-gray-600 opacity-40 cursor-not-allowed'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                  }`}
+                  ${rerollsRestants <= 0 ? 'bg-gray-600 opacity-40 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600'}`}
               >
                 🎲
               </button>
