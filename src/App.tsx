@@ -10,9 +10,12 @@ import DashboardJoueur from './pages/joueur/DashboardJoueur'
 import PNJ from './pages/admin/PNJ'
 import Joueurs from './pages/admin/Joueurs'
 import Sessions from './pages/shared/Sessions'
-import MonPersonnage from './pages/joueur/MonPersonnage'
+import MonPersonnage from './pages/shared/MonPersonnage'
 import LancerDes from './pages/shared/LancerDes'
 import GererMJ from './pages/admin/GererMJ'
+import Gerer from './pages/admin/gerer/Gerer'
+import Items from './pages/admin/Items'
+import MonInventaire from './pages/shared/MonInventaire'
 
 type PageAuth = 'accueil' | 'connexion' | 'inscription'
 
@@ -28,6 +31,9 @@ function PageCourante() {
   if (pageCourante === 'mon-personnage') return <MonPersonnage />
   if (pageCourante === 'pnj' && estAdminOuMJ) return <PNJ />
   if (pageCourante === 'joueurs' && estAdminOuMJ) return <Joueurs />
+  if (pageCourante === 'gerer' && estAdminOuMJ) return <Gerer />
+  if (pageCourante === 'items' && estAdminOuMJ) return <Items />
+  if (pageCourante === 'mon-inventaire') return <MonInventaire />
   if (estAdminOuMJ) return <DashboardAdmin />
   return <DashboardJoueur />
 }

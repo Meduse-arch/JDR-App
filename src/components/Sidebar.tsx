@@ -10,14 +10,15 @@ type MenuItem = {
 
 const menusBase: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', emoji: '🏠' },
+  { id: 'gerer-mj', label: 'Gérer les MJ', emoji: '🎭', adminOuMJ: true, necessiteSession: true },
+  { id: 'gerer', label: 'Gérer', emoji: '⚙️', adminOuMJ: true, necessiteSession: true },
+  { id: 'items', label: 'Items', emoji: '📚', adminOuMJ: true, necessiteSession: true },
   { id: 'joueurs', label: 'Joueurs', emoji: '🧑‍🤝‍🧑', adminOuMJ: true, necessiteSession: true },
   { id: 'pnj', label: 'PNJ', emoji: '👤', adminOuMJ: true, necessiteSession: true },
-  { id: 'gerer-mj', label: 'Gérer les MJ', emoji: '🎭', adminOuMJ: true, necessiteSession: true },
   { id: 'lancer-des', label: 'Lancer des dés', emoji: '🎲', necessiteSession: true },
 ]
 
 export default function Sidebar() {
-  const compte = useStore(s => s.compte)
   const sessionActive = useStore(s => s.sessionActive)
   const roleEffectif = useStore(s => s.roleEffectif)
   const pageCourante = useStore(s => s.pageCourante)
@@ -44,7 +45,6 @@ export default function Sidebar() {
       {menus.map(menu => {
         const bloque = menu.necessiteSession && !sessionActive
         const actif = pageCourante === menu.id
-
         return (
           <div key={menu.id} className="relative group">
             <button
@@ -67,17 +67,27 @@ export default function Sidebar() {
         )
       })}
 
+      {/* Boutons personnage / inventaire */}
       {afficherPersonnage && sessionActive && (
-        <div className="relative group">
+        <div className="flex flex-col gap-1">
           <button
             onClick={() => setPageCourante('mon-personnage')}
             className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition flex items-center gap-3
-              ${pageCourante === 'mon-personnage' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}
-            `}
+              ${pageCourante === 'mon-personnage' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
           >
             <span>⚔️</span>
             <span className="truncate">{pnjControle ? pnjControle.nom : 'Mon Personnage'}</span>
           </button>
+
+          <button
+            onClick={() => setPageCourante('mon-inventaire')}
+            className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition flex items-center gap-3
+              ${pageCourante === 'mon-inventaire' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
+          >
+            <span>🎒</span>
+            <span>Inventaire</span>
+          </button>
+
           {pnjControle && (
             <button
               onClick={() => { setPnjControle(null); setPageCourante('dashboard') }}

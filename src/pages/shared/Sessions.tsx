@@ -19,18 +19,9 @@ export default function Sessions() {
   const [recherche, setRecherche] = useState('')
   const [filtreMJ, setFiltreMJ] = useState('')
   const [filtreDate, setFiltreDate] = useState('')
-  const [mjDisponibles, setMjDisponibles] = useState<Compte[]>([])
 
-  useEffect(() => { chargerSessions(); chargerMJs() }, [])
+  useEffect(() => { chargerSessions() }, [])
   useEffect(() => { filtrer() }, [recherche, filtreMJ, filtreDate, sessions])
-
-  const chargerMJs = async () => {
-    const { data } = await supabase
-      .from('comptes')
-      .select('id, pseudo')
-      .in('role', ['mj', 'admin'])
-    if (data) setMjDisponibles(data)
-  }
 
   const chargerSessions = async () => {
     const { data } = await supabase
@@ -40,7 +31,6 @@ export default function Sessions() {
 
     if (data) {
       setSessions(data)
-      // Charge les pseudos des créateurs
       const ids = [...new Set(data.map((s: Session) => s.cree_par))]
       const { data: comptesData } = await supabase
         .from('comptes')
@@ -56,19 +46,9 @@ export default function Sessions() {
 
   const filtrer = () => {
     let result = [...sessions]
-
-    if (recherche) {
-      result = result.filter(s => s.nom.toLowerCase().includes(recherche.toLowerCase()))
-    }
-
-    if (filtreMJ) {
-      result = result.filter(s => comptes[s.cree_par]?.toLowerCase().includes(filtreMJ.toLowerCase()))
-    }
-
-    if (filtreDate) {
-      result = result.filter(s => s.date_creation.startsWith(filtreDate))
-    }
-
+    if (recherche) result = result.filter(s => s.nom.toLowerCase().includes(recherche.toLowerCase()))
+    if (filtreMJ) result = result.filter(s => comptes[s.cree_par]?.toLowerCase().includes(filtreMJ.toLowerCase()))
+    if (filtreDate) result = result.filter(s => s.date_creation.startsWith(filtreDate))
     setSessionsFiltrees(result)
   }
 
@@ -78,7 +58,6 @@ export default function Sessions() {
       .from('sessions')
       .insert({ nom, description, cree_par: compte?.id })
     if (!error) {
-      // Si MJ, s'ajoute automatiquement comme MJ de la session
       if (compte?.role === 'mj') {
         const { data: session } = await supabase
           .from('sessions')
@@ -107,26 +86,25 @@ export default function Sessions() {
   }
 
   const rejoindreSession = async (session: Session) => {
-  let role: 'admin' | 'mj' | 'joueur' = 'joueur'
+    let role: 'admin' | 'mj' | 'joueur' = 'joueur'
 
-  if (compte?.role === 'admin') {
-    role = 'admin'
-  } else {
-    // Vérifie si le compte est MJ de cette session peu importe son rôle
-    const { data } = await supabase
-      .from('session_mj')
-      .select('*')
-      .eq('id_session', session.id)
-      .eq('id_compte', compte?.id)
-      .single()
+    if (compte?.role === 'admin') {
+      role = 'admin'
+    } else {
+      const { data } = await supabase
+        .from('session_mj')
+        .select('*')
+        .eq('id_session', session.id)
+        .eq('id_compte', compte?.id)
+        .single()
+      if (data) role = 'mj'
+    }
 
-    if (data) role = 'mj'
+    setRoleEffectif(role)
+    setSessionActive(session)
+    setPageCourante('dashboard')
   }
 
-  setRoleEffectif(role)
-  setSessionActive(session)
-  setPageCourante('dashboard')
-}
   const sessionsAffichees = sessionsFiltrees.length > 0 || recherche || filtreMJ || filtreDate
     ? sessionsFiltrees
     : sessions
@@ -145,7 +123,6 @@ export default function Sessions() {
         )}
       </div>
 
-      {/* Barre de recherche */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <input
           type="text"
