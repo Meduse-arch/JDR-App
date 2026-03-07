@@ -18,7 +18,7 @@ export default function Header() {
   return (
     <div className="flex justify-between items-center px-8 py-4 bg-gray-900 border-b border-gray-800">
       <h1 className="text-xl font-bold text-purple-400">
-        JDR App {compte?.role === 'admin' && <span className="text-yellow-400 text-sm">ADMIN</span>}
+        jdr app {compte?.role === 'admin' && <span className="text-yellow-400 text-sm">Mj</span>}
       </h1>
 
       <p className="text-gray-400 font-semibold text-sm">

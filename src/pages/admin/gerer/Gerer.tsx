@@ -8,7 +8,7 @@ type Personnage = {
   id: string
   nom: string
   est_pnj: boolean
-  lie_au_compte: string | null
+  lie_au_compte?: string | null
   hp_actuel: number
   hp_max: number
   mana_actuel: number
@@ -117,7 +117,7 @@ export default function Gerer() {
                     personnage={selectionne}
                     stats={stats}
                     personnageStats={personnageStats}
-                    onUpdate={(p) => { setSelectionne(p); selectionnerPersonnage(p) }}
+                    onUpdate={(p: any) => { setSelectionne(p); selectionnerPersonnage(p) }}
                   />
                 )}
 
