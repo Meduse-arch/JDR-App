@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
 
-
 type Stat = { nom: string; valeur: number }
 type Resultat = { label: string; des: number[]; total: number }
 
@@ -14,41 +13,65 @@ export default function LancerDes() {
   const [historique, setHistorique] = useState<Resultat[]>([])
   const pnjControle = useStore(s => s.pnjControle)
 
-useEffect(() => { chargerStats() }, [pnjControle])
+  useEffect(() => { chargerStats() }, [pnjControle])
 
-const chargerStats = async () => {
-  // Si un PNJ est contrôlé on charge ses stats directement
-  if (pnjControle) {
-    const { data } = await supabase
-      .from('personnage_stats')
-      .select('valeur, stats(nom)')
-      .eq('id_personnage', pnjControle.id)
+  const chargerStats = async () => {
+    let idPersonnage = pnjControle?.id
 
-    if (data) {
-      setStats(data.map((d: any) => ({ nom: d.stats.nom, valeur: d.valeur })))
+    // 1. Identifier le personnage
+    if (!idPersonnage) {
+      const { data: personnage } = await supabase
+        .from('personnages')
+        .select('id')
+        .eq('lie_au_compte', compte?.id)
+        .eq('est_pnj', false)
+        .single()
+      
+      if (!personnage) return
+      idPersonnage = personnage.id
     }
-    return
+
+    // 2. Charger ses stats de base
+    const { data: baseStats } = await supabase
+      .from('personnage_stats')
+      .select('id_stat, valeur, stats(nom)')
+      .eq('id_personnage', idPersonnage)
+
+    if (!baseStats) return
+
+    // 3. Charger ses items équipés
+    const { data: equipements } = await supabase
+      .from('inventaire')
+      .select('id_item')
+      .eq('id_personnage', idPersonnage)
+      .eq('equipe', true)
+
+    const statBonus: Record<string, number> = {}
+
+    if (equipements && equipements.length > 0) {
+      const itemIds = equipements.map(e => e.id_item)
+      // 4. Charger les modificateurs de type "stat" de ces items
+      const { data: modifs } = await supabase
+        .from('item_modificateurs')
+        .select('*')
+        .in('id_item', itemIds)
+        .eq('type', 'stat')
+
+      if (modifs) {
+        modifs.forEach(mod => {
+          if (mod.id_stat) {
+            statBonus[mod.id_stat] = (statBonus[mod.id_stat] || 0) + mod.valeur
+          }
+        })
+      }
+    }
+
+    // 5. Additionner et mettre à jour l'interface
+    setStats(baseStats.map((d: any) => ({
+      nom: d.stats.nom,
+      valeur: d.valeur + (statBonus[d.id_stat] || 0)
+    })))
   }
-
-  // Sinon on charge les stats du joueur connecté
-  const { data: personnage } = await supabase
-    .from('personnages')
-    .select('id')
-    .eq('lie_au_compte', compte?.id)
-    .eq('est_pnj', false)
-    .single()
-
-  if (!personnage) return
-
-  const { data } = await supabase
-    .from('personnage_stats')
-    .select('valeur, stats(nom)')
-    .eq('id_personnage', personnage.id)
-
-  if (data) {
-    setStats(data.map((d: any) => ({ nom: d.stats.nom, valeur: d.valeur })))
-  }
-}
 
   const lancer = (label: string, nb: number, faces: number) => {
     const des = Array.from({ length: nb }, () => Math.floor(Math.random() * faces) + 1)

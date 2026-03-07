@@ -65,17 +65,47 @@ export default function MonPersonnage() {
   }
 
   const chargerStats = async (idPersonnage: string) => {
-    const { data } = await supabase
+    // 1. Charger les stats de base
+    const { data: baseStats } = await supabase
       .from('personnage_stats')
-      .select('valeur, stats(nom, description)')
+      .select('id_stat, valeur, stats(nom, description)')
       .eq('id_personnage', idPersonnage)
-    if (data) {
-      setStats(data.map((d: any) => ({
-        nom: d.stats.nom,
-        description: d.stats.description,
-        valeur: d.valeur
-      })))
+
+    if (!baseStats) return
+
+    // 2. Charger les items équipés
+    const { data: equipements } = await supabase
+      .from('inventaire')
+      .select('id_item')
+      .eq('id_personnage', idPersonnage)
+      .eq('equipe', true)
+
+    const statBonus: Record<string, number> = {}
+
+    if (equipements && equipements.length > 0) {
+      const itemIds = equipements.map(e => e.id_item)
+      // 3. Charger les modificateurs de type "stat" de ces items
+      const { data: modifs } = await supabase
+        .from('item_modificateurs')
+        .select('*')
+        .in('id_item', itemIds)
+        .eq('type', 'stat')
+
+      if (modifs) {
+        modifs.forEach(mod => {
+          if (mod.id_stat) {
+            statBonus[mod.id_stat] = (statBonus[mod.id_stat] || 0) + mod.valeur
+          }
+        })
+      }
     }
+
+    // 4. Additionner la base et les bonus
+    setStats(baseStats.map((d: any) => ({
+      nom: d.stats.nom,
+      description: d.stats.description,
+      valeur: d.valeur + (statBonus[d.id_stat] || 0)
+    })))
   }
 
   const chargerPseudo = async (lieAuCompte: string | null) => {

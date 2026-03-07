@@ -17,6 +17,7 @@ export default function MonInventaire() {
   const compte = useStore(s => s.compte)
   const sessionActive = useStore(s => s.sessionActive)
   const pnjControle = useStore(s => s.pnjControle)
+  const setPnjControle = useStore(s => s.setPnjControle) // 👈 Ajout de la fonction pour mettre à jour le store
 
   const [inventaire, setInventaire] = useState<InventaireEntry[]>([])
   const [itemModifs, setItemModifs] = useState<Record<string, Modificateur[]>>({})
@@ -75,7 +76,7 @@ export default function MonInventaire() {
     setTimeout(() => setMessage(''), 2500)
   }
 
- const utiliserItem = async (entry: InventaireEntry) => {
+  const utiliserItem = async (entry: InventaireEntry) => {
     if (!personnageId) return
 
     const { data: modifs } = await supabase
@@ -93,7 +94,7 @@ export default function MonInventaire() {
         .single()
 
       const updates: Record<string, number> = {}
-      let aBesoinDetreUtilise = false // 👈 On ajoute un flag
+      let aBesoinDetreUtilise = false
 
       for (const mod of listeModifs) {
         if (mod.type === 'stat') {
@@ -113,7 +114,6 @@ export default function MonInventaire() {
             ? actuel + valeurModif
             : Math.max(0, Math.min(max, actuel + valeurModif))
           
-          // 🛑 DEBUGGING : Regarde ce qui s'affiche dans ta console (F12)
           console.log(`[DEBUG] ${champActuel} -> Actuel en BDD: ${actuel} | Max en BDD: ${max} | Bonus: ${valeurModif} | Résultat prévu: ${nouvelleValeur}`)
           
           if (nouvelleValeur !== actuel) {
@@ -122,7 +122,8 @@ export default function MonInventaire() {
           }
         }
       }
-      // 👈 Si l'item n'a aucun effet (ex: PV déjà au max), on annule
+
+      // Si l'item n'a aucun effet (ex: PV déjà au max), on annule
       if (!aBesoinDetreUtilise) {
         afficherMessage(`⚠️ Inutile, tes stats sont déjà au max !`)
         return
@@ -137,6 +138,11 @@ export default function MonInventaire() {
         if (error) {
           afficherMessage(`❌ Erreur lors de l'utilisation`)
           return
+        }
+
+        // 👈 AJOUT ICI : Met à jour la mémoire (Zustand) pour l'Admin/MJ instantanément
+        if (pnjControle && pnjControle.id === personnageId) {
+          setPnjControle({ ...pnjControle, ...updates })
         }
       }
     }

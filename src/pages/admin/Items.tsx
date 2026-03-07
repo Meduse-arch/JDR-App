@@ -80,8 +80,19 @@ export default function Items() {
     setModificateurs(prev => [...prev, { type: 'hp', id_stat: null, valeur: 1 }])
   }
 
+  // 👇 Voici la fonction corrigée
   const majModificateur = (index: number, champ: keyof Modificateur, val: any) => {
-    setModificateurs(prev => prev.map((m, i) => i === index ? { ...m, [champ]: val, ...(champ === 'type' && val === 'stat' ? {} : { id_stat: null }) } : m))
+    setModificateurs(prev => prev.map((m, i) => {
+      if (i !== index) return m
+      
+      // Si on modifie le "type" de ressource (PV, Mana, Stat...)
+      if (champ === 'type') {
+        return { ...m, type: val, id_stat: val === 'stat' ? m.id_stat : null }
+      }
+      
+      // Si on modifie directement l'id de la stat ou la valeur (+1, +2...)
+      return { ...m, [champ]: val }
+    }))
   }
 
   const supprimerModificateur = (index: number) => {
