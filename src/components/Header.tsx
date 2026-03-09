@@ -1,41 +1,40 @@
 import { useState, useEffect, useRef } from 'react'
-import { useStore } from '../store/useStore'
+import { useStore, type ThemeId, type ModeId } from '../store/useStore'
+
+// ── Config des 4 thèmes ────────────────────────────────────────────────────
+const THEMES: { id: ThemeId; nom: string; from: string; to: string }[] = [
+  { id: 'theme-violet',  nom: 'Arcane',   from: '#a855f7', to: '#ec4899' },
+  { id: 'theme-emerald', nom: 'Nature',   from: '#10b981', to: '#06b6d4' },
+  { id: 'theme-rose',    nom: 'Flame',   from: '#f97316', to: '#f43f5e' },
+  { id: 'theme-ocean',   nom: 'Océan',    from: '#3b82f6', to: '#6366f1' },
+]
 
 export default function Header() {
-  const compte = useStore(s => s.compte)
-  const setCompte = useStore(s => s.setCompte)
+  const compte         = useStore(s => s.compte)
+  const setCompte      = useStore(s => s.setCompte)
   const setSessionActive = useStore(s => s.setSessionActive)
-  const sessionActive = useStore(s => s.sessionActive)
+  const sessionActive  = useStore(s => s.sessionActive)
   const setPageCourante = useStore(s => s.setPageCourante)
-  
-  // 🎨 Variables pour le thème
-  const theme = useStore(s => s.theme) || 'theme-default'
-  const setTheme = useStore(s => s.setTheme)
-  const [modeClair, setModeClair] = useState(false)
+  const theme          = useStore(s => s.theme)
+  const setTheme       = useStore(s => s.setTheme)
+  const mode           = useStore(s => s.mode)
+  const setMode        = useStore(s => s.setMode)
 
-  // États pour les deux menus
-  const [menuOuvert, setMenuOuvert] = useState(false)
+  const [menuOuvert,      setMenuOuvert]      = useState(false)
   const [menuThemeOuvert, setMenuThemeOuvert] = useState(false)
-
-  // 🕵️‍♂️ DEUX RÉFÉRENCES : Une pour chaque menu
-  const themeRef = useRef<HTMLDivElement>(null)
+  const themeRef   = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
-  // Écouteur global pour fermer les menus au clic extérieur
+  // Fermer au clic extérieur
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Si on clique hors du menu thème, on le ferme
-      if (themeRef.current && !themeRef.current.contains(event.target as Node)) {
+    const handler = (e: MouseEvent) => {
+      if (themeRef.current && !themeRef.current.contains(e.target as Node))
         setMenuThemeOuvert(false)
-      }
-      // Si on clique hors du menu utilisateur, on le ferme
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node))
         setMenuOuvert(false)
-      }
     }
-    
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
   const seDeconnecter = () => {
@@ -44,67 +43,128 @@ export default function Header() {
     setMenuOuvert(false)
   }
 
-  const themes = [
-    { id: 'theme-default', nom: 'Violet', couleur: 'bg-purple-500' },
-    { id: 'theme-emerald', nom: 'Émeraude', couleur: 'bg-emerald-500' },
-    { id: 'theme-rose', nom: 'Rose', couleur: 'bg-rose-500' },
-    { id: 'theme-ocean', nom: 'Océan', couleur: 'bg-blue-500' },
-  ]
+  const themeActuel = THEMES.find(t => t.id === theme) ?? THEMES[0]
+  const estDark = mode === 'mode-dark'
 
   return (
-    <div className="flex justify-between items-center px-8 py-4 bg-gray-900 border-b border-gray-800">
-      
-      {/* 🎨 Le titre utilise text-theme-light pour s'adapter à ton choix sans bug */}
-      <h1 className="text-xl font-bold text-theme-light">
-        jdr app {compte?.role === 'admin' && <span className="text-yellow-400 text-sm ml-2">Mj</span>}
+    <header
+      className="flex justify-between items-center px-4 md:px-8 py-3 border-b shrink-0"
+      style={{
+        backgroundColor: 'var(--bg-surface)',
+        borderColor: 'var(--border)',
+      }}
+    >
+      {/* ── Logo ── */}
+      <h1 className="text-lg font-black tracking-tight" style={{ color: 'var(--color-light)' }}>
+        JDR
+        <span className="ml-1 font-light opacity-60" style={{ color: 'var(--text-secondary)' }}>app</span>
+        {compte?.role === 'admin' && (
+          <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--color-main) 20%, transparent)', color: 'var(--color-light)' }}>
+            Admin
+          </span>
+        )}
       </h1>
 
-      <p className="text-gray-400 font-semibold text-sm">
-        {sessionActive ? sessionActive.nom : 'Aucune session'}
+      {/* ── Session active ── */}
+      <p className="hidden sm:block text-sm font-semibold truncate max-w-[200px]"
+        style={{ color: 'var(--text-secondary)' }}>
+        {sessionActive ? `🎲 ${sessionActive.nom}` : 'Aucune session'}
       </p>
 
-      <div className="flex items-center gap-3">
+      {/* ── Contrôles droite ── */}
+      <div className="flex items-center gap-2">
 
-        {/* 🎨 BOUTON THÈME */}
+        {/* 🎨 Bouton thème */}
         <div className="relative" ref={themeRef}>
           <button
-            onClick={() => setMenuThemeOuvert(!menuThemeOuvert)} // Plus de stopPropagation
-            className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2"
+            onClick={() => setMenuThemeOuvert(v => !v)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-all"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
           >
-            🎨 Thème
+            {/* Mini dégradé qui montre le thème actif */}
+            <span
+              className="w-4 h-4 rounded-full shrink-0"
+              style={{ background: `linear-gradient(135deg, ${themeActuel.from}, ${themeActuel.to})` }}
+            />
+            <span className="hidden md:inline">{themeActuel.nom}</span>
+            <span className="text-[10px] opacity-50">{menuThemeOuvert ? '▲' : '▼'}</span>
           </button>
 
           {menuThemeOuvert && (
-            <div className="absolute top-full right-0 mt-3 w-56 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-4 flex flex-col gap-4 z-10">
+            <div
+              className="absolute top-full right-0 mt-2 w-64 rounded-2xl shadow-2xl p-4 flex flex-col gap-4 z-50"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+              }}
+            >
+              {/* Couleurs */}
               <div>
-                <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-3 block">Couleur d'accent</span>
-                <div className="flex justify-between items-center px-1">
-                  {themes.map(t => (
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3"
+                  style={{ color: 'var(--text-muted)' }}>
+                  Palette
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {THEMES.map(t => (
                     <button
                       key={t.id}
                       onClick={() => setTheme(t.id)}
-                      title={t.nom}
-                      className={`w-6 h-6 rounded-full transition-all duration-300 ${t.couleur}
-                        ${theme === t.id ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800 scale-110 shadow-[0_0_10px_rgba(255,255,255,0.2)]' : 'opacity-50 hover:opacity-100 hover:scale-110'}`}
-                    />
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition-all"
+                      style={{
+                        background: theme === t.id
+                          ? `linear-gradient(135deg, ${t.from}22, ${t.to}22)`
+                          : 'var(--bg-surface)',
+                        border: `1px solid ${theme === t.id ? t.from : 'var(--border)'}`,
+                        color: theme === t.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      <span
+                        className="w-5 h-5 rounded-full shrink-0 shadow-sm"
+                        style={{ background: `linear-gradient(135deg, ${t.from}, ${t.to})` }}
+                      />
+                      {t.nom}
+                      {theme === t.id && (
+                        <span className="ml-auto text-xs" style={{ color: t.from }}>✓</span>
+                      )}
+                    </button>
                   ))}
                 </div>
               </div>
 
-              <div className="w-full h-px bg-gray-700"></div>
+              {/* Séparateur */}
+              <div style={{ height: 1, backgroundColor: 'var(--border)' }} />
 
+              {/* Dark / Light toggle */}
               <div>
-                <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-3 block">Mode d'affichage</span>
-                <div className="flex bg-gray-900 rounded-lg p-1">
+                <p className="text-[10px] font-black uppercase tracking-widest mb-3"
+                  style={{ color: 'var(--text-muted)' }}>
+                  Luminosité
+                </p>
+                <div className="flex rounded-xl overflow-hidden"
+                  style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-surface)' }}>
                   <button
-                    onClick={() => setModeClair(false)}
-                    className={`flex-1 text-xs py-1.5 rounded-md font-bold transition-all ${!modeClair ? 'bg-gray-700 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                    onClick={() => setMode('mode-dark' as ModeId)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold transition-all"
+                    style={{
+                      backgroundColor: estDark ? 'var(--color-main)' : 'transparent',
+                      color: estDark ? '#fff' : 'var(--text-secondary)',
+                    }}
                   >
                     🌙 Sombre
                   </button>
                   <button
-                    onClick={() => setModeClair(true)}
-                    className={`flex-1 text-xs py-1.5 rounded-md font-bold transition-all ${modeClair ? 'bg-gray-700 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                    onClick={() => setMode('mode-light' as ModeId)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold transition-all"
+                    style={{
+                      backgroundColor: !estDark ? 'var(--color-main)' : 'transparent',
+                      color: !estDark ? '#fff' : 'var(--text-secondary)',
+                    }}
                   >
                     ☀️ Clair
                   </button>
@@ -114,36 +174,57 @@ export default function Header() {
           )}
         </div>
 
-        {/* 👤 MENU UTILISATEUR */}
+        {/* 👤 Menu utilisateur */}
         <div className="relative" ref={userMenuRef}>
           <button
-            onClick={() => setMenuOuvert(!menuOuvert)} // Plus de stopPropagation
-            className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2"
+            onClick={() => setMenuOuvert(v => !v)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-all"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
           >
-            {compte?.pseudo} <span className="text-xs">{menuOuvert ? '▲' : '▼'}</span>
+            <span
+              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
+              style={{ background: `linear-gradient(135deg, var(--color-main), var(--color-accent2))` }}
+            >
+              {compte?.pseudo?.[0]?.toUpperCase() ?? '?'}
+            </span>
+            <span className="hidden sm:inline max-w-[100px] truncate">{compte?.pseudo}</span>
+            <span className="text-[10px] opacity-50">{menuOuvert ? '▲' : '▼'}</span>
           </button>
 
           {menuOuvert && (
             <div
-              className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-xl shadow-lg overflow-hidden z-10 border border-gray-700"
+              className="absolute right-0 mt-2 w-48 rounded-xl shadow-lg overflow-hidden z-50"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+              }}
             >
               <button
                 onClick={() => { setPageCourante('sessions'); setMenuOuvert(false) }}
-                className="w-full text-left px-4 py-3 hover:bg-gray-700 transition text-sm flex items-center gap-2"
+                className="w-full text-left px-4 py-3 text-sm font-semibold flex items-center gap-2 transition-all"
+                style={{ color: 'var(--text-primary)' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                <span>🎲</span> Sessions
+                🎲 Sessions
               </button>
               <button
                 onClick={seDeconnecter}
-                className="w-full text-left px-4 py-3 hover:bg-red-500/10 hover:text-red-400 transition text-sm text-red-500 flex items-center gap-2"
+                className="w-full text-left px-4 py-3 text-sm font-semibold flex items-center gap-2 transition-all text-red-400"
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                <span>←</span> Se déconnecter
+                ← Déconnexion
               </button>
             </div>
           )}
         </div>
 
       </div>
-    </div>
+    </header>
   )
 }

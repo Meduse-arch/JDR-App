@@ -22,18 +22,17 @@ type PageAuth = 'accueil' | 'connexion' | 'inscription'
 function PageCourante() {
   const pageCourante = useStore(s => s.pageCourante)
   const roleEffectif = useStore(s => s.roleEffectif)
-
   const estAdminOuMJ = roleEffectif === 'admin' || roleEffectif === 'mj'
 
-  if (pageCourante === 'sessions') return <Sessions />
-  if (pageCourante === 'gerer-mj' && estAdminOuMJ) return <GererMJ />
-  if (pageCourante === 'lancer-des') return <LancerDes />
-  if (pageCourante === 'mon-personnage') return <MonPersonnage />
-  if (pageCourante === 'pnj' && estAdminOuMJ) return <PNJ />
-  if (pageCourante === 'joueurs' && estAdminOuMJ) return <Joueurs />
-  if (pageCourante === 'gerer' && estAdminOuMJ) return <Gerer />
-  if (pageCourante === 'items' && estAdminOuMJ) return <Items />
-  if (pageCourante === 'mon-inventaire') return <MonInventaire />
+  if (pageCourante === 'sessions')                    return <Sessions />
+  if (pageCourante === 'gerer-mj' && estAdminOuMJ)    return <GererMJ />
+  if (pageCourante === 'lancer-des')                  return <LancerDes />
+  if (pageCourante === 'mon-personnage')               return <MonPersonnage />
+  if (pageCourante === 'pnj'     && estAdminOuMJ)     return <PNJ />
+  if (pageCourante === 'joueurs' && estAdminOuMJ)     return <Joueurs />
+  if (pageCourante === 'gerer'   && estAdminOuMJ)     return <Gerer />
+  if (pageCourante === 'items'   && estAdminOuMJ)     return <Items />
+  if (pageCourante === 'mon-inventaire')              return <MonInventaire />
   if (estAdminOuMJ) return <DashboardAdmin />
   return <DashboardJoueur />
 }
@@ -41,19 +40,27 @@ function PageCourante() {
 export default function App() {
   const [pageAuth, setPageAuth] = useState<PageAuth>('accueil')
   const compte = useStore(s => s.compte)
-  
-  // 🎨 1. ON RÉCUPÈRE LE THÈME DEPUIS TON STORE (ou violet par défaut)
-  const theme = useStore(s => s.theme) || 'theme-default'
 
-  // 🎨 2. ON ENGLOBE TOUTE L'APP AVEC LA VARIABLE DU THÈME
+  // Les deux variables de thème sont maintenant séparées dans le store
+  const theme = useStore(s => s.theme)   // ex: 'theme-violet'
+  const mode  = useStore(s => s.mode)    // ex: 'mode-dark' | 'mode-light'
+
+  // On les combine sur le div racine : CSS sait alors quelles variables appliquer
+  // ex: <div class="theme-violet mode-light"> → lit les règles .theme-violet.mode-light
   return (
-    <div className={`${theme} font-sans h-screen overflow-hidden text-gray-100 bg-gray-950`}>
+    <div
+      className={`${theme} ${mode} font-sans h-screen overflow-hidden`}
+      style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}
+    >
       {compte ? (
         <div className="flex flex-col h-full">
           <Header />
           <div className="flex flex-1 overflow-hidden">
             <Sidebar />
-            <main className="flex-1 overflow-y-auto bg-gray-950 relative">
+            <main
+              className="flex-1 overflow-y-auto relative"
+              style={{ backgroundColor: 'var(--bg-app)' }}
+            >
               <PageCourante />
             </main>
           </div>
@@ -61,7 +68,10 @@ export default function App() {
       ) : pageAuth === 'connexion' ? (
         <Connexion retour={() => setPageAuth('accueil')} />
       ) : pageAuth === 'inscription' ? (
-        <Inscription retour={() => setPageAuth('accueil')} allerVersConnexion={() => setPageAuth('connexion')} />
+        <Inscription
+          retour={() => setPageAuth('accueil')}
+          allerVersConnexion={() => setPageAuth('connexion')}
+        />
       ) : (
         <Accueil allerVers={setPageAuth} />
       )}
