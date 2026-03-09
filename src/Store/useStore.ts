@@ -77,7 +77,7 @@ type Store = {
 }
 
 export const useStore = create<Store>()((set) => ({
-  compte: null,
+  compte: JSON.parse(localStorage.getItem('jdr-compte') || 'null'),
   setCompte: (compte) => set({ compte }),
 
   sessionActive: null,
@@ -92,9 +92,15 @@ export const useStore = create<Store>()((set) => ({
   pnjControle: null,
   setPnjControle: (pnj) => set({ pnjControle: pnj }),
 
-  theme: 'theme-violet',
-  setTheme: (theme) => set({ theme }),
+  theme: (localStorage.getItem('jdr-theme') as ThemeId) || 'theme-violet',
+  setTheme: (theme) => {
+    localStorage.setItem('jdr-theme', theme)
+    set({ theme })
+  },
 
-  mode: 'mode-dark',
-  setMode:  (mode)  => set({ mode }),
+  mode: (localStorage.getItem('jdr-mode') as ModeId) || 'mode-dark',
+  setMode:  (mode)  => {
+    localStorage.setItem('jdr-mode', mode)
+    set({ mode })
+  },
 }))

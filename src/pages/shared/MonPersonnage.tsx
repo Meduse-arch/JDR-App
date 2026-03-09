@@ -8,7 +8,6 @@ import { BarreRessource, RessourceKey } from '../../components/BarreRessource'
 import { personnageService } from '../../services/personnageService'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
-
 import { ConfirmButton } from '../../components/ui/ConfirmButton'
 
 export default function MonPersonnage() {
@@ -138,7 +137,7 @@ export default function MonPersonnage() {
         Attributs & Statistiques
       </h3>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pb-8">
         {stats.map(stat => (
           <Card 
             key={stat.nom}

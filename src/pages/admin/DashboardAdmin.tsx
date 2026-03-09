@@ -56,11 +56,12 @@ export default function DashboardAdmin() {
       </div>
 
       {/* Raccourcis */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
         {[
           { label: 'Bestiaire', emoji: '👹', id: 'pnj' },
-          { label: 'Créer un Item', emoji: '📚', id: 'items' },
-          { label: 'Dés Cachés', emoji: '🎲', id: 'lancer-des' },
+          { label: 'Items', emoji: '📚', id: 'items' },
+          { label: 'Compétences', emoji: '📖', id: 'competences' },
+          { label: 'Dés', emoji: '🎲', id: 'lancer-des' },
         ].map(btn => (
           <Card 
             key={btn.id} 

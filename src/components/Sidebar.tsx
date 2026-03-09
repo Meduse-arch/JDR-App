@@ -127,7 +127,8 @@ export default function Sidebar() {
               emoji="🎭"
             >
               <NavItem id="mon-personnage" label="Fiche de stats"   isSubItem />
-              <NavItem id="mon-inventaire" label="Inventaire" isSubItem />
+              <NavItem id="mon-inventaire" label="Inventaire"       isSubItem />
+              <NavItem id="mes-competences" label="Mes Compétences" isSubItem />
 
               {pnjControle && (
                 <button
@@ -155,10 +156,11 @@ export default function Sidebar() {
               style={{ borderColor: 'var(--border)' }}
             >
               <NavGroup id="admin" label="Administration" emoji="👑">
-                <NavItem id="pnj"      label="Bestiaire & PNJ"     isSubItem />
-                <NavItem id="items"    label="Bibliothèque Items"   isSubItem />
-                <NavItem id="joueurs"  label="Gérer les Joueurs"    isSubItem />
-                <NavItem id="gerer"    label="Paramètres Session"   isSubItem />
+                <NavItem id="pnj"         label="Bestiaire & PNJ"     isSubItem />
+                <NavItem id="items"       label="Bibliothèque Items"   isSubItem />
+                <NavItem id="competences" label="Compétences"         isSubItem />
+                <NavItem id="joueurs"     label="Gérer les Joueurs"    isSubItem />
+                <NavItem id="gerer"       label="Paramètres Session"   isSubItem />
                 {roleEffectif === 'admin' && (
                   <NavItem id="gerer-mj" label="Gérer les MJ" isSubItem />
                 )}

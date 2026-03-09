@@ -38,3 +38,18 @@ export interface InventaireEntry {
   equipe: boolean;
   items: Item;
 }
+
+export interface Competence {
+  id: string;
+  nom: string;
+  description: string;
+  type: string;
+}
+
+export interface PersonnageCompetence {
+  id: string;
+  id_personnage: string;
+  id_competence: string;
+  niveau?: number; // Facultatif comme demandé
+  competence: Competence; // Données jointes
+}

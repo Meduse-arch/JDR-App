@@ -4,7 +4,7 @@
   "asar": true,
   "productName": "JDR App",
   "directories": {
-    "output": "C:\\Users\\Etudiant\\Desktop\\projet\\x"
+    "output": "C:\\Users\\geekr\\Desktop\\projet\\app"
   },
   "files": [
     "dist",

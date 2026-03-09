@@ -15,7 +15,9 @@ import LancerDes from './pages/shared/LancerDes'
 import GererMJ from './pages/admin/GererMj'
 import Gerer from './pages/admin/gerer/Gerer'
 import Items from './pages/admin/Items'
+import Competences from './pages/admin/Competences'
 import MonInventaire from './pages/shared/MonInventaire'
+import MesCompetences from './pages/shared/MesCompetences'
 
 type PageAuth = 'accueil' | 'connexion' | 'inscription'
 
@@ -27,11 +29,13 @@ function PageCourante() {
   if (pageCourante === 'sessions')                    return <Sessions />
   if (pageCourante === 'gerer-mj' && estAdminOuMJ)    return <GererMJ />
   if (pageCourante === 'lancer-des')                  return <LancerDes />
-  if (pageCourante === 'mon-personnage')               return <MonPersonnage />
+  if (pageCourante === 'mon-personnage')              return <MonPersonnage />
+  if (pageCourante === 'mes-competences')             return <MesCompetences />
   if (pageCourante === 'pnj'     && estAdminOuMJ)     return <PNJ />
   if (pageCourante === 'joueurs' && estAdminOuMJ)     return <Joueurs />
   if (pageCourante === 'gerer'   && estAdminOuMJ)     return <Gerer />
   if (pageCourante === 'items'   && estAdminOuMJ)     return <Items />
+  if (pageCourante === 'competences' && estAdminOuMJ) return <Competences />
   if (pageCourante === 'mon-inventaire')              return <MonInventaire />
   if (estAdminOuMJ) return <DashboardAdmin />
   return <DashboardJoueur />

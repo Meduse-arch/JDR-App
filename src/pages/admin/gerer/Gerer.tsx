@@ -3,6 +3,7 @@ import { supabase } from '../../../supabase'
 import { useStore } from '../../../store/useStore'
 import GererStats from './GererStats'
 import GererInventaire from './GererInventaire'
+import GererCompetences from './GererCompetences'
 
 type Personnage = {
   id: string; nom: string; est_pnj: boolean; lie_au_compte?: string | null
@@ -20,7 +21,7 @@ export default function Gerer() {
 
   const [personnages,     setPersonnages]     = useState<Personnage[]>([])
   const [selectionne,     setSelectionne]     = useState<Personnage | null>(null)
-  const [onglet,          setOnglet]          = useState<'stats' | 'inventaire'>('stats')
+  const [onglet,          setOnglet]          = useState<'stats' | 'inventaire' | 'competences'>('stats')
   const [stats,           setStats]           = useState<Stat[]>([])
   const [personnageStats, setPersonnageStats] = useState<PersonnageStat[]>([])
   // Initialisation sur 'joueur' au lieu de 'tous'
@@ -89,9 +90,9 @@ export default function Gerer() {
     </button>
   )
 
-  const btnOnglet = (id: 'stats' | 'inventaire', label: string) => (
+  const btnOnglet = (id: 'stats' | 'inventaire' | 'competences', label: string) => (
     <button key={id} onClick={() => setOnglet(id)}
-      className="px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+      className="px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap"
       style={{
         backgroundColor: onglet === id ? 'var(--color-main)' : 'var(--bg-surface)',
         color: onglet === id ? '#fff' : 'var(--text-secondary)',
@@ -179,9 +180,10 @@ export default function Gerer() {
                   </span>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
                   {btnOnglet('stats', '📊 Stats')}
                   {btnOnglet('inventaire', '🎒 Inventaire')}
+                  {btnOnglet('competences', '📖 Compétences')}
                 </div>
 
                 {onglet === 'stats' && (
@@ -191,6 +193,7 @@ export default function Gerer() {
                   />
                 )}
                 {onglet === 'inventaire' && <GererInventaire personnage={selectionne} />}
+                {onglet === 'competences' && <GererCompetences personnage={selectionne} />}
               </div>
             )}
           </div>

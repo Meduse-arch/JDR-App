@@ -42,6 +42,7 @@ export default function Header() {
     setCompte(null)
     setSessionActive(null)
     setMenuOuvert(false)
+    localStorage.removeItem('jdr-compte')
   }
 
   const themeActuel = THEMES.find(t => t.id === theme) ?? THEMES[0]
