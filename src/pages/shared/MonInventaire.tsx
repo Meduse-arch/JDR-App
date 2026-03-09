@@ -1,120 +1,76 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
+import { useInventaire, ItemInventaire } from '../../hooks/useInventaire'
+import { usePersonnage } from '../../hooks/usePersonnage'
+import { inventaireService } from '../../services/inventaireService'
 
-type Item = { id: string; nom: string; description: string; categorie: string }
 type Modificateur = { type: string; id_stat: string | null; valeur: number }
-type InventaireEntry = { id: string; quantite: number; equipe: boolean; items: Item }
 type Stat = { id: string; nom: string }
 
 const CATEGORIE_EMOJI: Record<string, string> = {
   Arme: '⚔️', Armure: '🛡️', Bijou: '💍', Consommable: '🧪', 'Artéfact': '✨', Divers: '📦'
 }
-
 const CATEGORIES = ['Arme', 'Armure', 'Bijou', 'Consommable', 'Artéfact', 'Divers']
 
 export default function MonInventaire() {
   const compte = useStore(s => s.compte)
-  const sessionActive = useStore(s => s.sessionActive)
   const pnjControle = useStore(s => s.pnjControle)
-  const setPnjControle = useStore(s => s.setPnjControle) // 👈 Ajout de la fonction pour mettre à jour le store
+  const setPnjControle = useStore(s => s.setPnjControle)
 
-  const [inventaire, setInventaire] = useState<InventaireEntry[]>([])
+  const { inventaire, chargement: chargementInv, rechargerInventaire } = useInventaire()
+  const { personnage } = usePersonnage()
+
   const [itemModifs, setItemModifs] = useState<Record<string, Modificateur[]>>({})
-  const [stats, setStats] = useState<Stat[]>([])
+  const [statsInfo, setStatsInfo] = useState<Stat[]>([])
   const [filtreCategorie, setFiltreCategorie] = useState('Tous')
   const [recherche, setRecherche] = useState('')
   const [message, setMessage] = useState('')
-  const [personnageId, setPersonnageId] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.from('stats').select('id, nom').then(({ data }) => { if (data) setStats(data) })
-    chargerPersonnage()
-  }, [pnjControle, sessionActive])
+    supabase.from('stats').select('id, nom').then(({ data }) => { if (data) setStatsInfo(data) })
+  }, [])
 
-  const chargerPersonnage = async () => {
-    if (pnjControle) {
-      setPersonnageId(pnjControle.id)
-      chargerInventaire(pnjControle.id)
-      return
-    }
-    if (!sessionActive || !compte) return
-    const { data } = await supabase
-      .from('session_joueurs')
-      .select('personnages(*)')
-      .eq('id_session', sessionActive.id)
-    if (data) {
-      const perso = data
-        .map((d: any) => d.personnages)
-        .find((p: any) => p.lie_au_compte === compte.id && !p.est_pnj)
-      if (perso) {
-        setPersonnageId(perso.id)
-        chargerInventaire(perso.id)
+  useEffect(() => {
+    const chargerModifs = async () => {
+      const nouveauxModifs: Record<string, Modificateur[]> = {}
+      for (const entry of inventaire) {
+        if (!itemModifs[entry.items.id]) {
+          const { data } = await supabase.from('item_modificateurs').select('*').eq('id_item', entry.items.id)
+          if (data) nouveauxModifs[entry.items.id] = data
+        }
       }
+      if (Object.keys(nouveauxModifs).length > 0) setItemModifs(prev => ({ ...prev, ...nouveauxModifs }))
     }
-  }
-
-  const chargerInventaire = async (idPersonnage: string) => {
-    const { data } = await supabase
-      .from('inventaire')
-      .select('id, quantite, equipe, items(id, nom, description, categorie)')
-      .eq('id_personnage', idPersonnage)
-    if (data) {
-      setInventaire(data as any)
-      for (const entry of data as any[]) {
-        const { data: modifs } = await supabase
-          .from('item_modificateurs')
-          .select('*')
-          .eq('id_item', entry.items.id)
-        if (modifs) setItemModifs(prev => ({ ...prev, [entry.items.id]: modifs }))
-      }
-    }
-  }
+    if (inventaire.length > 0) chargerModifs()
+  }, [inventaire])
 
   const afficherMessage = (msg: string) => {
     setMessage(msg)
     setTimeout(() => setMessage(''), 2500)
   }
 
-  const utiliserItem = async (entry: InventaireEntry) => {
-    if (!personnageId) return
-
-    const { data: modifs } = await supabase
-      .from('item_modificateurs')
-      .select('*')
-      .eq('id_item', entry.items.id)
-
-    const listeModifs = modifs ?? []
-
+  const utiliserItem = async (entry: ItemInventaire) => {
+    if (!personnage) return
+    const listeModifs = itemModifs[entry.items.id] || []
+    
     if (listeModifs.length > 0) {
-      const { data: perso } = await supabase
-        .from('personnages')
-        .select('hp_actuel, hp_max, mana_actuel, mana_max, stam_actuel, stam_max')
-        .eq('id', personnageId)
-        .single()
-
       const updates: Record<string, number> = {}
       let aBesoinDetreUtilise = false
 
       for (const mod of listeModifs) {
         if (mod.type === 'stat') {
-          // ... (ton code pour les stats reste identique)
           aBesoinDetreUtilise = true 
-        } else if (perso) {
+        } else {
           const estMax = mod.type.endsWith('_max')
           const champActuel = estMax ? mod.type : `${mod.type}_actuel`
           const champMax = estMax ? mod.type : `${mod.type}_max`
           
-          // On force la conversion en nombres pour éviter les bugs de calcul
-          const actuel = Number((perso as any)[champActuel] ?? 0)
+          const actuel = Number((personnage as any)[champActuel] ?? 0)
           const valeurModif = Number(mod.valeur)
-          const max = Number((perso as any)[champMax] ?? actuel + valeurModif)
+          const max = Number((personnage as any)[champMax] ?? actuel + valeurModif)
           
-          const nouvelleValeur = estMax
-            ? actuel + valeurModif
-            : Math.max(0, Math.min(max, actuel + valeurModif))
-          
-          console.log(`[DEBUG] ${champActuel} -> Actuel en BDD: ${actuel} | Max en BDD: ${max} | Bonus: ${valeurModif} | Résultat prévu: ${nouvelleValeur}`)
+          const nouvelleValeur = estMax ? actuel + valeurModif : Math.max(0, Math.min(max, actuel + valeurModif))
           
           if (nouvelleValeur !== actuel) {
             updates[champActuel] = nouvelleValeur
@@ -123,58 +79,36 @@ export default function MonInventaire() {
         }
       }
 
-      // Si l'item n'a aucun effet (ex: PV déjà au max), on annule
-      if (!aBesoinDetreUtilise) {
-        afficherMessage(`⚠️ Inutile, tes stats sont déjà au max !`)
-        return
-      }
+      if (!aBesoinDetreUtilise) return afficherMessage(`⚠️ Inutile, stats déjà au max !`)
 
       if (Object.keys(updates).length > 0) {
-        const { error } = await supabase
-          .from('personnages')
-          .update(updates)
-          .eq('id', personnageId)
-        
-        if (error) {
-          afficherMessage(`❌ Erreur lors de l'utilisation`)
-          return
-        }
-
-        // 👈 AJOUT ICI : Met à jour la mémoire (Zustand) pour l'Admin/MJ instantanément
-        if (pnjControle && pnjControle.id === personnageId) {
-          setPnjControle({ ...pnjControle, ...updates })
-        }
+        await supabase.from('personnages').update(updates).eq('id', personnage.id)
+        if (pnjControle && pnjControle.id === personnage.id) setPnjControle({ ...pnjControle, ...updates } as any)
       }
     }
 
-    // On consomme l'item uniquement s'il a eu un effet
-    if (entry.quantite <= 1) {
-      await supabase.from('inventaire').delete().eq('id', entry.id)
-    } else {
-      await supabase.from('inventaire').update({ quantite: entry.quantite - 1 }).eq('id', entry.id)
-    }
-
-    afficherMessage(`✅ ${entry.items.nom} utilisé !`)
-    chargerInventaire(personnageId)
+    await inventaireService.consommerItem(entry.id, entry.quantite)
+    afficherMessage(`✨ ${entry.items.nom} utilisé !`)
+    rechargerInventaire()
   }
 
-  const toggleEquiper = async (entry: InventaireEntry) => {
-    await supabase.from('inventaire').update({ equipe: !entry.equipe }).eq('id', entry.id)
-    afficherMessage(entry.equipe ? `🔓 ${entry.items.nom} déséquipé` : `⚔️ ${entry.items.nom} équipé !`)
-    chargerInventaire(personnageId!)
+  const toggleEquiper = async (entry: ItemInventaire) => {
+    await inventaireService.toggleEquipement(entry.id, !entry.equipe)
+    afficherMessage(entry.equipe ? `🔓 ${entry.items.nom} rangé` : `⚔️ ${entry.items.nom} équipé !`)
+    rechargerInventaire()
   }
 
   const labelModif = (m: Modificateur) => {
     if (m.type === 'stat') {
-      const stat = stats.find(s => s.id === m.id_stat)
+      const stat = statsInfo.find(s => s.id === m.id_stat)
       return `${m.valeur > 0 ? '+' : ''}${m.valeur} ${stat?.nom ?? '?'}`
     }
-    const labels: Record<string, string> = {
-      hp: '❤️ PV', mana: '💧 Mana', stam: '⚡ Stam',
-      hp_max: '❤️ PV max', mana_max: '💧 Mana max', stam_max: '⚡ Stam max'
-    }
+    const labels: Record<string, string> = { hp: '❤️ PV', mana: '💧 Mana', stam: '⚡ Stam', hp_max: '❤️ PV max', mana_max: '💧 Mana max', stam_max: '⚡ Stam max' }
     return `${m.valeur > 0 ? '+' : ''}${m.valeur} ${labels[m.type] ?? m.type}`
   }
+
+  if (chargementInv) return <div className="flex items-center justify-center h-full text-gray-500 animate-pulse">Fouille du sac en cours...</div>
+  if (!personnage) return <div className="flex items-center justify-center h-full text-gray-400">Aucun personnage sélectionné.</div>
 
   const inventaireFiltré = inventaire
     .filter(e => filtreCategorie === 'Tous' || e.items.categorie === filtreCategorie)
@@ -183,65 +117,57 @@ export default function MonInventaire() {
   const equipes = inventaireFiltré.filter(e => e.equipe)
   const nonEquipes = inventaireFiltré.filter(e => !e.equipe)
 
-  if (!personnageId) return (
-    <div className="flex items-center justify-center h-full text-gray-400">
-      {compte?.role === 'admin' || compte?.role === 'mj'
-        ? "Prends le contrôle d'un personnage depuis la page PNJ"
-        : "Rejoins une session et crée un personnage d'abord"}
-    </div>
-  )
-
   return (
-    <div className="flex flex-col h-full text-white p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-purple-400">🎒 Inventaire</h2>
-        {message && <span className="text-green-400 text-sm">{message}</span>}
+    <div className="flex flex-col h-full text-white p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar">
+      
+      {/* 👑 HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 pb-6 border-b border-gray-800 gap-4">
+        <h2 className="text-3xl md:text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-500 tracking-tight">
+          Sac Aventure
+        </h2>
+        {message && <span className="text-emerald-400 text-sm font-bold bg-emerald-900/20 border border-emerald-500/30 px-4 py-2 rounded-xl animate-pulse">{message}</span>}
       </div>
 
-      <div className="flex flex-col gap-3 mb-4">
-        <input
-          type="text"
-          placeholder="🔍 Rechercher un item..."
-          value={recherche}
-          onChange={e => setRecherche(e.target.value)}
-          className="bg-gray-800 text-white px-4 py-2 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 max-w-sm text-sm"
+      {/* 🔍 BARRE DE RECHERCHE ET FILTRES */}
+      <div className="flex flex-col gap-4 mb-8">
+        <input 
+          type="text" 
+          placeholder="🔍 Rechercher dans le sac..." 
+          value={recherche} 
+          onChange={e => setRecherche(e.target.value)} 
+          className="w-full md:max-w-md bg-gray-900/50 backdrop-blur-sm text-white px-5 py-3 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/50 border border-gray-700/50 shadow-inner transition-all" 
         />
         <div className="flex gap-2 flex-wrap">
           {['Tous', ...CATEGORIES].map(cat => (
-            <button
-              key={cat}
-              onClick={() => setFiltreCategorie(cat)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition
-                ${filtreCategorie === cat ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
-            >
-              {cat !== 'Tous' ? CATEGORIE_EMOJI[cat] : ''} {cat}
+            <button key={cat} onClick={() => setFiltreCategorie(cat)} 
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 border backdrop-blur-sm 
+              ${filtreCategorie === cat ? 'bg-gradient-to-r from-emerald-600 to-teal-500 border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-gray-800/40 border-gray-700/50 text-gray-400 hover:text-white hover:bg-gray-700/60'}`}>
+              {cat !== 'Tous' && <span className="mr-1">{CATEGORIE_EMOJI[cat]}</span>} {cat}
             </button>
           ))}
         </div>
       </div>
 
-      {inventaire.length === 0 && (
-        <p className="text-gray-500 text-center mt-16">Inventaire vide</p>
-      )}
+      {inventaire.length === 0 && <div className="flex flex-col items-center justify-center mt-20 opacity-50"><span className="text-6xl mb-4">🕸️</span><p className="text-lg font-bold">Le sac est totalement vide.</p></div>}
 
+      {/* ⚔️ ÉQUIPEMENT ACTIF */}
       {equipes.length > 0 && (
-        <div className="mb-6">
-          <p className="text-xs uppercase font-semibold text-gray-400 mb-3">⚔️ Équipé</p>
-          <div className="grid grid-cols-2 gap-3">
-            {equipes.map(entry => (
-              <ItemCard key={entry.id} entry={entry} onUtiliser={utiliserItem} onEquiper={toggleEquiper} labelModif={labelModif} modifs={itemModifs[entry.items.id] ?? []} />
-            ))}
+        <div className="mb-10">
+          <p className="text-xs uppercase font-black text-emerald-500 mb-4 tracking-widest flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Équipement Actif
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {equipes.map(entry => <ItemCard key={entry.id} entry={entry} onUtiliser={utiliserItem} onEquiper={toggleEquiper} labelModif={labelModif} modifs={itemModifs[entry.items.id] ?? []} />)}
           </div>
         </div>
       )}
 
+      {/* 📦 CONTENU DU SAC */}
       {nonEquipes.length > 0 && (
         <div>
-          {equipes.length > 0 && <p className="text-xs uppercase font-semibold text-gray-400 mb-3">📦 Sac</p>}
-          <div className="grid grid-cols-2 gap-3">
-            {nonEquipes.map(entry => (
-              <ItemCard key={entry.id} entry={entry} onUtiliser={utiliserItem} onEquiper={toggleEquiper} labelModif={labelModif} modifs={itemModifs[entry.items.id] ?? []} />
-            ))}
+          {equipes.length > 0 && <p className="text-xs uppercase font-black text-gray-500 mb-4 tracking-widest">📦 Reste du sac</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {nonEquipes.map(entry => <ItemCard key={entry.id} entry={entry} onUtiliser={utiliserItem} onEquiper={toggleEquiper} labelModif={labelModif} modifs={itemModifs[entry.items.id] ?? []} />)}
           </div>
         </div>
       )}
@@ -249,58 +175,49 @@ export default function MonInventaire() {
   )
 }
 
-function ItemCard({ entry, onUtiliser, onEquiper, labelModif, modifs }: {
-  entry: InventaireEntry
-  onUtiliser: (e: InventaireEntry) => void
-  onEquiper: (e: InventaireEntry) => void
-  labelModif: (m: Modificateur) => string
-  modifs: Modificateur[]
-}) {
+function ItemCard({ entry, onUtiliser, onEquiper, labelModif, modifs }: { entry: ItemInventaire, onUtiliser: (e: ItemInventaire) => void, onEquiper: (e: ItemInventaire) => void, labelModif: (m: Modificateur) => string, modifs: Modificateur[] }) {
   const estConsommable = entry.items.categorie === 'Consommable'
 
   return (
-    <div className={`bg-gray-800 p-4 rounded-xl flex flex-col gap-2 border-2 transition
-      ${entry.equipe ? 'border-purple-500' : 'border-transparent'}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{CATEGORIE_EMOJI[entry.items.categorie]}</span>
+    <div className={`relative bg-gray-800/40 backdrop-blur-md p-5 rounded-3xl flex flex-col gap-3 border transition-all duration-300 group hover:-translate-y-1
+      ${entry.equipe ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)] bg-emerald-900/10' : 'border-gray-700/50 hover:border-gray-600 hover:shadow-xl hover:bg-gray-800/60'}`}>
+      
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 flex items-center justify-center bg-gray-900/50 rounded-2xl border border-gray-700/50 shadow-inner text-2xl">
+            {CATEGORIE_EMOJI[entry.items.categorie]}
+          </div>
           <div>
-            <p className="font-semibold">{entry.items.nom}</p>
-            <span className="text-xs text-gray-400">{entry.items.categorie}</span>
+            <p className="font-bold text-gray-100 leading-tight line-clamp-1">{entry.items.nom}</p>
+            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{entry.items.categorie}</span>
           </div>
         </div>
-        <span className="text-purple-400 font-bold text-sm">x{entry.quantite}</span>
+        <span className="bg-gray-900/80 border border-gray-700 text-gray-300 font-black text-xs px-2.5 py-1 rounded-xl shadow-inner">x{entry.quantite}</span>
       </div>
 
-      {entry.items.description && (
-        <p className="text-gray-400 text-xs">{entry.items.description}</p>
-      )}
+      {entry.items.description && <p className="text-gray-400 text-xs italic line-clamp-2 mt-1">{entry.items.description}</p>}
 
       {modifs.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5 mt-2">
           {modifs.map((m, i) => (
-            <span key={i} className="text-xs bg-purple-900 text-purple-300 px-2 py-0.5 rounded-lg">
+            <span key={i} className="text-[10px] font-bold uppercase bg-gray-900/50 border border-gray-700 text-gray-300 px-2 py-1 rounded-lg">
               {labelModif(m)}
             </span>
           ))}
         </div>
       )}
 
-      <div className="flex gap-2 mt-1">
+      <div className="flex gap-2 mt-auto pt-3">
         {estConsommable ? (
-          <button
-            onClick={() => onUtiliser(entry)}
-            className="flex-1 bg-green-700 hover:bg-green-600 px-3 py-1 rounded-lg text-xs font-semibold transition"
-          >
-            🧪 Utiliser
+          <button onClick={() => onUtiliser(entry)} className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-900/20">
+            Utiliser
           </button>
         ) : (
-          <button
-            onClick={() => onEquiper(entry)}
-            className={`flex-1 px-3 py-1 rounded-lg text-xs font-semibold transition
-              ${entry.equipe ? 'bg-purple-700 hover:bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-          >
-            {entry.equipe ? '✓ Équipé' : 'Équiper'}
+          <button onClick={() => onEquiper(entry)} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border backdrop-blur-sm
+            ${entry.equipe 
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-400' 
+              : 'bg-gray-900/50 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'}`}>
+            {entry.equipe ? 'Ranger' : 'Équiper'}
           </button>
         )}
       </div>

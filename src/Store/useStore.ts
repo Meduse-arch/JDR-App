@@ -15,6 +15,10 @@ type Store = {
   setPageCourante: (page: string) => void
   pnjControle: Personnage | null
   setPnjControle: (pnj: Personnage | null) => void
+  
+  // L'unique ajout pour le design
+  theme: string
+  setTheme: (theme: string) => void
 }
 
 export const useStore = create<Store>((set) => ({
@@ -28,4 +32,7 @@ export const useStore = create<Store>((set) => ({
   setPageCourante: (page) => set({ pageCourante: page }),
   pnjControle: null,
   setPnjControle: (pnj) => set({ pnjControle: pnj }),
+
+  theme: 'theme-default',
+  setTheme: (theme) => set({ theme }),
 }))

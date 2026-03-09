@@ -2,243 +2,170 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
 import CreerPersonnage from './CreerPersonnage'
+import { usePersonnage } from '../../hooks/usePersonnage'
+import { useStats } from '../../hooks/useStats'
+import { calculPourcentage } from '../../utils/math'
 
-type Personnage = {
-  id: string
-  nom: string
-  est_pnj: boolean
-  lie_au_compte: string | null
-  hp_actuel: number
-  hp_max: number
-  mana_actuel: number
-  mana_max: number
-  stam_actuel: number
-  stam_max: number
-}
-
-type StatJet = { nom: string; valeur: number; description: string }
 type RessourceKey = 'hp' | 'mana' | 'stam'
 
 export default function MonPersonnage() {
   const compte = useStore(s => s.compte)
-  const sessionActive = useStore(s => s.sessionActive)
   const pnjControle = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
-  const [personnage, setPersonnage] = useState<Personnage | null>(null)
-  const [stats, setStats] = useState<StatJet[]>([])
-  const [chargement, setChargement] = useState(true)
+
+  const { personnage, chargement: chargementPerso, rechargerPersonnage } = usePersonnage()
+  const { stats, chargement: chargementStats } = useStats()
+
   const [deltas, setDeltas] = useState<Record<RessourceKey, string>>({ hp: '', mana: '', stam: '' })
   const [message, setMessage] = useState('')
   const [pseudoJoueur, setPseudoJoueur] = useState<string | null>(null)
 
   useEffect(() => {
-    if (pnjControle) {
-      setPersonnage(pnjControle as any)
-      chargerStats(pnjControle.id)
-      chargerPseudo((pnjControle as any).lie_au_compte)
-      setChargement(false)
-    } else if (compte?.role === 'joueur') {
-      chargerPersonnage()
-    } else {
-      setChargement(false)
+    if (personnage?.lie_au_compte) {
+      supabase.from('comptes').select('pseudo').eq('id', personnage.lie_au_compte).single()
+        .then(({ data }) => { if (data) setPseudoJoueur(data.pseudo) })
     }
-  }, [pnjControle])
-
-  const chargerPersonnage = async () => {
-    setChargement(true)
-    if (!sessionActive) { setChargement(false); return }
-    const { data } = await supabase
-      .from('session_joueurs')
-      .select('personnages(*)')
-      .eq('id_session', sessionActive.id)
-    if (data) {
-      const perso = data
-        .map((d: any) => d.personnages)
-        .find((p: any) => p.lie_au_compte === compte?.id && !p.est_pnj)
-      if (perso) {
-        setPersonnage(perso)
-        chargerStats(perso.id)
-        chargerPseudo(perso.lie_au_compte)
-      }
-    }
-    setChargement(false)
-  }
-
-  const chargerStats = async (idPersonnage: string) => {
-    // 1. Charger les stats de base
-    const { data: baseStats } = await supabase
-      .from('personnage_stats')
-      .select('id_stat, valeur, stats(nom, description)')
-      .eq('id_personnage', idPersonnage)
-
-    if (!baseStats) return
-
-    // 2. Charger les items équipés
-    const { data: equipements } = await supabase
-      .from('inventaire')
-      .select('id_item')
-      .eq('id_personnage', idPersonnage)
-      .eq('equipe', true)
-
-    const statBonus: Record<string, number> = {}
-
-    if (equipements && equipements.length > 0) {
-      const itemIds = equipements.map(e => e.id_item)
-      // 3. Charger les modificateurs de type "stat" de ces items
-      const { data: modifs } = await supabase
-        .from('item_modificateurs')
-        .select('*')
-        .in('id_item', itemIds)
-        .eq('type', 'stat')
-
-      if (modifs) {
-        modifs.forEach(mod => {
-          if (mod.id_stat) {
-            statBonus[mod.id_stat] = (statBonus[mod.id_stat] || 0) + mod.valeur
-          }
-        })
-      }
-    }
-
-    // 4. Additionner la base et les bonus
-    setStats(baseStats.map((d: any) => ({
-      nom: d.stats.nom,
-      description: d.stats.description,
-      valeur: d.valeur + (statBonus[d.id_stat] || 0)
-    })))
-  }
-
-  const chargerPseudo = async (lieAuCompte: string | null) => {
-    if (!lieAuCompte) { setPseudoJoueur(null); return }
-    const { data } = await supabase.from('comptes').select('pseudo').eq('id', lieAuCompte).single()
-    if (data) setPseudoJoueur(data.pseudo)
-  }
+  }, [personnage])
 
   const supprimerPersonnage = async () => {
     if (!personnage) return
+    // (J'ai gardé ta logique de suppression intacte)
     await supabase.from('session_joueurs').delete().eq('id_personnage', personnage.id)
     await supabase.from('personnage_stats').delete().eq('id_personnage', personnage.id)
     await supabase.from('inventaire').delete().eq('id_personnage', personnage.id)
     await supabase.from('personnage_competences').delete().eq('id_personnage', personnage.id)
     await supabase.from('personnages').delete().eq('id', personnage.id)
     if (pnjControle) setPnjControle(null)
-    setPersonnage(null)
+    rechargerPersonnage()
   }
 
   const appliquerDelta = async (key: RessourceKey) => {
     if (!personnage) return
-    const valStr = deltas[key]
-    const delta = parseInt(valStr)
+    const delta = parseInt(deltas[key])
     if (isNaN(delta) || delta === 0) return
-    const champActuel = `${key}_actuel` as keyof Personnage
-    const champMax = `${key}_max` as keyof Personnage
+
+    const champActuel = `${key}_actuel` as keyof typeof personnage
+    const champMax = `${key}_max` as keyof typeof personnage
     const actuel = personnage[champActuel] as number
     const max = personnage[champMax] as number
+
     const nouveau = Math.max(0, Math.min(max, actuel + delta))
+
     await supabase.from('personnages').update({ [champActuel]: nouveau }).eq('id', personnage.id)
-    const updated = { ...personnage, [champActuel]: nouveau }
-    setPersonnage(updated)
-    if (pnjControle) setPnjControle(updated as any)
+
+    if (pnjControle && pnjControle.id === personnage.id) {
+      setPnjControle({ ...pnjControle, [champActuel]: nouveau } as any)
+    }
+    
+    rechargerPersonnage()
     setDeltas(prev => ({ ...prev, [key]: '' }))
-    setMessage(`✅ ${key === 'hp' ? 'PV' : key === 'mana' ? 'Mana' : 'Stamina'} mis à jour !`)
+    setMessage(`✨ Mise à jour réussie`)
     setTimeout(() => setMessage(''), 2000)
   }
 
-  const AfficherPersonnage = ({ p }: { p: Personnage }) => {
-    const ressources: { label: string; emoji: string; actuel: number; max: number; couleur: string; barreColor: string; rKey: RessourceKey }[] = [
-      { label: 'Points de vie', emoji: '❤️', actuel: p.hp_actuel, max: p.hp_max, couleur: 'text-red-400', barreColor: 'bg-red-500', rKey: 'hp' },
-      { label: 'Mana', emoji: '💧', actuel: p.mana_actuel, max: p.mana_max, couleur: 'text-blue-400', barreColor: 'bg-blue-500', rKey: 'mana' },
-      { label: 'Stamina', emoji: '⚡', actuel: p.stam_actuel, max: p.stam_max, couleur: 'text-yellow-400', barreColor: 'bg-yellow-500', rKey: 'stam' },
-    ]
-
-    return (
-      <div className="flex flex-col h-full text-white p-8">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-purple-400">
-            {p.nom}
-            {pnjControle && (
-              <span className={`text-sm ml-2 ${p.est_pnj ? 'text-yellow-400' : 'text-blue-400'}`}>
-                {p.est_pnj ? 'PNJ' : pseudoJoueur ?? '...'}
-              </span>
-            )}
-          </h2>
-          <div className="flex items-center gap-3">
-            {message && <span className="text-green-400 text-sm">{message}</span>}
-            <button onClick={supprimerPersonnage} className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm transition">
-              💀 Supprimer
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {ressources.map(r => (
-            <div key={r.rKey} className="bg-gray-800 p-4 rounded-xl flex flex-col gap-2">
-              <span className="text-gray-400 text-xs">{r.emoji} {r.label}</span>
-              <div className="flex items-end gap-1">
-                <span className={`text-2xl font-bold ${r.couleur}`}>{r.actuel}</span>
-                <span className="text-gray-500 text-sm mb-1">/ {r.max}</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div className={`${r.barreColor} h-2 rounded-full transition-all`} style={{ width: `${Math.min(100, (r.actuel / r.max) * 100)}%` }} />
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <button
-                  onClick={() => setDeltas(prev => ({ ...prev, [r.rKey]: String((parseInt(prev[r.rKey]) || 0) - 1) }))}
-                  className="bg-gray-700 hover:bg-red-700 w-8 h-8 rounded-lg font-bold transition text-sm"
-                >−</button>
-                <input
-                  type="number"
-                  value={deltas[r.rKey]}
-                  placeholder="±0"
-                  onChange={e => setDeltas(prev => ({ ...prev, [r.rKey]: e.target.value }))}
-                  className="flex-1 bg-gray-700 text-white text-center px-2 py-1 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-400"
-                />
-                <button
-                  onClick={() => setDeltas(prev => ({ ...prev, [r.rKey]: String((parseInt(prev[r.rKey]) || 0) + 1) }))}
-                  className="bg-gray-700 hover:bg-green-700 w-8 h-8 rounded-lg font-bold transition text-sm"
-                >+</button>
-                <button
-                  onClick={() => appliquerDelta(r.rKey)}
-                  disabled={!deltas[r.rKey] || deltas[r.rKey] === '0'}
-                  className={`px-3 py-1 rounded-lg text-sm font-semibold transition
-                    ${deltas[r.rKey] && deltas[r.rKey] !== '0' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
-                >✓</button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <h3 className="text-lg font-semibold text-gray-300 mb-4">Stats</h3>
-        <div className="grid grid-cols-2 gap-4">
-          {stats.map(stat => (
-            <div key={stat.nom} className="bg-gray-800 p-4 rounded-xl flex justify-between items-center">
-              <div>
-                <p className="font-semibold">{stat.nom}</p>
-                <p className="text-gray-400 text-xs">{stat.description}</p>
-              </div>
-              <span className="text-2xl font-bold text-purple-400">{stat.valeur}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (chargement) return (
-    <div className="flex items-center justify-center h-full text-gray-400">Chargement...</div>
-  )
-
-  if (pnjControle && personnage) return <AfficherPersonnage p={personnage} />
-
-  if (!personnage && compte?.role === 'joueur') return (
-    <CreerPersonnage estPnj={false} retour={() => chargerPersonnage()} />
-  )
-
-  if (!personnage && compte?.role === 'admin') return (
-    <div className="flex items-center justify-center h-full text-gray-400">
-      Prends le contrôle d'un PNJ depuis la page PNJ
+  if (chargementPerso || chargementStats) return (
+    <div className="flex items-center justify-center h-full text-gray-500 animate-pulse">
+      Ouverture du grimoire...
     </div>
   )
 
-  return <AfficherPersonnage p={personnage!} />
+  if (!personnage && compte?.role === 'joueur') return <CreerPersonnage estPnj={false} retour={() => rechargerPersonnage()} />
+  if (!personnage && compte?.role === 'admin') return <div className="flex items-center justify-center h-full text-gray-400">Prends le contrôle d'un PNJ depuis la page PNJ</div>
+  if (!personnage) return null
+
+  // 🎨 Nouvelles couleurs avec des gradients
+  const ressources = [
+    { label: 'Points de vie', emoji: '❤️', actuel: personnage.hp_actuel, max: personnage.hp_max, textCol: 'text-red-400', bgCol: 'bg-red-500/10', gradient: 'from-red-600 to-red-400', rKey: 'hp' as RessourceKey },
+    { label: 'Mana', emoji: '💧', actuel: personnage.mana_actuel, max: personnage.mana_max, textCol: 'text-blue-400', bgCol: 'bg-blue-500/10', gradient: 'from-blue-600 to-blue-400', rKey: 'mana' as RessourceKey },
+    { label: 'Stamina', emoji: '⚡', actuel: personnage.stam_actuel, max: personnage.stam_max, textCol: 'text-yellow-400', bgCol: 'bg-yellow-500/10', gradient: 'from-yellow-600 to-yellow-400', rKey: 'stam' as RessourceKey },
+  ]
+
+  return (
+    <div className="flex flex-col h-full text-white p-6 md:p-10 overflow-y-auto custom-scrollbar">
+      
+      {/* 👑 HEADER STYLISÉ */}
+      <div className="flex justify-between items-end mb-10 pb-6 border-b border-gray-800">
+        <div>
+          <h2 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500 tracking-tight">
+            {personnage.nom}
+          </h2>
+          {pnjControle && (
+            <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${personnage.est_pnj ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'}`}>
+              {personnage.est_pnj ? 'Personnage Non Joueur' : `Joué par : ${pseudoJoueur ?? '...'}`}
+            </span>
+          )}
+        </div>
+        
+        <div className="flex flex-col items-end gap-2">
+          {message && <span className="text-green-400 text-sm font-semibold animate-bounce">{message}</span>}
+          <button onClick={supprimerPersonnage} className="text-gray-500 hover:text-red-400 hover:bg-red-400/10 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300">
+            Supprimer la fiche
+          </button>
+        </div>
+      </div>
+
+      {/* ❤️ BARRES DE RESSOURCES */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+        {ressources.map(r => (
+          <div key={r.rKey} className={`relative p-6 rounded-3xl ${r.bgCol} border border-gray-800/50 backdrop-blur-sm flex flex-col gap-4 overflow-hidden group`}>
+            
+            {/* Effet de brillance en fond */}
+            <div className={`absolute -top-10 -right-10 w-32 h-32 ${r.bgCol} rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500`}></div>
+
+            <div className="relative z-10 flex justify-between items-center">
+              <span className="text-gray-300 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                <span className="text-xl">{r.emoji}</span> {r.label}
+              </span>
+              <div className="flex items-baseline gap-1">
+                <span className={`text-3xl font-black ${r.textCol}`}>{r.actuel}</span>
+                <span className="text-gray-500 font-bold">/ {r.max}</span>
+              </div>
+            </div>
+
+            {/* Barre de progression avec Gradient */}
+            <div className="relative z-10 w-full bg-gray-900/80 rounded-full h-4 shadow-inner overflow-hidden border border-gray-800">
+              <div 
+                className={`h-full rounded-full bg-gradient-to-r ${r.gradient} transition-all duration-700 ease-out relative`} 
+                style={{ width: `${calculPourcentage(r.actuel, r.max)}%` }}
+              >
+                {/* Petit reflet sur la barre */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-white/20 rounded-full"></div>
+              </div>
+            </div>
+
+            {/* Contrôles intégrés plus discrets */}
+            <div className="relative z-10 flex items-center bg-gray-900/50 p-1 rounded-xl border border-gray-800 mt-2">
+              <button onClick={() => setDeltas(prev => ({ ...prev, [r.rKey]: String((parseInt(prev[r.rKey]) || 0) - 1) }))} className="text-gray-400 hover:text-white hover:bg-white/10 w-10 h-8 rounded-lg font-black transition text-lg">−</button>
+              <input type="number" value={deltas[r.rKey]} placeholder="±0" onChange={e => setDeltas(prev => ({ ...prev, [r.rKey]: e.target.value }))} className="flex-1 bg-transparent text-white text-center font-bold text-sm outline-none" />
+              <button onClick={() => setDeltas(prev => ({ ...prev, [r.rKey]: String((parseInt(prev[r.rKey]) || 0) + 1) }))} className="text-gray-400 hover:text-white hover:bg-white/10 w-10 h-8 rounded-lg font-black transition text-lg">+</button>
+              
+              <div className="w-px h-6 bg-gray-700 mx-1"></div>
+              
+              <button onClick={() => appliquerDelta(r.rKey)} disabled={!deltas[r.rKey] || deltas[r.rKey] === '0'} className={`w-10 h-8 rounded-lg font-bold transition flex items-center justify-center ${deltas[r.rKey] && deltas[r.rKey] !== '0' ? 'text-purple-400 hover:bg-purple-500/20' : 'text-gray-600 cursor-not-allowed'}`}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 🛡️ STATISTIQUES */}
+      <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+        <span className="bg-gray-800 p-2 rounded-lg border border-gray-700">🛡️</span> 
+        Attributs & Statistiques
+      </h3>
+      
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {stats.map(stat => (
+          <div key={stat.nom} className="bg-gray-800/40 hover:bg-gray-800 p-5 rounded-2xl flex flex-col justify-center items-center gap-2 border border-gray-700/50 hover:border-purple-500/50 transition-all duration-300 group cursor-default">
+            <span className="text-gray-400 text-xs font-bold uppercase tracking-widest group-hover:text-gray-300 transition-colors">{stat.nom}</span>
+            <span className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 group-hover:from-purple-300 group-hover:to-purple-600 transition-all">
+              {stat.valeur}
+            </span>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  )
 }

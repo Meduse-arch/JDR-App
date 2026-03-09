@@ -17,7 +17,7 @@ export function lancerDes(nbDes: number, faces: number, modificateur: number = 0
 
   return { 
     des, 
-    modificateur, 
+    modifier: modificateur, // ✅ FIX : renommé pour correspondre au type Resultat dans LancerDes.tsx
     total 
   }
 }

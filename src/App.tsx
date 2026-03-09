@@ -41,26 +41,30 @@ function PageCourante() {
 export default function App() {
   const [pageAuth, setPageAuth] = useState<PageAuth>('accueil')
   const compte = useStore(s => s.compte)
+  
+  // 🎨 1. ON RÉCUPÈRE LE THÈME DEPUIS TON STORE (ou violet par défaut)
+  const theme = useStore(s => s.theme) || 'theme-default'
 
-  if (compte) return (
-    <div className="flex flex-col h-screen bg-gray-950">
-      <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-950">
-          <PageCourante />
-        </main>
-      </div>
+  // 🎨 2. ON ENGLOBE TOUTE L'APP AVEC LA VARIABLE DU THÈME
+  return (
+    <div className={`${theme} font-sans h-screen overflow-hidden text-gray-100 bg-gray-950`}>
+      {compte ? (
+        <div className="flex flex-col h-full">
+          <Header />
+          <div className="flex flex-1 overflow-hidden">
+            <Sidebar />
+            <main className="flex-1 overflow-y-auto bg-gray-950 relative">
+              <PageCourante />
+            </main>
+          </div>
+        </div>
+      ) : pageAuth === 'connexion' ? (
+        <Connexion retour={() => setPageAuth('accueil')} />
+      ) : pageAuth === 'inscription' ? (
+        <Inscription retour={() => setPageAuth('accueil')} allerVersConnexion={() => setPageAuth('connexion')} />
+      ) : (
+        <Accueil allerVers={setPageAuth} />
+      )}
     </div>
   )
-
-  if (pageAuth === 'connexion') return (
-    <Connexion retour={() => setPageAuth('accueil')} />
-  )
-
-  if (pageAuth === 'inscription') return (
-    <Inscription retour={() => setPageAuth('accueil')} allerVersConnexion={() => setPageAuth('connexion')} />
-  )
-
-  return <Accueil allerVers={setPageAuth} />
 }
