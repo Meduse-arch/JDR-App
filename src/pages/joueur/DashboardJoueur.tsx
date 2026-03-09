@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
+import { Card } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
+import { CATEGORIE_EMOJI } from '../../utils/constants'
 
 type Personnage = {
   id: string; nom: string
@@ -9,10 +13,6 @@ type Personnage = {
   stam_actuel: number; stam_max: number
 }
 type Equipement = { id: string; items: { nom: string; categorie: string } }
-
-const CATEGORIE_EMOJI: Record<string, string> = {
-  Arme: '⚔️', Armure: '🛡️', Bijou: '💍', Consommable: '🧪', 'Artéfact': '✨', Divers: '📦',
-}
 
 export default function DashboardJoueur() {
   const compte        = useStore(s => s.compte)
@@ -60,12 +60,13 @@ export default function DashboardJoueur() {
       style={{ color: 'var(--text-secondary)' }}>
       <span className="text-4xl">📜</span>
       <p>Tu n'as pas encore de personnage pour cette session.</p>
-      <button
+      <Button
         onClick={() => setPageCourante('mon-personnage')}
-        className="px-6 py-2 rounded-xl font-bold text-white transition-all hover:-translate-y-0.5 mt-2"
-        style={{ background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))' }}>
+        className="mt-2"
+        size="lg"
+      >
         Créer mon personnage
-      </button>
+      </Button>
     </div>
   )
 
@@ -74,8 +75,6 @@ export default function DashboardJoueur() {
     { label: 'Mana', emoji: '💧', actuel: personnage.mana_actuel, max: personnage.mana_max, color: '#3b82f6' },
     { label: 'Stam', emoji: '⚡', actuel: personnage.stam_actuel, max: personnage.stam_max, color: '#eab308' },
   ]
-
-  const cardStyle = { backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }
 
   return (
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar"
@@ -101,20 +100,21 @@ export default function DashboardJoueur() {
           { label: 'Mon Sac',     emoji: '🎒', id: 'mon-inventaire' },
           { label: 'Lancer les Dés', emoji: '🎲', id: 'lancer-des' },
         ].map(btn => (
-          <button key={btn.id} onClick={() => setPageCourante(btn.id)}
-            className="p-4 md:p-6 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all hover:-translate-y-1 group"
-            style={cardStyle}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--color-main)')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+          <Card 
+            key={btn.id} 
+            hoverEffect 
+            onClick={() => setPageCourante(btn.id)}
+            className="flex-col items-center justify-center p-4 md:p-6 cursor-pointer group"
+          >
             <span className="text-3xl md:text-4xl transition-transform group-hover:scale-110">{btn.emoji}</span>
-            <span className="font-bold text-sm md:text-base">{btn.label}</span>
-          </button>
+            <span className="font-bold text-sm md:text-base mt-2">{btn.label}</span>
+          </Card>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* État de santé */}
-        <div className="p-6 rounded-2xl" style={cardStyle}>
+        <Card className="p-6">
           <h3 className="text-base font-bold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
             🩺 État de santé
           </h3>
@@ -139,10 +139,10 @@ export default function DashboardJoueur() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
         {/* Équipement */}
-        <div className="p-6 rounded-2xl" style={cardStyle}>
+        <Card className="p-6">
           <h3 className="text-base font-bold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
             ⚔️ Actuellement Équipé
           </h3>
@@ -153,16 +153,16 @@ export default function DashboardJoueur() {
               {equipements.map(eq => (
                 <div key={eq.id} className="flex items-center gap-3 p-3 rounded-xl"
                   style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
-                  <span className="text-xl">{CATEGORIE_EMOJI[eq.items.categorie] || '📦'}</span>
-                  <div>
+                  <span className="text-xl">{CATEGORIE_EMOJI[eq.items.categorie as import('../../types').CategorieItem] || '📦'}</span>
+                  <div className="flex-1">
                     <p className="font-semibold text-sm">{eq.items.nom}</p>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{eq.items.categorie}</p>
+                    <Badge variant="ghost" className="mt-1">{eq.items.categorie}</Badge>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   )

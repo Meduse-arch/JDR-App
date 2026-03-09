@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore, type ThemeId, type ModeId } from '../store/useStore'
+import { Button } from './ui/Button'
 
 // ── Config des 4 thèmes ────────────────────────────────────────────────────
 const THEMES: { id: ThemeId; nom: string; from: string; to: string }[] = [
@@ -73,18 +74,14 @@ export default function Header() {
       </p>
 
       {/* ── Contrôles droite ── */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 md:gap-3">
 
         {/* 🎨 Bouton thème */}
         <div className="relative" ref={themeRef}>
-          <button
+          <Button
+            variant="secondary"
             onClick={() => setMenuThemeOuvert(v => !v)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-all"
-            style={{
-              backgroundColor: 'var(--bg-card)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border)',
-            }}
+            className="flex items-center gap-2"
           >
             {/* Mini dégradé qui montre le thème actif */}
             <span
@@ -92,12 +89,12 @@ export default function Header() {
               style={{ background: `linear-gradient(135deg, ${themeActuel.from}, ${themeActuel.to})` }}
             />
             <span className="hidden md:inline">{themeActuel.nom}</span>
-            <span className="text-[10px] opacity-50">{menuThemeOuvert ? '▲' : '▼'}</span>
-          </button>
+            <span className="text-[10px] opacity-50 ml-1">{menuThemeOuvert ? '▲' : '▼'}</span>
+          </Button>
 
           {menuThemeOuvert && (
             <div
-              className="absolute top-full right-0 mt-2 w-64 rounded-2xl shadow-2xl p-4 flex flex-col gap-4 z-50"
+              className="absolute top-full right-0 mt-2 w-64 rounded-2xl shadow-2xl p-4 flex flex-col gap-4 z-50 animate-in fade-in slide-in-from-top-2"
               style={{
                 backgroundColor: 'var(--bg-card)',
                 border: '1px solid var(--border)',
@@ -176,14 +173,10 @@ export default function Header() {
 
         {/* 👤 Menu utilisateur */}
         <div className="relative" ref={userMenuRef}>
-          <button
+          <Button
+            variant="secondary"
             onClick={() => setMenuOuvert(v => !v)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-all"
-            style={{
-              backgroundColor: 'var(--bg-card)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border)',
-            }}
+            className="flex items-center gap-2 pl-2"
           >
             <span
               className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
@@ -192,12 +185,12 @@ export default function Header() {
               {compte?.pseudo?.[0]?.toUpperCase() ?? '?'}
             </span>
             <span className="hidden sm:inline max-w-[100px] truncate">{compte?.pseudo}</span>
-            <span className="text-[10px] opacity-50">{menuOuvert ? '▲' : '▼'}</span>
-          </button>
+            <span className="text-[10px] opacity-50 ml-1">{menuOuvert ? '▲' : '▼'}</span>
+          </Button>
 
           {menuOuvert && (
             <div
-              className="absolute right-0 mt-2 w-48 rounded-xl shadow-lg overflow-hidden z-50"
+              className="absolute right-0 mt-2 w-48 rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-2"
               style={{
                 backgroundColor: 'var(--bg-card)',
                 border: '1px solid var(--border)',

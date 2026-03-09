@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
 import { useStore, type Personnage } from '../../store/useStore'
 import CreerPersonnage from '../shared/CreerPersonnage'
+import { Card } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
+import { ConfirmButton } from '../../components/ui/ConfirmButton'
 
 export default function PNJ() {
   const [pnjs,  setPnjs]  = useState<Personnage[]>([])
@@ -37,55 +40,54 @@ export default function PNJ() {
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar"
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
 
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-2xl font-black"
+      <div className="flex justify-between items-center mb-8 gap-4">
+        <h2 className="text-2xl md:text-3xl font-black tracking-tight"
           style={{
             background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
           }}>
           Bestiaire & PNJ
         </h2>
-        <button
-          onClick={() => setCreer(true)}
-          className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5"
-          style={{ background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))' }}>
+        <Button onClick={() => setCreer(true)}>
           + Nouveau PNJ
-        </button>
+        </Button>
       </div>
 
       <div className="flex flex-col gap-4">
         {pnjs.length === 0 && (
-          <p className="text-center mt-16" style={{ color: 'var(--text-secondary)' }}>
-            Aucun PNJ pour le moment
-          </p>
+          <div className="text-center py-20 opacity-40">
+            <span className="text-6xl mb-4">👹</span>
+            <p className="text-lg font-bold" style={{ color: 'var(--text-secondary)' }}>
+              Aucun monstre ou PNJ dans ce bestiaire.
+            </p>
+          </div>
         )}
         {pnjs.map(pnj => (
-          <div key={pnj.id}
-            className="p-5 rounded-2xl flex justify-between items-center gap-4"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div>
-              <h3 className="font-bold text-lg">{pnj.nom}</h3>
-              <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                HP : {pnj.hp_actuel} / {pnj.hp_max}
+          <Card key={pnj.id} className="flex-row justify-between items-center gap-2 sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold text-base sm:text-lg leading-tight truncate">{pnj.nom}</h3>
+              <p className="text-xs sm:text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                HP : <span className="font-black text-[#ef4444]">{pnj.hp_actuel}</span> / {pnj.hp_max}
               </p>
             </div>
-            <div className="flex gap-2 shrink-0">
-              <button
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => { setPnjControle(pnj); setPageCourante('mon-personnage') }}
-                className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5"
-                style={{ background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))' }}>
+              >
                 Gérer
-              </button>
-              <button
-                onClick={() => supprimerPnj(pnj.id)}
-                className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
-                style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.2)')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)')}>
-                Supprimer
-              </button>
+              </Button>
+              <ConfirmButton
+                variant="danger"
+                size="sm"
+                onConfirm={() => supprimerPnj(pnj.id)}
+                className="w-full sm:w-10 px-0"
+              >
+                🗑️
+              </ConfirmButton>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>

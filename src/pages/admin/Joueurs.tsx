@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
 import { useStore, type Personnage } from '../../store/useStore'
+import { Card } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
 
 export default function Joueurs() {
   const [personnages, setPersonnages] = useState<Personnage[]>([])
@@ -25,7 +27,7 @@ export default function Joueurs() {
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar"
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
 
-      <h2 className="text-2xl font-black mb-8"
+      <h2 className="text-2xl md:text-3xl font-black mb-8 tracking-tight"
         style={{
           background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
@@ -40,22 +42,20 @@ export default function Joueurs() {
           </p>
         )}
         {personnages.map(perso => (
-          <div key={perso.id}
-            className="p-5 rounded-2xl flex justify-between items-center gap-4"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <Card key={perso.id} className="flex-row justify-between items-center gap-4">
             <div>
-              <h3 className="font-bold text-lg">{perso.nom}</h3>
-              <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                HP : {perso.hp_actuel} / {perso.hp_max}
+              <h3 className="font-bold text-lg leading-tight">{perso.nom}</h3>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                HP : <span className="font-black text-[#ef4444]">{perso.hp_actuel}</span> / {perso.hp_max}
               </p>
             </div>
-            <button
+            <Button
               onClick={() => { setPnjControle(perso); setPageCourante('mon-personnage') }}
-              className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 shrink-0"
-              style={{ background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))' }}>
-              Gérer
-            </button>
-          </div>
+              className="shrink-0"
+            >
+              Gérer la fiche
+            </Button>
+          </Card>
         ))}
       </div>
     </div>

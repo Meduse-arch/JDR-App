@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
+import { Card } from '../../components/ui/Card'
+import { Input } from '../../components/ui/Input'
+import { Button } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
 
 type Stat    = { id: string; nom: string; description: string }
 type StatJet = { stat: Stat; valeur: number }
@@ -85,12 +89,9 @@ export default function CreerPersonnage({ estPnj, retour }: Props) {
       className="flex flex-col items-center justify-center h-full p-4"
       style={{ backgroundColor: 'var(--bg-app)' }}
     >
-      <div
-        className="p-8 rounded-2xl w-full max-w-sm flex flex-col gap-5"
-        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
-      >
+      <Card className="w-full max-w-sm flex flex-col gap-6 p-6 sm:p-8 shadow-2xl">
         <h2
-          className="text-xl font-black text-center"
+          className="text-2xl font-black text-center"
           style={{
             background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
             WebkitBackgroundClip: 'text',
@@ -101,44 +102,36 @@ export default function CreerPersonnage({ estPnj, retour }: Props) {
           {estPnj ? '👤 Créer un PNJ' : '🧑 Créer un personnage'}
         </h2>
 
-        <input
-          type="text"
-          placeholder="Nom du personnage"
-          value={nom}
-          onChange={e => setNom(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && nom && lancerDes()}
-          className="px-4 py-3 rounded-xl outline-none text-sm font-semibold"
-          style={{
-            backgroundColor: 'var(--bg-input)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
-          }}
-        />
+        <div className="flex flex-col gap-4">
+          <Input
+            icon="🖋️"
+            type="text"
+            placeholder="Nom du personnage"
+            value={nom}
+            onChange={e => setNom(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && nom && lancerDes()}
+            className="font-bold text-center pl-4 pr-4" // Override icon padding for center alignment
+          />
 
-        <button
-          onClick={() => nom && lancerDes()}
-          disabled={!nom}
-          className="py-3 rounded-xl font-bold transition-all text-white"
-          style={{
-            background: nom
-              ? 'linear-gradient(135deg, var(--color-main), var(--color-accent2))'
-              : 'var(--bg-surface)',
-            color: nom ? '#fff' : 'var(--text-muted)',
-            cursor: nom ? 'pointer' : 'not-allowed',
-            boxShadow: nom ? '0 0 15px var(--color-glow)' : 'none',
-          }}
-        >
-          Lancer les dés pour les stats →
-        </button>
+          <Button
+            size="lg"
+            onClick={() => nom && lancerDes()}
+            disabled={!nom}
+            className="w-full"
+            variant={nom ? 'primary' : 'secondary'}
+          >
+            Lancer les dés →
+          </Button>
 
-        <button
-          onClick={retour}
-          className="text-sm transition text-center"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          ← Retour
-        </button>
-      </div>
+          <Button
+            variant="ghost"
+            onClick={retour}
+            className="text-sm mt-2"
+          >
+            ← Retour
+          </Button>
+        </div>
+      </Card>
     </div>
   )
 
@@ -149,10 +142,10 @@ export default function CreerPersonnage({ estPnj, retour }: Props) {
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}
     >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-8 pb-5"
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-5"
         style={{ borderBottom: '1px solid var(--border)' }}>
         <h2
-          className="text-2xl font-black"
+          className="text-2xl md:text-3xl font-black tracking-tight"
           style={{
             background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
             WebkitBackgroundClip: 'text',
@@ -162,78 +155,65 @@ export default function CreerPersonnage({ estPnj, retour }: Props) {
         >
           Stats de {nom}
         </h2>
-        <div className="flex items-center gap-4">
-          <span
-            className="text-sm font-bold px-3 py-1 rounded-xl"
-            style={{
-              backgroundColor: rerollsRestants <= 2
-                ? 'rgba(239,68,68,0.1)' : 'color-mix(in srgb, var(--color-main) 15%, transparent)',
-              color: rerollsRestants <= 2 ? '#f87171' : 'var(--color-light)',
-            }}
+        <div className="flex items-center gap-4 flex-wrap">
+          <Badge 
+            variant={rerollsRestants <= 2 ? 'error' : 'default'} 
+            className="text-sm px-3 py-1.5"
           >
             🎲 Rerolls : {rerollsRestants}
-          </span>
-          <button
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setEtape('nom')}
-            className="text-sm transition"
-            style={{ color: 'var(--text-secondary)' }}
           >
-            ← Retour
-          </button>
+            ← Modifier le nom
+          </Button>
         </div>
       </div>
 
       {/* Grille de stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
         {jets.map((jet, index) => (
-          <div
+          <Card
             key={jet.stat.id}
-            className="p-4 rounded-2xl flex justify-between items-center gap-4"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
+            className="flex-row justify-between items-center gap-4"
           >
             <div className="flex-1 min-w-0">
-              <p className="font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+              <p className="font-bold truncate text-base" style={{ color: 'var(--text-primary)' }}>
                 {jet.stat.nom}
               </p>
-              <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs truncate mt-0.5 opacity-60">
                 {jet.stat.description}
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <span className="text-2xl font-black" style={{ color: 'var(--color-main)' }}>
+              <span className="text-3xl font-black w-10 text-center" style={{ color: 'var(--color-main)' }}>
                 {jet.valeur}
               </span>
-              <button
+              <Button
+                size="sm"
+                variant={rerollsRestants > 0 ? 'secondary' : 'ghost'}
                 onClick={() => relancerStat(index)}
                 disabled={rerollsRestants <= 0}
-                className="w-9 h-9 rounded-xl text-sm font-bold transition-all"
-                style={{
-                  backgroundColor: rerollsRestants > 0 ? 'var(--bg-surface)' : 'transparent',
-                  color: rerollsRestants > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
-                  border: '1px solid var(--border)',
-                  cursor: rerollsRestants > 0 ? 'pointer' : 'not-allowed',
-                  opacity: rerollsRestants > 0 ? 1 : 0.4,
-                }}
+                className="w-10 h-10 p-0 text-lg flex items-center justify-center rounded-xl"
               >
                 🎲
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* Bouton confirmer */}
-      <div className="flex justify-center pb-4">
-        <button
+      <div className="flex justify-center pb-8 mt-auto">
+        <Button
+          size="lg"
           onClick={confirmer}
-          className="px-10 py-3 rounded-2xl font-bold text-white transition-all hover:-translate-y-1"
-          style={{
-            background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))',
-            boxShadow: '0 0 20px var(--color-glow)',
-          }}
+          className="px-10 py-4 text-lg rounded-2xl w-full sm:w-auto"
         >
           Confirmer le personnage ✓
-        </button>
+        </Button>
       </div>
     </div>
   )

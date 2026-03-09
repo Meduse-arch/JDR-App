@@ -1,171 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
 import CreerPersonnage from './CreerPersonnage'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { useStats } from '../../hooks/useStats'
-import { calculPourcentage } from '../../utils/math'
+import { BarreRessource, RessourceKey } from '../../components/BarreRessource'
+import { personnageService } from '../../services/personnageService'
+import { Card } from '../../components/ui/Card'
+import { Badge } from '../../components/ui/Badge'
 
-type RessourceKey = 'hp' | 'mana' | 'stam'
+import { ConfirmButton } from '../../components/ui/ConfirmButton'
 
-/* Petit hook pour animer un nombre qui change */
-function useAnimatedValue(target: number, duration = 600) {
-  const [display, setDisplay] = useState(target)
-  const prev = useRef(target)
-
-  useEffect(() => {
-    if (prev.current === target) return
-    const start    = prev.current
-    const diff     = target - start
-    const startTs  = performance.now()
-
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - startTs) / duration)
-      // ease-out cubic
-      const ease = 1 - Math.pow(1 - t, 3)
-      setDisplay(Math.round(start + diff * ease))
-      if (t < 1) requestAnimationFrame(tick)
-      else prev.current = target
-    }
-    requestAnimationFrame(tick)
-  }, [target, duration])
-
-  return display
-}
-
-/* Barre de ressource avec transitions CSS + compteur animé */
-function BarreRessource({
-  label, emoji, actuel, max, rKey, color, glow, gradient,
-  delta, onDeltaChange, onDeltaDecrement, onDeltaIncrement, onAppliquer,
-}: {
-  label: string; emoji: string
-  actuel: number; max: number; rKey: RessourceKey
-  color: string; glow: string; gradient: string
-  delta: string
-  onDeltaChange: (v: string) => void
-  onDeltaDecrement: () => void
-  onDeltaIncrement: () => void
-  onAppliquer: () => void
-}) {
-  const pct          = calculPourcentage(actuel, max)
-  const valeurAnimee = useAnimatedValue(actuel)
-  const pctAnimee    = useAnimatedValue(pct)
-
-  // Flash de couleur quand la valeur change
-  const [flash, setFlash] = useState<'gain' | 'perte' | null>(null)
-  const prevActuel = useRef(actuel)
-
-  useEffect(() => {
-    if (prevActuel.current === actuel) return
-    setFlash(actuel > prevActuel.current ? 'gain' : 'perte')
-    const t = setTimeout(() => setFlash(null), 700)
-    prevActuel.current = actuel
-    return () => clearTimeout(t)
-  }, [actuel])
-
-  const deltaValide = delta !== '' && delta !== '0'
-
-  return (
-    <div
-      className="relative p-4 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col gap-3 overflow-hidden transition-all duration-300"
-      style={{
-        backgroundColor: `color-mix(in srgb, ${color} 8%, var(--bg-card))`,
-        border: `1px solid color-mix(in srgb, ${color} 25%, var(--border))`,
-        // Flash ring quand la valeur change
-        boxShadow: flash === 'gain'
-          ? `0 0 0 2px ${color}, 0 0 20px ${glow}`
-          : flash === 'perte'
-          ? `0 0 0 2px #ef4444, 0 0 15px rgba(239,68,68,0.3)`
-          : 'none',
-      }}
-    >
-      {/* Fond lumineux */}
-      <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl pointer-events-none"
-        style={{ backgroundColor: glow }} />
-
-      {/* Label + valeur animée */}
-      <div className="relative z-10 flex justify-between items-center">
-        <span className="text-sm font-bold uppercase tracking-wide flex items-center gap-2"
-          style={{ color: 'var(--text-secondary)' }}>
-          <span className="text-lg">{emoji}</span>
-          {label}
-        </span>
-        <div className="flex items-baseline gap-1">
-          {/* Valeur avec animation de compteur */}
-          <span
-            className="text-2xl sm:text-3xl font-black tabular-nums transition-colors duration-300"
-            style={{
-              color: flash === 'gain' ? '#4ade80' : flash === 'perte' ? '#f87171' : color,
-            }}
-          >
-            {valeurAnimee}
-          </span>
-          <span className="font-bold" style={{ color: 'var(--text-muted)' }}>/ {max}</span>
-        </div>
-      </div>
-
-      {/* Barre de progression — transition CSS smooth */}
-      <div className="relative z-10 w-full rounded-full h-2.5 overflow-hidden"
-        style={{ backgroundColor: 'var(--bg-app)' }}>
-        <div
-          className="h-full rounded-full relative"
-          style={{
-            width: `${pctAnimee}%`,
-            background: gradient,
-            transition: 'width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          }}
-        >
-          <div className="absolute top-0 left-0 right-0 h-1 bg-white/20 rounded-full" />
-        </div>
-      </div>
-
-      {/* Contrôles */}
-      <div className="relative z-10 flex items-center p-1 rounded-xl"
-        style={{ backgroundColor: 'var(--bg-app)', border: '1px solid var(--border)' }}>
-        <button
-          onClick={onDeltaDecrement}
-          className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg font-black text-xl transition flex items-center justify-center shrink-0"
-          style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-          −
-        </button>
-        <input
-          type="number"
-          value={delta}
-          placeholder="±0"
-          onChange={e => onDeltaChange(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && deltaValide && onAppliquer()}
-          className="flex-1 bg-transparent text-center font-bold text-sm outline-none min-w-0"
-          style={{ color: 'var(--text-primary)' }}
-        />
-        <button
-          onClick={onDeltaIncrement}
-          className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg font-black text-xl transition flex items-center justify-center shrink-0"
-          style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-          +
-        </button>
-        <div className="w-px h-6 mx-1 shrink-0" style={{ backgroundColor: 'var(--border)' }} />
-        <button
-          onClick={onAppliquer}
-          disabled={!deltaValide}
-          className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg font-bold transition flex items-center justify-center shrink-0"
-          style={{
-            color: deltaValide ? 'var(--color-light)' : 'var(--text-muted)',
-            cursor: deltaValide ? 'pointer' : 'not-allowed',
-          }}>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ── Composant principal ─────────────────────────────────────────── */
 export default function MonPersonnage() {
   const compte         = useStore(s => s.compte)
   const pnjControle    = useStore(s => s.pnjControle)
@@ -184,15 +29,13 @@ export default function MonPersonnage() {
     }
   }, [personnage?.lie_au_compte])
 
-  const supprimerPersonnage = async () => {
+  const handleSupprimerPersonnage = async () => {
     if (!personnage) return
-    await supabase.from('session_joueurs').delete().eq('id_personnage', personnage.id)
-    await supabase.from('personnage_stats').delete().eq('id_personnage', personnage.id)
-    await supabase.from('inventaire').delete().eq('id_personnage', personnage.id)
-    await supabase.from('personnage_competences').delete().eq('id_personnage', personnage.id)
-    await supabase.from('personnages').delete().eq('id', personnage.id)
-    if (pnjControle) setPnjControle(null)
-    rechargerPersonnage()
+    const success = await personnageService.deletePersonnage(personnage.id)
+    if (success) {
+      if (pnjControle) setPnjControle(null)
+      rechargerPersonnage()
+    }
   }
 
   const appliquerDelta = async (key: RessourceKey) => {
@@ -206,19 +49,16 @@ export default function MonPersonnage() {
     const max    = personnage[champMax]    as number
     const nouveau = Math.max(0, Math.min(max, actuel + delta))
 
-    // ── Mise à jour optimiste : l'UI change AVANT Supabase ──
     await mettreAJourLocalement({ [champActuel]: nouveau } as any)
 
-    // Sync du store pnjControle si besoin
     if (pnjControle && pnjControle.id === personnage.id)
       setPnjControle({ ...pnjControle, [champActuel]: nouveau } as any)
 
     setDeltas(prev => ({ ...prev, [key]: '' }))
   }
 
-  /* ── États vides ── */
   if ((chargementPerso || chargementStats) && !personnage) return (
-    <div className="flex items-center justify-center h-full animate-pulse"
+    <div className="flex items-center justify-center h-full animate-pulse font-bold"
       style={{ color: 'var(--text-muted)' }}>
       Ouverture du grimoire...
     </div>
@@ -227,9 +67,10 @@ export default function MonPersonnage() {
     return <CreerPersonnage estPnj={false} retour={() => rechargerPersonnage()} />
   if (!personnage && compte?.role === 'admin')
     return (
-      <div className="flex items-center justify-center h-full text-center px-6"
+      <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-4"
         style={{ color: 'var(--text-secondary)' }}>
-        Prends le contrôle d'un PNJ depuis la page PNJ
+        <span className="text-4xl">🎭</span>
+        <p className="font-bold">Prends le contrôle d'un PNJ depuis le Bestiaire</p>
       </div>
     )
   if (!personnage) return null
@@ -245,10 +86,10 @@ export default function MonPersonnage() {
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-6 pb-5"
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6 pb-5"
         style={{ borderBottom: '1px solid var(--border)' }}>
         <div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight"
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight"
             style={{
               background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
@@ -256,23 +97,21 @@ export default function MonPersonnage() {
             {personnage.nom}
           </h2>
           {pnjControle && (
-            <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
-              style={{
-                backgroundColor: personnage.est_pnj ? 'rgba(234,179,8,0.15)' : 'rgba(59,130,246,0.15)',
-                color: personnage.est_pnj ? '#fbbf24' : '#60a5fa',
-              }}>
+            <Badge 
+              variant={personnage.est_pnj ? 'warning' : 'default'} 
+              className="mt-2"
+            >
               {personnage.est_pnj ? 'Personnage Non Joueur' : `Joué par : ${pseudoJoueur ?? '...'}`}
-            </span>
+            </Badge>
           )}
         </div>
-        <button
-          onClick={supprimerPersonnage}
-          className="ml-auto sm:ml-0 px-4 py-2 rounded-xl text-sm font-bold transition-all"
-          style={{ color: 'var(--text-muted)' }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.backgroundColor = 'transparent' }}>
+        <ConfirmButton
+          variant="danger"
+          onConfirm={handleSupprimerPersonnage}
+          className="ml-auto sm:ml-0"
+        >
           Supprimer la fiche
-        </button>
+        </ConfirmButton>
       </div>
 
       {/* Barres de ressources */}
@@ -291,7 +130,7 @@ export default function MonPersonnage() {
       </div>
 
       {/* Statistiques */}
-      <h3 className="text-base sm:text-lg font-bold mb-4 flex items-center gap-3"
+      <h3 className="text-lg font-bold mb-4 flex items-center gap-3"
         style={{ color: 'var(--text-primary)' }}>
         <span className="p-2 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           🛡️
@@ -299,23 +138,24 @@ export default function MonPersonnage() {
         Attributs & Statistiques
       </h3>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pb-4">
         {stats.map(stat => (
-          <div key={stat.nom}
-            className="p-4 sm:p-5 rounded-2xl flex flex-col justify-center items-center gap-1.5 transition-all duration-300 cursor-default"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--color-main)')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
-            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-center"
-              style={{ color: 'var(--text-muted)' }}>{stat.nom}</span>
-            <span className="text-3xl sm:text-4xl font-black"
+          <Card 
+            key={stat.nom}
+            hoverEffect
+            className="flex-col justify-center items-center gap-2 p-5 text-center cursor-default group"
+          >
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest opacity-60">
+              {stat.nom}
+            </span>
+            <span className="text-3xl sm:text-4xl font-black transition-transform group-hover:scale-110"
               style={{
                 background: 'linear-gradient(180deg, var(--text-primary), var(--color-main))',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
               }}>
               {stat.valeur}
             </span>
-          </div>
+          </Card>
         ))}
       </div>
     </div>

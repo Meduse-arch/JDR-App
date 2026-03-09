@@ -43,5 +43,34 @@ export const personnageService = {
       .eq('id', idPersonnage)
       
     return !error
+  },
+
+  /**
+   * Modifie plusieurs champs d'un personnage à la fois
+   */
+  updatePersonnage: async (idPersonnage: string, updates: Partial<any>) => {
+    const { error } = await supabase
+      .from('personnages')
+      .update(updates)
+      .eq('id', idPersonnage)
+    
+    if (error) console.error("Erreur mise à jour personnage:", error)
+    return !error
+  },
+
+  /**
+   * Supprime un personnage et toutes ses données liées
+   */
+  deletePersonnage: async (idPersonnage: string) => {
+    // Les suppressions en cascade devraient être gérées par la DB, 
+    // mais on peut aussi le faire explicitement si besoin.
+    // Ici on suit la logique existante du composant.
+    await supabase.from('session_joueurs').delete().eq('id_personnage', idPersonnage)
+    await supabase.from('personnage_stats').delete().eq('id_personnage', idPersonnage)
+    await supabase.from('inventaire').delete().eq('id_personnage', idPersonnage)
+    await supabase.from('personnage_competences').delete().eq('id_personnage', idPersonnage)
+    const { error } = await supabase.from('personnages').delete().eq('id', idPersonnage)
+    
+    return !error
   }
 }

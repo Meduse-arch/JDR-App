@@ -1,6 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
+import { Card } from '../../components/ui/Card'
+import { Input } from '../../components/ui/Input'
+import { Button } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
+
+import { ConfirmButton } from '../../components/ui/ConfirmButton'
 
 type Session = { id: string; nom: string; description: string; date_creation?: string; cree_par: string }
 type Compte  = { id: string; pseudo: string }
@@ -79,12 +85,6 @@ export default function Sessions() {
     setPageCourante('accueil')
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--bg-input)',
-    color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
-  }
-
   if (chargement) return (
     <div className="flex items-center justify-center h-full animate-pulse font-bold text-lg"
       style={{ color: 'var(--text-muted)' }}>
@@ -114,96 +114,72 @@ export default function Sessions() {
           🌌 Multivers
         </h2>
         {(compte?.role === 'admin' || compte?.role === 'mj') && (
-          <button
+          <Button
+            variant={afficherFormulaire ? 'secondary' : 'primary'}
             onClick={() => setAfficherFormulaire(v => !v)}
-            className="px-6 py-2.5 rounded-xl font-bold transition-all hover:-translate-y-0.5 text-white shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))',
-              boxShadow: '0 0 15px var(--color-glow)',
-            }}
+            className="w-full sm:w-auto"
           >
-            {afficherFormulaire ? 'Annuler' : '+ Créer un Univers'}
-          </button>
+            {afficherFormulaire ? '✕ Annuler' : '+ Créer un Univers'}
+          </Button>
         )}
       </div>
 
       {/* Filtres */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {[
-          { icon: '🔍', val: recherche, set: setRecherche, ph: 'Rechercher par nom...' },
-          { icon: '👤', val: filtreMJ,  set: setFiltreMJ,  ph: 'Filtrer par MJ...' },
-        ].map(({ icon, val, set, ph }) => (
-          <div key={ph} className="relative">
-            <span className="absolute left-4 top-3.5 text-sm" style={{ color: 'var(--text-muted)' }}>
-              {icon}
-            </span>
-            <input
-              type="text"
-              placeholder={ph}
-              value={val}
-              onChange={e => set(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none text-sm transition-all"
-              style={inputStyle}
-            />
-          </div>
-        ))}
-        <div className="relative">
-          <span className="absolute left-4 top-3.5 text-sm" style={{ color: 'var(--text-muted)' }}>📅</span>
-          <input
-            type="date"
-            value={filtreDate}
-            onChange={e => setFiltreDate(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none text-sm transition-all [&::-webkit-calendar-picker-indicator]:opacity-40"
-            style={inputStyle}
-          />
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        <Input
+          icon="🔍"
+          type="text"
+          placeholder="Rechercher par nom..."
+          value={recherche}
+          onChange={e => setRecherche(e.target.value)}
+        />
+        <Input
+          icon="👤"
+          type="text"
+          placeholder="Filtrer par MJ..."
+          value={filtreMJ}
+          onChange={e => setFiltreMJ(e.target.value)}
+        />
+        <Input
+          icon="📅"
+          type="date"
+          value={filtreDate}
+          onChange={e => setFiltreDate(e.target.value)}
+          className="[&::-webkit-calendar-picker-indicator]:opacity-40"
+        />
       </div>
 
       {/* Formulaire création */}
       {afficherFormulaire && (
-        <div
-          className="p-6 rounded-3xl mb-8 flex flex-col gap-4"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid color-mix(in srgb, var(--color-main) 40%, var(--border))',
-            boxShadow: '0 0 30px var(--color-glow)',
-          }}
-        >
+        <Card className="mb-8 animate-in fade-in slide-in-from-top-4 duration-300">
           <h3
-            className="font-black text-lg uppercase tracking-widest"
+            className="font-black text-lg uppercase tracking-widest mb-2"
             style={{ color: 'var(--color-light)' }}
           >
             Forger un nouvel univers
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
+            <Input
               type="text"
               placeholder="Nom de la session"
               value={nom}
               onChange={e => setNom(e.target.value)}
-              className="px-4 py-3 rounded-xl outline-none text-sm"
-              style={inputStyle}
             />
-            <input
+            <Input
               type="text"
               placeholder="Description courte (optionnelle)"
               value={description}
               onChange={e => setDescription(e.target.value)}
-              className="px-4 py-3 rounded-xl outline-none text-sm"
-              style={inputStyle}
             />
           </div>
-          <button
+          <Button
             onClick={creerSession}
-            className="px-6 py-3 rounded-xl font-bold text-white transition-all hover:-translate-y-0.5 self-end"
-            style={{
-              background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))',
-              boxShadow: '0 0 15px var(--color-glow)',
-            }}
+            className="mt-4 sm:ml-auto w-full sm:w-auto uppercase tracking-widest"
+            size="lg"
           >
             Générer l'univers
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       {/* Liste des sessions */}
@@ -217,84 +193,59 @@ export default function Sessions() {
           </div>
         )}
         {sessionsFiltrees.map(session => (
-          <div
+          <Card
             key={session.id}
-            className="group relative p-6 rounded-3xl flex flex-col transition-all duration-300 hover:-translate-y-1"
-            style={{
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'var(--color-main)'
-              e.currentTarget.style.boxShadow = '0 10px 30px var(--color-glow)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--border)'
-              e.currentTarget.style.boxShadow = 'none'
-            }}
+            hoverEffect
+            className="flex flex-col justify-between group h-full"
           >
-            <div className="flex-1">
-              <h3 className="font-black text-xl mb-2 leading-tight" style={{ color: 'var(--text-primary)' }}>
+            <div>
+              <h3 className="font-black text-xl mb-2 leading-tight group-hover:text-blue-400 transition-colors" style={{ color: 'var(--text-primary)' }}>
                 {session.nom}
               </h3>
               {session.description && (
-                <p className="text-sm italic line-clamp-3 mb-4" style={{ color: 'var(--text-secondary)' }}>
+                <p className="text-sm italic line-clamp-3 mb-4 opacity-70">
                   {session.description}
                 </p>
               )}
             </div>
 
             <div
-              className="flex items-center justify-between mt-4 pt-4"
+              className="flex items-center justify-between mt-auto pt-4"
               style={{ borderTop: '1px solid var(--border)' }}
             >
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1"
-                  style={{ color: 'var(--text-muted)' }}>
+              <div className="flex flex-col gap-1.5">
+                <Badge variant="ghost" className="flex items-center gap-1 w-fit">
                   👑 {comptes[session.cree_par] || 'Inconnu'}
-                </span>
+                </Badge>
                 {session.date_creation && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider"
-                    style={{ color: 'var(--text-muted)' }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-50 flex items-center gap-1">
                     📅 {new Date(session.date_creation).toLocaleDateString('fr-FR')}
                   </span>
                 )}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0">
                 {compte?.role === 'admin' && (
-                  <button
-                    onClick={() => supprimerSession(session.id)}
-                    className="w-10 h-10 flex items-center justify-center rounded-xl transition-all text-sm"
-                    style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.2)')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)')}
+                  <ConfirmButton
+                    size="sm"
+                    variant="danger"
+                    onConfirm={() => supprimerSession(session.id)}
+                    className="w-auto sm:w-10 px-0"
                   >
                     🗑️
-                  </button>
+                  </ConfirmButton>
                 )}
-                <button
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="bg-transparent border border-[var(--color-main)] text-[var(--color-light)] hover:bg-[var(--color-main)] hover:text-white"
                   onClick={() => rejoindreSession(session)}
-                  className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
-                  style={{
-                    backgroundColor: 'color-mix(in srgb, var(--color-main) 15%, transparent)',
-                    color: 'var(--color-light)',
-                    border: '1px solid color-mix(in srgb, var(--color-main) 40%, transparent)',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-main)'
-                    e.currentTarget.style.color = '#fff'
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--color-main) 15%, transparent)'
-                    e.currentTarget.style.color = 'var(--color-light)'
-                  }}
                 >
                   Rejoindre
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>

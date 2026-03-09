@@ -33,5 +33,31 @@ export const inventaireService = {
   jeterItem: async (idInventaire: string) => {
     const { error } = await supabase.from('inventaire').delete().eq('id', idInventaire)
     return !error
+  },
+
+  /**
+   * Ajoute un objet à l'inventaire d'un personnage
+   */
+  addItem: async (idPersonnage: string, idItem: string, quantite: number) => {
+    // On vérifie si l'item est déjà présent
+    const { data: existing } = await supabase
+      .from('inventaire')
+      .select('id, quantite')
+      .eq('id_personnage', idPersonnage)
+      .eq('id_item', idItem)
+      .single()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('inventaire')
+        .update({ quantite: existing.quantite + quantite })
+        .eq('id', existing.id)
+      return !error
+    } else {
+      const { error } = await supabase
+        .from('inventaire')
+        .insert({ id_personnage: idPersonnage, id_item: idItem, quantite })
+      return !error
+    }
   }
 }

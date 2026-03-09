@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
 import { useStore } from '../store/useStore'
+import { inventaireService } from '../services/inventaireService'
 
-// On définit à quoi ressemble un item dans l'inventaire pour aider TypeScript
 export type ItemInventaire = {
   id: string
   quantite: number
@@ -22,7 +22,7 @@ export function useInventaire() {
   const [inventaire, setInventaire] = useState<ItemInventaire[]>([])
   const [chargement, setChargement] = useState(true)
 
-  const chargerInventaire = async () => {
+  const chargerInventaire = useCallback(async () => {
     setChargement(true)
     try {
       let idPersonnage = pnjControle?.id
@@ -53,11 +53,46 @@ export function useInventaire() {
     } finally {
       setChargement(false)
     }
-  }
+  }, [compte, pnjControle])
 
   useEffect(() => {
     chargerInventaire()
-  }, [compte, pnjControle])
+  }, [chargerInventaire])
 
-  return { inventaire, chargement, rechargerInventaire: chargerInventaire }
+  const toggleEquipementOptimiste = async (idInventaire: string, estEquipe: boolean) => {
+    // 1. Mise à jour optimiste locale
+    setInventaire(prev => prev.map(item => 
+      item.id === idInventaire ? { ...item, equipe: estEquipe } : item
+    ))
+    // 2. Appel au service pour la base de données
+    const success = await inventaireService.toggleEquipement(idInventaire, estEquipe)
+    if (!success) {
+      // Annuler si erreur
+      chargerInventaire()
+    }
+  }
+
+  const consommerItemOptimiste = async (idInventaire: string, quantiteActuelle: number) => {
+    // 1. Mise à jour optimiste locale
+    if (quantiteActuelle <= 1) {
+      setInventaire(prev => prev.filter(item => item.id !== idInventaire))
+    } else {
+      setInventaire(prev => prev.map(item => 
+        item.id === idInventaire ? { ...item, quantite: quantiteActuelle - 1 } : item
+      ))
+    }
+    // 2. Appel au service pour la base de données
+    const success = await inventaireService.consommerItem(idInventaire, quantiteActuelle)
+    if (!success) {
+      chargerInventaire()
+    }
+  }
+
+  return { 
+    inventaire, 
+    chargement, 
+    rechargerInventaire: chargerInventaire,
+    toggleEquipementOptimiste,
+    consommerItemOptimiste
+  }
 }

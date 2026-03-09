@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
 import { useStore, type Personnage } from '../../store/useStore'
+import { Card } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
 
 export default function DashboardAdmin() {
   const sessionActive   = useStore(s => s.sessionActive)
@@ -38,8 +40,6 @@ export default function DashboardAdmin() {
     </div>
   )
 
-  const cardStyle = { backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }
-
   return (
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar"
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
@@ -62,29 +62,28 @@ export default function DashboardAdmin() {
           { label: 'Créer un Item', emoji: '📚', id: 'items' },
           { label: 'Dés Cachés', emoji: '🎲', id: 'lancer-des' },
         ].map(btn => (
-          <button key={btn.id} onClick={() => setPageCourante(btn.id)}
-            className="p-4 rounded-xl flex items-center gap-3 transition-all font-bold hover:-translate-y-0.5"
-            style={cardStyle}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--color-main)')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+          <Card 
+            key={btn.id} 
+            hoverEffect 
+            className="flex-row items-center gap-3 p-4 cursor-pointer"
+            onClick={() => setPageCourante(btn.id)}
+          >
             <span className="text-2xl">{btn.emoji}</span>
-            <span className="text-sm">{btn.label}</span>
-          </button>
+            <span className="text-sm font-bold">{btn.label}</span>
+          </Card>
         ))}
-        <button onClick={chargerTable}
-          className="p-4 rounded-xl flex items-center justify-center gap-2 transition-all font-bold hover:-translate-y-0.5"
-          style={{
-            backgroundColor: 'color-mix(in srgb, var(--color-main) 15%, transparent)',
-            color: 'var(--color-light)',
-            border: '1px solid color-mix(in srgb, var(--color-main) 35%, transparent)',
-          }}>
+        <Button 
+          variant="secondary" 
+          className="h-full p-4 gap-2 border-[var(--color-main)] text-[var(--color-light)] hover:bg-[var(--color-main)] hover:text-white"
+          onClick={chargerTable}
+        >
           <span>🔄</span><span className="text-sm">Rafraîchir</span>
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Aventuriers */}
-        <div className="xl:col-span-2 p-6 rounded-2xl" style={cardStyle}>
+        <Card className="xl:col-span-2 p-6">
           <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-secondary)' }}>
             🛡️ Les Aventuriers
           </h3>
@@ -121,10 +120,10 @@ export default function DashboardAdmin() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* PNJ rapide */}
-        <div className="p-6 rounded-2xl" style={cardStyle}>
+        <Card className="p-6">
           <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-secondary)' }}>
             👤 Accès Rapide PNJ
           </h3>
@@ -136,21 +135,20 @@ export default function DashboardAdmin() {
                 <div key={pnj.id} className="flex items-center justify-between p-3 rounded-xl"
                   style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
                   <span className="font-semibold text-sm truncate mr-2">{pnj.nom}</span>
-                  <button
+                  <Button
+                    size="sm"
                     onClick={() => { setPnjControle(pnj); setPageCourante('mon-personnage') }}
-                    className="text-xs font-bold px-3 py-1.5 rounded-lg text-white shrink-0"
-                    style={{ backgroundColor: 'var(--color-main)' }}>
+                  >
                     Incarner
-                  </button>
+                  </Button>
                 </div>
               ))}
-              <button onClick={() => setPageCourante('pnj')} className="mt-1 text-sm text-center"
-                style={{ color: 'var(--text-muted)' }}>
+              <Button variant="ghost" size="sm" onClick={() => setPageCourante('pnj')} className="mt-1">
                 Voir tout le bestiaire →
-              </button>
+              </Button>
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   )

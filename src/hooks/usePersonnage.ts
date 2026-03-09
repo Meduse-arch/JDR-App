@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
 import { useStore } from '../store/useStore'
+import { personnageService } from '../services/personnageService'
 
 export type PersonnageDetail = {
   id: string
@@ -12,6 +13,7 @@ export type PersonnageDetail = {
   stam_actuel: number
   stam_max: number
   est_pnj: boolean
+  lie_au_compte?: string | null
 }
 
 export function usePersonnage() {
@@ -21,10 +23,9 @@ export function usePersonnage() {
   const [personnage, setPersonnage] = useState<PersonnageDetail | null>(null)
   const [chargement, setChargement] = useState(true)
 
-  const chargerPersonnage = async () => {
+  const chargerPersonnage = useCallback(async () => {
     setChargement(true)
     try {
-      // Si le MJ contrôle un PNJ, on charge ce PNJ
       if (pnjControle) {
         const { data } = await supabase
           .from('personnages')
@@ -33,9 +34,7 @@ export function usePersonnage() {
           .single()
           
         if (data) setPersonnage(data as PersonnageDetail)
-      } 
-      // Sinon on charge le personnage du joueur connecté
-      else {
+      } else {
         if (!compte) return
         const { data } = await supabase
           .from('personnages')
@@ -51,11 +50,28 @@ export function usePersonnage() {
     } finally {
       setChargement(false)
     }
-  }
+  }, [compte, pnjControle])
 
   useEffect(() => {
     chargerPersonnage()
-  }, [compte, pnjControle])
+  }, [chargerPersonnage])
 
-  return { personnage, chargement, rechargerPersonnage: chargerPersonnage }
+  const mettreAJourLocalement = async (updates: Partial<PersonnageDetail>) => {
+    if (!personnage) return
+    // 1. Mise à jour optimiste locale
+    setPersonnage(prev => prev ? { ...prev, ...updates } : null)
+    
+    // 2. Appel au service pour la base de données
+    const success = await personnageService.updatePersonnage(personnage.id, updates)
+    if (!success) {
+      chargerPersonnage()
+    }
+  }
+
+  return { 
+    personnage, 
+    chargement, 
+    rechargerPersonnage: chargerPersonnage,
+    mettreAJourLocalement
+  }
 }

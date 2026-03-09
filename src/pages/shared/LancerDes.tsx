@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useStats } from '../../hooks/useStats'
 import { lancerDes } from '../../utils/des'
+import { Card } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
 
 type Resultat = { label: string; des: number[]; modifier: number; total: number }
 
@@ -28,20 +31,13 @@ export default function LancerDes() {
   }
 
   if (chargement) return (
-    <div className="flex items-center justify-center h-full animate-pulse"
+    <div className="flex items-center justify-center h-full animate-pulse font-bold text-lg"
       style={{ color: 'var(--text-muted)' }}>
       Recherche des dés...
     </div>
   )
 
   const modAffichage = getNum(modInput, 0)
-
-  /* Style réutilisable pour les inputs */
-  const inputBoxStyle = {
-    backgroundColor: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: '1rem',
-  }
 
   return (
     <div
@@ -69,10 +65,7 @@ export default function LancerDes() {
         <div className="lg:col-span-8 flex flex-col gap-8">
 
           {/* Jet manuel */}
-          <div
-            className="relative p-6 md:p-8 rounded-3xl overflow-hidden"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
-          >
+          <Card className="relative overflow-hidden p-6 md:p-8">
             {/* Brillance */}
             <div
               className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-30"
@@ -86,16 +79,15 @@ export default function LancerDes() {
 
             <div className="flex flex-col sm:flex-row flex-wrap items-center gap-4 relative z-10">
               {/* Dés + Faces */}
-              <div className="flex items-center p-2 gap-2 w-full sm:w-auto" style={inputBoxStyle}>
+              <div className="flex items-center p-2 gap-2 w-full sm:w-auto rounded-2xl" 
+                   style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
                 <div className="flex flex-col items-center px-3 flex-1 sm:flex-none">
-                  <label className="text-[10px] font-black uppercase tracking-widest mb-1"
-                    style={{ color: 'var(--text-muted)' }}>Dés</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-50">Dés</label>
                   <input
                     type="number"
                     value={nbDesInput}
                     onChange={e => setNbDesInput(e.target.value)}
                     className="bg-transparent text-2xl font-black w-14 text-center outline-none"
-                    style={{ color: 'var(--text-primary)' }}
                   />
                 </div>
                 <span className="font-black text-2xl" style={{ color: 'var(--color-main)' }}>D</span>
@@ -103,47 +95,41 @@ export default function LancerDes() {
                   className="flex flex-col items-center px-3 flex-1 sm:flex-none"
                   style={{ borderLeft: '1px solid var(--border)' }}
                 >
-                  <label className="text-[10px] font-black uppercase tracking-widest mb-1"
-                    style={{ color: 'var(--text-muted)' }}>Faces</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-50">Faces</label>
                   <input
                     type="number"
                     value={facesDeInput}
                     onChange={e => setFacesDeInput(e.target.value)}
                     className="bg-transparent text-2xl font-black w-14 text-center outline-none"
-                    style={{ color: 'var(--text-primary)' }}
                   />
                 </div>
               </div>
 
-              <span className="font-black text-2xl hidden sm:block" style={{ color: 'var(--border)' }}>+</span>
+              <span className="font-black text-2xl hidden sm:block opacity-30">+</span>
 
               {/* Modificateur */}
-              <div className="flex flex-col items-center p-2 w-full sm:w-auto" style={inputBoxStyle}>
-                <label className="text-[10px] font-black uppercase tracking-widest mb-1"
-                  style={{ color: 'var(--text-muted)' }}>Modificateur</label>
+              <div className="flex flex-col items-center p-2 w-full sm:w-auto rounded-2xl" 
+                   style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+                <label className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-50">Modificateur</label>
                 <input
                   type="number"
                   value={modInput}
                   onChange={e => setModInput(e.target.value)}
                   className="bg-transparent text-2xl font-black w-24 text-center outline-none"
-                  style={{ color: 'var(--text-primary)' }}
                 />
               </div>
 
               {/* Bouton lancer */}
-              <button
+              <Button
+                size="lg"
                 onClick={() => executerLancer('')}
-                className="w-full sm:w-auto sm:ml-auto px-8 py-4 rounded-2xl font-black text-base transition-all hover:-translate-y-1 text-white"
-                style={{
-                  background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))',
-                  boxShadow: '0 0 20px var(--color-glow)',
-                }}
+                className="w-full sm:w-auto sm:ml-auto mt-4 sm:mt-0"
               >
                 LANCER {getNum(nbDesInput, 1)}d{getNum(facesDeInput, 20)}
                 {modAffichage !== 0 && (modAffichage > 0 ? ` +${modAffichage}` : ` −${Math.abs(modAffichage)}`)}
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
 
           {/* Jets de stats rapides */}
           {stats.length > 0 && (
@@ -163,8 +149,7 @@ export default function LancerDes() {
                       border: '1px solid var(--border)',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.backgroundColor =
-                        'color-mix(in srgb, var(--color-main) 10%, var(--bg-card))'
+                      e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--color-main) 10%, var(--bg-card))'
                       e.currentTarget.style.borderColor = 'var(--color-main)'
                     }}
                     onMouseLeave={e => {
@@ -176,15 +161,9 @@ export default function LancerDes() {
                       style={{ color: 'var(--text-secondary)' }}>
                       {stat.nom}
                     </span>
-                    <span
-                      className="font-black text-lg px-4 py-1 rounded-xl transition-all"
-                      style={{
-                        backgroundColor: 'var(--bg-surface)',
-                        color: 'var(--color-light)',
-                      }}
-                    >
+                    <Badge variant="ghost" className="text-sm px-3 group-hover:bg-[var(--color-main)] group-hover:text-white transition-colors">
                       d{stat.valeur}
-                    </span>
+                    </Badge>
                   </button>
                 ))}
               </div>
@@ -193,43 +172,24 @@ export default function LancerDes() {
         </div>
 
         {/* ── Historique ── */}
-        <div className="lg:col-span-4 flex flex-col" style={{ maxHeight: '600px' }}>
-          <div
-            className="rounded-3xl p-5 flex flex-col h-full"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
-          >
+        <div className="lg:col-span-4 flex flex-col h-[500px] lg:h-[600px]">
+          <Card className="flex flex-col h-full p-0 overflow-hidden">
             <div
-              className="flex justify-between items-center mb-5 pb-4"
-              style={{ borderBottom: '1px solid var(--border)' }}
+              className="flex justify-between items-center p-5 border-b"
+              style={{ borderColor: 'var(--border)' }}
             >
               <h3 className="text-xs font-black uppercase tracking-widest"
                 style={{ color: 'var(--text-muted)' }}>
                 Historique
               </h3>
               {historique.length > 0 && (
-                <button
-                  onClick={() => setHistorique([])}
-                  className="text-xs font-bold px-3 py-1 rounded-lg transition-all"
-                  style={{
-                    backgroundColor: 'var(--bg-surface)',
-                    color: 'var(--text-secondary)',
-                    border: '1px solid var(--border)',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--color-main) 20%, transparent)'
-                    e.currentTarget.style.color = 'var(--color-light)'
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.backgroundColor = 'var(--bg-surface)'
-                    e.currentTarget.style.color = 'var(--text-secondary)'
-                  }}
-                >
+                <Button size="sm" variant="ghost" onClick={() => setHistorique([])}>
                   Effacer
-                </button>
+                </Button>
               )}
             </div>
 
-            <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar flex-1 pr-1">
+            <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar flex-1 p-5">
               {historique.length === 0 ? (
                 <p className="text-center font-bold mt-10 italic text-sm"
                   style={{ color: 'var(--text-muted)' }}>
@@ -277,7 +237,7 @@ export default function LancerDes() {
                         <span
                           className={`font-black ${estDernier ? 'text-4xl' : 'text-2xl'}`}
                           style={{
-                            color: estDernier ? 'var(--text-primary)' : 'var(--text-secondary)',
+                            color: estDernier ? 'var(--color-main)' : 'var(--text-secondary)',
                             textShadow: estDernier ? '0 0 20px var(--color-glow)' : 'none',
                           }}
                         >
@@ -289,7 +249,7 @@ export default function LancerDes() {
                 })
               )}
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
