@@ -17,6 +17,7 @@ export default function Bestiaire() {
   const [recherche, setRecherche] = useState('')
   const [quantites, setQuantites] = useState<Record<string, number>>({})
   
+  const pnjControle     = useStore(s => s.pnjControle)
   const setPnjControle  = useStore(s => s.setPnjControle)
   const setPageCourante = useStore(s => s.setPageCourante)
   const sessionActive   = useStore(s => s.sessionActive)
@@ -30,16 +31,16 @@ export default function Bestiaire() {
     const tmpls = await bestiaireService.getTemplates(sessionActive.id, 'Monstre')
     setTemplates(tmpls as Personnage[])
     
-    const newQuantites = { ...quantites }
-    tmpls.forEach(t => { if (!newQuantites[t.id]) newQuantites[t.id] = 1 })
+    const newQuantites: Record<string, number> = {}
+    tmpls.forEach(t => { newQuantites[t.id] = 1 })
     setQuantites(newQuantites)
 
     const instances = await bestiaireService.getInstances(sessionActive.id, 'Monstre')
     setMonstres(instances as Personnage[])
   }
 
-  const templatesFiltres = templates.filter(t => t.nom.toLowerCase().includes(recherche.toLowerCase()))
-  const monstresFiltres = monstres.filter(m => m.nom.toLowerCase().includes(recherche.toLowerCase()))
+  const templatesFiltres = (templates || []).filter(t => t.nom?.toLowerCase().includes(recherche.toLowerCase()))
+  const monstresFiltres = (monstres || []).filter(m => m.nom?.toLowerCase().includes(recherche.toLowerCase()))
 
   const instancierMonstre = async (template: any) => {
     if (!sessionActive) return
@@ -101,7 +102,8 @@ export default function Bestiaire() {
 
       <div className="flex flex-col gap-4">
         {vue === 'modeles' ? (
-          <>
+          <div className="flex flex-col gap-4">
+            {templatesFiltres.length === 0 && <p className="text-center opacity-30 mt-10 italic">Aucun modèle disponible...</p>}
             {templatesFiltres.map(t => (
               <Card key={t.id} className="flex-row justify-between items-center gap-4 hover:border-white/10 transition-all">
                 <div className="flex-1 min-w-0">
@@ -120,9 +122,10 @@ export default function Bestiaire() {
                 </div>
               </Card>
             ))}
-          </>
+          </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {monstresFiltres.length === 0 && <p className="col-span-full text-center opacity-30 mt-10 italic">Aucun monstre en jeu...</p>}
             {monstresFiltres.map(m => (
               <Card key={m.id} className="flex-row justify-between items-center gap-4">
                 <div className="flex-1 min-w-0">

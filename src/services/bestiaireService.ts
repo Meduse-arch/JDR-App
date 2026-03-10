@@ -1,10 +1,11 @@
 import { supabase } from '../supabase'
+import { PersonnageType } from '../Store/useStore'
 
 export const bestiaireService = {
   /**
    * Récupère les modèles
    */
-  getTemplates: async (sessionId: string, type: 'Monstre' | 'PNJ') => {
+  getTemplates: async (sessionId: string, type: PersonnageType) => {
     const { data } = await supabase
       .from('personnages')
       .select('*')
@@ -17,23 +18,31 @@ export const bestiaireService = {
   /**
    * Récupère les instances actives
    */
-  getInstances: async (sessionId: string, type: 'Monstre' | 'PNJ') => {
-    const { data } = await supabase
+  getInstances: async (sessionId: string, type: PersonnageType | PersonnageType[]) => {
+    const query = supabase
       .from('personnages')
       .select('*')
       .eq('id_session', sessionId)
       .eq('is_template', false)
-      .eq('type', type)
+    
+    if (Array.isArray(type)) {
+      query.in('type', type)
+    } else {
+      query.eq('type', type)
+    }
+
+    const { data } = await query
     return data || []
   },
 
   /**
    * Invoque (copie) un modèle vers une instance
    */
-  instancier: async (template: any, sessionId: string, count: number, options?: { nom?: string }) => {
+  instancier: async (template: any, sessionId: string, count: number, options?: { nom?: string, type?: PersonnageType }) => {
     try {
       for (let i = 0; i < count; i++) {
         const nomFinal = count > 1 ? `${options?.nom || template.nom} ${i + 1}` : (options?.nom || template.nom)
+        const typeFinal = options?.type || template.type
 
         // 1. Copie du personnage
         const { data: nouveau, error: errPerso } = await supabase
@@ -41,7 +50,7 @@ export const bestiaireService = {
           .insert({
             id_session: sessionId,
             nom: nomFinal,
-            type: template.type,
+            type: typeFinal,
             is_template: false,
             template_id: template.id,
             hp_max: template.hp_max, hp_actuel: template.hp_max,
@@ -50,22 +59,18 @@ export const bestiaireService = {
           })
           .select().single()
 
-        if (errPerso || !nouveau) continue
+        if (errPerso || !nouveau) {
+          console.error("Erreur instanciation perso:", errPerso)
+          alert(`Erreur base de données : ${errPerso?.message || 'Impossible de créer le personnage'}. \n\nAs-tu bien ajouté le type 'Boss' via la commande SQL ?`)
+          continue
+        }
 
-        // 2. Copie des stats (les 7 stats)
+        // 2. Copie des stats
         const { data: stats } = await supabase.from('personnage_stats').select('id_stat, valeur').eq('id_personnage', template.id)
         if (stats && stats.length > 0) {
           await supabase.from('personnage_stats').insert(
             stats.map(s => ({ id_personnage: nouveau.id, id_stat: s.id_stat, valeur: s.valeur }))
           )
-        } else {
-          // Si pas de stats sur le template, on met les 7 stats de base à 10
-          const { data: allStats } = await supabase.from('stats').select('id')
-          if (allStats) {
-            await supabase.from('personnage_stats').insert(
-              allStats.map(s => ({ id_personnage: nouveau.id, id_stat: s.id, valeur: 10 }))
-            )
-          }
         }
 
         // 3. Copie de l'inventaire
@@ -80,24 +85,24 @@ export const bestiaireService = {
           await supabase.from('personnage_competences').insert(comp.map(c => ({ id_personnage: nouveau.id, id_competence: c.id_competence, niveau: c.niveau })))
         }
 
-        // 5. Lien Session (table session_joueurs pour compatibilité dashboard)
+        // 5. Lien Session
         await supabase.from('session_joueurs').insert({ id_session: sessionId, id_personnage: nouveau.id })
       }
       return true
-    } catch (e) { return false }
+    } catch (e) { 
+      console.error("Erreur instancier:", e)
+      return false 
+    }
   },
 
   /**
-   * Supprime un modèle
+   * Supprimer
    */
   supprimerTemplate: async (id: string) => {
     const { error } = await supabase.from('personnages').delete().eq('id', id)
     return !error
   },
 
-  /**
-   * Supprime une instance active
-   */
   supprimerInstance: async (id: string) => {
     const { error } = await supabase.from('personnages').delete().eq('id', id)
     return !error

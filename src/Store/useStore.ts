@@ -6,9 +6,9 @@ export type ModeId = 'mode-dark' | 'mode-light'
 
 export type Compte = { id: string; pseudo: string; role: RoleId }
 export type Session = { id: string; nom: string; description: string; cree_par: string; created_at?: string }
-export type PersonnageType = 'Joueur' | 'PNJ' | 'Monstre'
+export type PersonnageType = 'Joueur' | 'PNJ' | 'Monstre' | 'Boss'
 
-export interface Personnage {
+export type Personnage = {
   id: string
   id_session: string
   nom: string

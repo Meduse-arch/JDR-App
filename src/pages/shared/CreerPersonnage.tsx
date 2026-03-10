@@ -36,7 +36,10 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
   }, [])
 
   const genererStats = () => {
-    if (stats.length === 0) return
+    if (stats.length === 0) {
+      alert("Erreur : Aucune statistique trouvée en base de données. As-tu bien exécuté l'INSERT des stats après le clear ?")
+      return
+    }
     if (modeCreation === 'roll') {
       const valDe = isAuto ? Math.max(1, Math.floor(maxStat / 4)) : 5
       const resultats = stats.map(stat => {
