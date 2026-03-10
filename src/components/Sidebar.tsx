@@ -1,175 +1,110 @@
-import { useState } from 'react'
-import { useStore } from '../store/useStore'
+import { useStore, type RoleId } from '../Store/useStore'
 
 export default function Sidebar() {
-  const sessionActive  = useStore(s => s.sessionActive)
-  const roleEffectif   = useStore(s => s.roleEffectif)
-  const pageCourante   = useStore(s => s.pageCourante)
+  const pageCourante = useStore(s => s.pageCourante)
   const setPageCourante = useStore(s => s.setPageCourante)
-  const pnjControle    = useStore(s => s.pnjControle)
+  const roleEffectif = useStore(s => s.roleEffectif)
+  const sessionActive = useStore(s => s.sessionActive)
+  const pnjControle = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
+  const compte = useStore(s => s.compte)
 
-  const estAdminOuMJ      = roleEffectif === 'admin' || roleEffectif === 'mj'
-  const afficherPersonnage = roleEffectif === 'joueur' || (estAdminOuMJ && pnjControle)
+  const isMJ = roleEffectif === 'admin' || roleEffectif === 'mj'
 
-  const [menusOuverts, setMenusOuverts] = useState<Record<string, boolean>>({
-    perso: true,
-    utils: true,
-    admin: false,
-  })
-  const toggleMenu = (id: string) =>
-    setMenusOuverts(prev => ({ ...prev, [id]: !prev[id] }))
+  // Menu Standard MJ
+  const menuMJ = [
+    { id: 'dashboard',    label: 'Tableau de bord', icon: '🏰' },
+    { id: 'joueurs',      label: 'Joueurs & MJ',    icon: '👥' },
+    { id: 'pnj',          label: 'PNJ',             icon: '👤' },
+    { id: 'bestiaire',    label: 'Bestiaire',       icon: '🐉' },
+    { id: 'items',        label: 'Objets',          icon: '🎒' },
+    { id: 'competences',  label: 'Compétences',     icon: '✨' },
+    { id: 'quetes',       label: 'Quêtes',          icon: '📜' },
+    { id: 'lancer-des',   label: 'Lancer des dés',  icon: '🎲' },
+    { id: 'gerer',        label: 'Possession',      icon: '🎭' },
+    { id: 'gerer-univers',label: 'Gérer Univers',   icon: '⚙️' },
+  ]
 
-  /* ── Bouton de navigation simple ── */
-  const NavItem = ({
-    id, label, emoji, isSubItem = false,
-  }: { id: string; label: string; emoji?: string; isSubItem?: boolean }) => {
-    const actif = pageCourante === id
-    return (
-      <button
-        onClick={() => setPageCourante(id)}
-        className={`w-full text-left rounded-xl transition-all flex items-center gap-3
-          ${isSubItem ? 'pl-10 pr-3 py-2 text-sm font-medium' : 'px-4 py-3 text-sm font-semibold'}`}
-        style={{
-          backgroundColor: actif
-            ? (isSubItem ? 'color-mix(in srgb, var(--color-main) 15%, transparent)' : 'var(--color-main)')
-            : 'transparent',
-          color: actif
-            ? (isSubItem ? 'var(--color-light)' : '#ffffff')
-            : 'var(--text-secondary)',
-        }}
-        onMouseEnter={e => { if (!actif) e.currentTarget.style.backgroundColor = 'var(--bg-card)' }}
-        onMouseLeave={e => { if (!actif) e.currentTarget.style.backgroundColor = 'transparent' }}
-      >
-        {!isSubItem && <span>{emoji}</span>}
-        <span className="truncate flex-1">{label}</span>
-        {isSubItem && actif && (
-          <span
-            className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ backgroundColor: 'var(--color-main)' }}
-          />
-        )}
-      </button>
-    )
+  // Menu Possession (SANS dashboard pour immersion totale)
+  const menuPossession = [
+    { id: 'mon-personnage', label: 'Ma Fiche',        icon: '📖' },
+    { id: 'mon-inventaire', label: 'Mon Sac',         icon: '🎒' },
+    { id: 'mes-competences',label: 'Mes Skills',      icon: '✨' },
+    { id: 'mes-quetes',     label: 'Mes Quêtes',      icon: '📜' },
+    { id: 'lancer-des',     label: 'Lancer des dés',  icon: '🎲' },
+  ]
+
+  // Menu Joueur Standard
+  const menuJoueur = [
+    { id: 'dashboard',      label: 'Mon Destin',      icon: '🕯️' },
+    { id: 'mon-personnage', label: 'Ma Fiche',        icon: '📖' },
+    { id: 'mon-inventaire', label: 'Mon Sac',         icon: '🎒' },
+    { id: 'mes-competences',label: 'Mes Skills',      icon: '✨' },
+    { id: 'mes-quetes',     label: 'Mes Quêtes',      icon: '📜' },
+    { id: 'lancer-des',     label: 'Lancer des dés',  icon: '🎲' },
+  ]
+
+  let menu = menuJoueur
+  if (isMJ) {
+    menu = pnjControle ? menuPossession : menuMJ
   }
 
-  /* ── Groupe accordéon ── */
-  const NavGroup = ({
-    id, label, emoji, children,
-  }: { id: string; label: string; emoji: string; children: React.ReactNode }) => {
-    const ouvert = menusOuverts[id]
-    return (
-      <div className="flex flex-col gap-0.5">
-        <button
-          onClick={() => toggleMenu(id)}
-          className="w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all flex items-center gap-3"
-          style={{ color: ouvert ? 'var(--text-primary)' : 'var(--text-secondary)' }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-card)')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-        >
-          <span>{emoji}</span>
-          <span className="flex-1 truncate">{label}</span>
-          <span
-            className="text-[10px] transition-transform duration-200"
-            style={{
-              color: 'var(--text-muted)',
-              transform: ouvert ? 'rotate(0deg)' : 'rotate(-90deg)',
-            }}
-          >
-            ▼
-          </span>
-        </button>
-
-        {ouvert && (
-          <div className="relative flex flex-col gap-0.5 mt-0.5 mb-1">
-            {/* Ligne de hiérarchie */}
-            <div
-              className="absolute left-[1.35rem] top-2 bottom-2 w-px"
-              style={{ backgroundColor: 'var(--border)' }}
-            />
-            {children}
-          </div>
-        )}
-      </div>
-    )
-  }
+  if (!sessionActive) return null
 
   return (
-    <aside
-      className="w-56 shrink-0 flex flex-col py-5 px-3 gap-1 overflow-y-auto overflow-x-hidden custom-scrollbar border-r"
-      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+    <aside 
+      className="w-64 border-r border-theme flex flex-col shrink-0 overflow-hidden"
+      style={{ backgroundColor: 'var(--bg-surface)' }}
     >
-      {/* Badge rôle */}
-      {sessionActive && roleEffectif && (
-        <div
-          className="mx-1 mb-4 px-3 py-1.5 rounded-xl text-xs font-black text-center tracking-wide uppercase border"
-          style={{
-            backgroundColor: 'color-mix(in srgb, var(--color-main) 15%, transparent)',
-            color: 'var(--color-light)',
-            borderColor: 'color-mix(in srgb, var(--color-main) 40%, transparent)',
-          }}
-        >
-          {roleEffectif === 'admin' ? '⚡ Admin'
-            : roleEffectif === 'mj' ? '🎭 Maître du Jeu'
-            : '🧑 Joueur'}
-        </div>
-      )}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-6 flex flex-col">
+        
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30 mb-6 text-main">
+          {pnjControle ? `Incarne : ${pnjControle.nom}` : 'Navigation'}
+        </p>
 
-      <NavItem id="dashboard" label="Dashboard" emoji="🏠" />
+        <nav className="flex flex-col gap-1">
+          {menu.map(item => {
+            const actif = pageCourante === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => setPageCourante(item.id)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all group ${actif ? 'bg-main text-white shadow-lg shadow-main/20' : 'hover:bg-white/5 opacity-60 hover:opacity-100'}`}
+                style={{ backgroundColor: actif ? 'var(--color-main)' : 'transparent' }}
+              >
+                <span className={`text-lg transition-transform group-hover:scale-110 ${actif ? 'filter-none' : 'grayscale opacity-50'}`}>
+                  {item.icon}
+                </span>
+                {item.label}
+              </button>
+            )
+          })}
 
-      {sessionActive && (
-        <>
-          {/* GROUPE PERSONNAGE */}
-          {afficherPersonnage && (
-            <NavGroup
-              id="perso"
-              label={pnjControle ? pnjControle.nom : 'Mon Personnage'}
-              emoji="🎭"
-            >
-              <NavItem id="mon-personnage" label="Fiche de stats"   isSubItem />
-              <NavItem id="mon-inventaire" label="Inventaire"       isSubItem />
-              <NavItem id="mes-competences" label="Mes Compétences" isSubItem />
-
-              {pnjControle && (
-                <button
-                  onClick={() => { setPnjControle(null); setPageCourante('dashboard') }}
-                  className="w-full text-left pl-10 pr-3 py-2 mt-1 rounded-xl text-xs font-semibold transition flex items-center gap-2"
-                  style={{ color: '#f87171' }}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  <span>✖️</span> Lâcher le contrôle
-                </button>
-              )}
-            </NavGroup>
-          )}
-
-          {/* GROUPE UTILITAIRES */}
-          <NavGroup id="utils" label="Utilitaires" emoji="🛠️">
-            <NavItem id="lancer-des" label="Lancer des dés" isSubItem />
-          </NavGroup>
-
-          {/* GROUPE ADMINISTRATION */}
-          {estAdminOuMJ && (
-            <div
-              className="mt-3 pt-3 border-t flex flex-col gap-0.5"
-              style={{ borderColor: 'var(--border)' }}
-            >
-              <NavGroup id="admin" label="Administration" emoji="👑">
-                <NavItem id="pnj"         label="PNJ"         isSubItem />
-                <NavItem id="bestiaire"   label="Bestiaire & Mobs"    isSubItem />
-                <NavItem id="items"       label="Bibliothèque Items"   isSubItem />
-                <NavItem id="competences" label="Compétences"         isSubItem />
-                <NavItem id="joueurs"     label="Gérer les Joueurs"    isSubItem />
-                <NavItem id="gerer"       label="Paramètres Session"   isSubItem />
-                {roleEffectif === 'admin' && (
-                  <NavItem id="gerer-mj" label="Gérer les MJ" isSubItem />
-                )}
-              </NavGroup>
+          {isMJ && pnjControle && (
+            <div className="mt-6 pt-6 border-t border-white/5 flex flex-col gap-1">
+              <p className="text-[9px] font-black uppercase opacity-20 mb-2 ml-4">Pouvoirs MJ</p>
+              <button onClick={() => setPageCourante('gerer')} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${pageCourante === 'gerer' ? 'bg-white/10 text-white' : 'opacity-40 hover:opacity-100'}`}>
+                <span>🎭</span> Possession
+              </button>
+              <button onClick={() => setPageCourante('gerer-univers')} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${pageCourante === 'gerer-univers' ? 'bg-white/10 text-white' : 'opacity-40 hover:opacity-100'}`}>
+                <span>⚙️</span> Gérer Univers
+              </button>
+              <button onClick={() => { setPnjControle(null); setPageCourante('dashboard') }} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase text-red-400 hover:bg-red-500/10 transition-all mt-2">
+                <span>✖</span> Lâcher l'hôte
+              </button>
             </div>
           )}
-        </>
-      )}
+        </nav>
+      </div>
+
+      <div className="p-6 border-t border-theme">
+        <div className="p-4 rounded-2xl bg-black/20 border border-white/5 flex flex-col gap-1">
+          <p className="text-[9px] font-black uppercase opacity-30 tracking-widest">Rôle Actuel</p>
+          <p className="text-xs font-bold uppercase tracking-tighter" style={{ color: 'var(--color-light)' }}>
+            {roleEffectif === 'mj' ? 'Maître du Jeu' : roleEffectif}
+          </p>
+        </div>
+      </div>
     </aside>
   )
 }

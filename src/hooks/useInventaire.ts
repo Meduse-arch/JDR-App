@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
-import { useStore } from '../store/useStore'
+import { useStore } from '../Store/useStore'
 import { inventaireService } from '../services/inventaireService'
 
 export type ItemInventaire = {
@@ -33,7 +33,8 @@ export function useInventaire() {
           .from('personnages')
           .select('id')
           .eq('lie_au_compte', compte.id)
-          .eq('est_pnj', false)
+          .eq('type', 'Joueur')
+          .eq('is_template', false)
           .single()
         
         if (!perso) return
@@ -60,20 +61,16 @@ export function useInventaire() {
   }, [chargerInventaire])
 
   const toggleEquipementOptimiste = async (idInventaire: string, estEquipe: boolean) => {
-    // 1. Mise à jour optimiste locale
     setInventaire(prev => prev.map(item => 
       item.id === idInventaire ? { ...item, equipe: estEquipe } : item
     ))
-    // 2. Appel au service pour la base de données
     const success = await inventaireService.toggleEquipement(idInventaire, estEquipe)
     if (!success) {
-      // Annuler si erreur
       chargerInventaire()
     }
   }
 
   const consommerItemOptimiste = async (idInventaire: string, quantiteActuelle: number) => {
-    // 1. Mise à jour optimiste locale
     if (quantiteActuelle <= 1) {
       setInventaire(prev => prev.filter(item => item.id !== idInventaire))
     } else {
@@ -81,7 +78,6 @@ export function useInventaire() {
         item.id === idInventaire ? { ...item, quantite: quantiteActuelle - 1 } : item
       ))
     }
-    // 2. Appel au service pour la base de données
     const success = await inventaireService.consommerItem(idInventaire, quantiteActuelle)
     if (!success) {
       chargerInventaire()

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore, type Personnage } from '../../store/useStore'
+import { useStore, type Personnage } from '../../Store/useStore'
 import CreerTemplate from './CreerTemplate'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'

@@ -1,62 +1,120 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore, type Personnage } from '../../store/useStore'
+import { useStore, type Personnage } from '../../Store/useStore'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
+import { sessionService } from '../../services/sessionService'
 
 export default function Joueurs() {
   const [personnages, setPersonnages] = useState<Personnage[]>([])
+  const [mjsIds, setMjsIds] = useState<string[]>([])
+  const [chargement, setChargement] = useState(true)
+
   const setPnjControle  = useStore(s => s.setPnjControle)
   const setPageCourante = useStore(s => s.setPageCourante)
   const sessionActive   = useStore(s => s.sessionActive)
+  const roleEffectif    = useStore(s => s.roleEffectif)
 
-  useEffect(() => { chargerJoueurs() }, [])
+  useEffect(() => { 
+    if (sessionActive) chargerDonnees() 
+  }, [sessionActive])
 
-  const chargerJoueurs = async () => {
+  const chargerDonnees = async () => {
     if (!sessionActive) return
-    const { data } = await supabase
-      .from('session_joueurs').select('personnages(*)').eq('id_session', sessionActive.id)
-    if (data) {
-      setPersonnages(
-        data.map((d: any) => d.personnages).filter((p: any) => p?.est_pnj === false)
-      )
-    }
+    setChargement(true)
+
+    // 1. Charger les joueurs
+    const { data: persos } = await supabase
+      .from('personnages')
+      .select('*')
+      .eq('id_session', sessionActive.id)
+      .eq('type', 'Joueur')
+      .eq('is_template', false)
+    
+    // 2. Charger les MJs de la session
+    const { data: mjs } = await supabase
+      .from('session_mj')
+      .select('id_compte')
+      .eq('id_session', sessionActive.id)
+
+    if (persos) setPersonnages(persos)
+    if (mjs) setMjsIds(mjs.map(m => m.id_compte))
+    setChargement(false)
   }
+
+  const toggleMJ = async (idCompte: string, estDejaMJ: boolean) => {
+    if (!sessionActive) return
+    let success = false
+    if (estDejaMJ) {
+      success = await sessionService.retirerMJ(sessionActive.id, idCompte)
+    } else {
+      success = await sessionService.ajouterMJ(sessionActive.id, idCompte)
+    }
+    if (success) chargerDonnees()
+  }
+
+  // On retire le blocage visuel du chargement
+
 
   return (
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar"
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
 
-      <h2 className="text-2xl md:text-3xl font-black mb-8 tracking-tight"
-        style={{
-          background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-        }}>
-        Joueurs
-      </h2>
+      <div className="mb-8 border-b border-white/5 pb-6">
+        <h2 className="text-3xl font-black uppercase italic tracking-tighter"
+          style={{ background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+          👥 Population de l'Univers
+        </h2>
+        <p className="text-sm opacity-50 mt-1">Gère les joueurs et les droits de Maître du Jeu</p>
+      </div>
 
       <div className="flex flex-col gap-4">
         {personnages.length === 0 && (
-          <p className="text-center mt-16" style={{ color: 'var(--text-secondary)' }}>
-            Aucun joueur dans cette session
-          </p>
+          <div className="text-center py-20 opacity-40 bg-white/5 rounded-3xl border-2 border-dashed border-white/5">
+            <span className="text-6xl mb-4 block">🧑</span>
+            <p className="text-lg font-bold">Aucun héros n'a encore rejoint cette session.</p>
+          </div>
         )}
-        {personnages.map(perso => (
-          <Card key={perso.id} className="flex-row justify-between items-center gap-4">
-            <div>
-              <h3 className="font-bold text-lg leading-tight">{perso.nom}</h3>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                HP : <span className="font-black text-[#ef4444]">{perso.hp_actuel}</span> / {perso.hp_max}
-              </p>
-            </div>
-            <Button
-              onClick={() => { setPnjControle(perso); setPageCourante('mon-personnage') }}
-              className="shrink-0"
-            >
-              Gérer la fiche
-            </Button>
-          </Card>
-        ))}
+        {personnages.map(perso => {
+          const estMJ = perso.lie_au_compte ? mjsIds.includes(perso.lie_au_compte) : false
+          
+          return (
+            <Card key={perso.id} className="flex-row justify-between items-center gap-4 hover:border-white/10 transition-all">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-bold text-lg leading-tight truncate">{perso.nom}</h3>
+                  {estMJ && <Badge variant="outline" className="text-[9px] border-main text-main font-black">CO-MJ</Badge>}
+                </div>
+                <p className="text-xs mt-1 opacity-50 uppercase font-black tracking-widest">
+                  HP : <span className="text-red-400">{perso.hp_actuel}</span> / {perso.hp_max}
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                {/* Seul un ADMIN peut nommer des MJ */}
+                {roleEffectif === 'admin' && perso.lie_au_compte && (
+                  <Button 
+                    variant={estMJ ? 'secondary' : 'primary'} 
+                    size="sm" 
+                    onClick={() => toggleMJ(perso.lie_au_compte!, estMJ)}
+                    className="text-[10px] uppercase font-black px-3"
+                  >
+                    {estMJ ? 'Retirer MJ' : 'Nommer MJ'}
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setPnjControle(perso); setPageCourante('mon-personnage') }}
+                  className="border border-white/5 text-[10px] uppercase font-black px-3"
+                >
+                  Fiche
+                </Button>
+              </div>
+            </Card>
+          )
+        })}
       </div>
     </div>
   )

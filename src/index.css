@@ -10,6 +10,25 @@
    ============================================================ */
 
 @layer base {
+  :root {
+    --color-main:    #a855f7;
+    --color-light:   #c084fc;
+    --color-dark:    #7e22ce;
+    --color-glow:    rgba(168, 85, 247, 0.3);
+    --color-accent2: #ec4899;
+
+    --bg-app:        #030712;
+    --bg-surface:    #111827;
+    --bg-card:       #1f2937;
+    --bg-card-hover: #374151;
+    --bg-input:      #111827;
+    --border:        #374151;
+    --border-subtle: rgba(55, 65, 81, 0.5);
+
+    --text-primary:  #f9fafb;
+    --text-secondary:#9ca3af;
+    --text-muted:    #6b7280;
+  }
 
   /* ----------------------------------------------------------
      🟣 VIOLET / PINK  — inspiré de MonPersonnage

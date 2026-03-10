@@ -1,42 +1,92 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore, type Personnage } from '../../store/useStore'
+import { useStore, type Personnage } from '../../Store/useStore'
 import { Card } from '../../components/ui/Card'
+import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 
 export default function DashboardAdmin() {
-  const sessionActive   = useStore(s => s.sessionActive)
+  const sessionActive = useStore(s => s.sessionActive)
   const setPageCourante = useStore(s => s.setPageCourante)
-  const setPnjControle  = useStore(s => s.setPnjControle)
+  const setPnjControle = useStore(s => s.setPnjControle)
 
-  const [joueurs,    setJoueurs]    = useState<Personnage[]>([])
-  const [pnjs,       setPnjs]       = useState<Personnage[]>([])
-  const [chargement, setChargement] = useState(true)
+  const [joueurs, setJoueurs] = useState<Personnage[]>([])
+  const [pnjs, setPnjs] = useState<Personnage[]>([])
+  const [mobs, setMobs] = useState<Personnage[]>([])
+  const [stats, setStats] = useState({
+    items: 0,
+    competences: 0,
+    templates: 0
+  })
 
-  useEffect(() => { chargerTable() }, [sessionActive])
+  useEffect(() => {
+    if (sessionActive) {
+      chargerDonnees()
+      
+      // Realtime subscription to update bars automatically
+      const channel = supabase
+        .channel('schema-db-changes')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'personnages', filter: `id_session=eq.${sessionActive.id}` },
+          () => chargerDonnees()
+        )
+        .subscribe()
 
-  const chargerTable = async () => {
-    if (!sessionActive) { setChargement(false); return }
-    const { data } = await supabase
-      .from('session_joueurs').select('personnages(*, comptes(pseudo))').eq('id_session', sessionActive.id)
-    if (data) {
-      const persos = data.map((d: any) => d.personnages).filter(Boolean)
-      setJoueurs(persos.filter((p: any) => !p.est_pnj))
-      setPnjs(persos.filter((p: any) => p.est_pnj && !p.nom.startsWith('[Modèle]')).slice(0, 4))
+      return () => { supabase.removeChannel(channel) }
     }
-    setChargement(false)
+  }, [sessionActive])
+
+  const chargerDonnees = async () => {
+    if (!sessionActive) return
+
+    // 1. Personnages
+    const { data: persos } = await supabase
+      .from('personnages')
+      .select('*')
+      .eq('id_session', sessionActive.id)
+      .eq('is_template', false)
+
+    if (persos) {
+      setJoueurs(persos.filter(p => p.type === 'Joueur'))
+      setPnjs(persos.filter(p => p.type === 'PNJ'))
+      setMobs(persos.filter(p => p.type === 'Monstre'))
+    }
+
+    // 2. Statistiques globales
+    const [itemsRes, compRes, tmplRes] = await Promise.all([
+      supabase.from('items').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id),
+      supabase.from('competences').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id),
+      supabase.from('personnages').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id).eq('is_template', true)
+    ])
+
+    setStats({
+      items: itemsRes.count || 0,
+      competences: compRes.count || 0,
+      templates: tmplRes.count || 0
+    })
   }
 
-  if (chargement) return (
-    <div className="p-8 animate-pulse" style={{ color: 'var(--text-muted)' }}>
-      Installation de la table...
+  const ResourceBar = ({ current, max, color, label }: { current: number, max: number, color: string, label: string }) => (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex justify-between items-center text-[9px] font-black uppercase opacity-50">
+        <span>{label}</span>
+        <span>{current} / {max}</span>
+      </div>
+      <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
+        <div 
+          className="h-full transition-all duration-500 ease-out" 
+          style={{ width: `${Math.max(0, Math.min(100, (current / max) * 100))}%`, backgroundColor: color }} 
+        />
+      </div>
     </div>
   )
-  if (!sessionActive) return (
-    <div className="flex flex-col items-center justify-center h-full gap-4"
-      style={{ color: 'var(--text-secondary)' }}>
-      <span className="text-4xl">👑</span>
-      <p>Sélectionne ou crée une session depuis le menu.</p>
+
+  const QuickStat = ({ label, value, icon, color }: any) => (
+    <div className="flex flex-col p-4 rounded-2xl bg-white/5 border border-white/5">
+      <span className="text-2xl mb-1">{icon}</span>
+      <span className="text-xl font-black" style={{ color }}>{value}</span>
+      <span className="text-[10px] font-black uppercase tracking-widest opacity-40">{label}</span>
     </div>
   )
 
@@ -44,112 +94,136 @@ export default function DashboardAdmin() {
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar"
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
 
-      <div className="mb-8">
-        <h2 className="text-2xl md:text-3xl font-black mb-1">
-          Panneau du{' '}
-          <span style={{
-            background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>Maître du Jeu</span>
-        </h2>
-        <p style={{ color: 'var(--text-secondary)' }}>Session active : {sessionActive.nom}</p>
+      {/* ── HEADER ── */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-10 pb-8 border-b border-white/5">
+        <div className="max-w-2xl">
+          <Badge variant="outline" className="mb-3">ADMINISTRATION MJ</Badge>
+          <h2 className="text-4xl font-black tracking-tighter uppercase italic">
+            Univers : <span style={{ color: 'var(--color-light)' }}>{sessionActive?.nom}</span>
+          </h2>
+          {sessionActive?.description && (
+            <p className="text-sm opacity-60 mt-2 italic leading-relaxed">"{sessionActive.description}"</p>
+          )}
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+          <QuickStat label="Modèles" value={stats.templates} icon="📋" color="var(--color-main)" />
+          <QuickStat label="Objets" value={stats.items} icon="🎒" color="#10b981" />
+          <QuickStat label="Sorts" value={stats.competences} icon="✨" color="#a855f7" />
+        </div>
       </div>
 
-      {/* Raccourcis */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        {[
-          { label: 'Bestiaire', emoji: '👹', id: 'bestiaire' },
-          { label: 'Items', emoji: '📚', id: 'items' },
-          { label: 'Compétences', emoji: '📖', id: 'competences' },
-          { label: 'Dés', emoji: '🎲', id: 'lancer-des' },
-        ].map(btn => (
-          <Card 
-            key={btn.id} 
-            hoverEffect 
-            className="flex-row items-center gap-3 p-4 cursor-pointer"
-            onClick={() => setPageCourante(btn.id)}
-          >
-            <span className="text-2xl">{btn.emoji}</span>
-            <span className="text-sm font-bold">{btn.label}</span>
-          </Card>
-        ))}
-        <Button 
-          variant="secondary" 
-          className="h-full p-4 gap-2 border-[var(--color-main)] text-[var(--color-light)] hover:bg-[var(--color-main)] hover:text-white"
-          onClick={chargerTable}
-        >
-          <span>🔄</span><span className="text-sm">Rafraîchir</span>
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Aventuriers */}
-        <Card className="xl:col-span-2 p-6">
-          <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-secondary)' }}>
-            🛡️ Les Aventuriers
-          </h3>
-          {joueurs.length === 0 ? (
-            <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>
-              Aucun joueur n'a créé de personnage.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 mb-10">
+        
+        {/* ── COLONNE GAUCHE : JOUEURS ── */}
+        <div className="xl:col-span-5 flex flex-col gap-6">
+          <Card className="flex flex-col gap-4 border-l-4 border-l-green-500">
+            <div className="flex justify-between items-center border-b border-white/5 pb-3">
+              <h3 className="font-black uppercase tracking-widest text-xs opacity-50 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Joueurs
+              </h3>
+              <Badge>{joueurs.length}</Badge>
+            </div>
+            <div className="flex flex-col gap-4">
+              {joueurs.length === 0 && <p className="text-xs italic opacity-30 py-8 text-center bg-black/10 rounded-xl">L'aventure attend ses héros...</p>}
               {joueurs.map(j => (
-                <div key={j.id} className="p-4 rounded-xl"
-                  style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
-                  <p className="font-bold text-lg mb-0.5" style={{ color: 'var(--color-light)' }}>{j.nom}</p>
-                  <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                    Joué par {j.comptes?.pseudo || '?'}
-                  </p>
-                  {[
-                    { emoji: '❤️', a: j.hp_actuel,   m: j.hp_max,   c: '#ef4444' },
-                    { emoji: '💧', a: j.mana_actuel, m: j.mana_max, c: '#3b82f6' },
-                    { emoji: '⚡', a: j.stam_actuel, m: j.stam_max, c: '#eab308' },
-                  ].map(r => (
-                    <div key={r.emoji} className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs w-5">{r.emoji}</span>
-                      <div className="flex-1 rounded-full h-2" style={{ backgroundColor: 'var(--bg-app)' }}>
-                        <div className="h-2 rounded-full"
-                          style={{ width: `${Math.min(100, (r.a / r.m) * 100)}%`, backgroundColor: r.c }} />
-                      </div>
-                      <span className="text-xs font-mono w-8 text-right" style={{ color: 'var(--text-muted)' }}>
-                        {r.a}
-                      </span>
+                <button 
+                  key={j.id} 
+                  onClick={() => { setPnjControle(j); setPageCourante('mon-personnage') }}
+                  className="flex flex-col gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-main/50 hover:bg-main/5 transition-all text-left group"
+                >
+                  <div className="flex justify-between items-center">
+                    <p className="font-black text-sm uppercase tracking-tight" style={{ color: 'var(--color-light)' }}>{j.nom}</p>
+                    <span className="text-[9px] font-black opacity-0 group-hover:opacity-40 transition-opacity uppercase">Gérer Fiche →</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-3">
+                    <ResourceBar current={j.hp_actuel} max={j.hp_max} color="#ef4444" label="PV" />
+                    <div className="grid grid-cols-2 gap-4">
+                      <ResourceBar current={j.mana_actuel} max={j.mana_max} color="#3b82f6" label="Mana" />
+                      <ResourceBar current={j.stam_actuel} max={j.stam_max} color="#eab308" label="Stam" />
                     </div>
-                  ))}
-                </div>
+                  </div>
+                </button>
               ))}
             </div>
-          )}
-        </Card>
+            <Button variant="ghost" size="sm" onClick={() => setPageCourante('joueurs')}>Gérer tous les joueurs</Button>
+          </Card>
 
-        {/* PNJ rapide */}
-        <Card className="p-6">
-          <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-secondary)' }}>
-            👤 Accès Rapide PNJ
-          </h3>
-          {pnjs.length === 0 ? (
-            <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>Aucun PNJ créé.</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {pnjs.map(pnj => (
-                <div key={pnj.id} className="flex items-center justify-between p-3 rounded-xl"
-                  style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
-                  <span className="font-semibold text-sm truncate mr-2">{pnj.nom}</span>
-                  <Button
-                    size="sm"
-                    onClick={() => { setPnjControle(pnj); setPageCourante('mon-personnage') }}
-                  >
-                    Incarner
-                  </Button>
-                </div>
-              ))}
-              <Button variant="ghost" size="sm" onClick={() => setPageCourante('pnj')} className="mt-1">
-                Voir tout le bestiaire →
-              </Button>
+          <Card className="bg-gradient-to-br from-main/20 to-transparent border-main/20">
+            <h3 className="font-black uppercase tracking-widest text-xs opacity-50 mb-4">Raccourcis MJ</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setPageCourante('bestiaire')}>🐉 Bestiaire</Button>
+              <Button size="sm" variant="secondary" onClick={() => setPageCourante('pnj')}>👤 PNJ</Button>
+              <Button size="sm" variant="secondary" onClick={() => setPageCourante('items')}>🎒 Items</Button>
+              <Button size="sm" variant="secondary" onClick={() => setPageCourante('competences')}>✨ Sorts</Button>
             </div>
-          )}
-        </Card>
+          </Card>
+        </div>
+
+        {/* ── COLONNE CENTRALE : PNJ & MOB ACTIFS ── */}
+        <div className="xl:col-span-7 flex flex-col gap-6">
+          <Card className="flex-1">
+            <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+              <h3 className="font-black uppercase tracking-widest text-xs opacity-50">Entités en Session</h3>
+              <div className="flex gap-2">
+                <Badge variant="outline">👥 {pnjs.length} PNJ</Badge>
+                <Badge variant="outline">⚔️ {mobs.length} Mobs</Badge>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[...pnjs, ...mobs].length === 0 && (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center opacity-20 border-2 border-dashed border-white/10 rounded-3xl">
+                  <span className="text-6xl mb-4">🎭</span>
+                  <p className="font-black uppercase tracking-widest">Le plateau est vide</p>
+                </div>
+              )}
+              {[...pnjs, ...mobs].slice(0, 10).map(p => (
+                <Card key={p.id} className="flex-col gap-2 p-3 bg-white/5 border-white/5 hover:border-white/20 transition-all">
+                  <div className="flex justify-between items-center">
+                    <p className="font-bold text-xs truncate flex items-center gap-2">
+                      <span className="opacity-50">{p.type === 'PNJ' ? '👤' : '🐉'}</span>
+                      {p.nom}
+                    </p>
+                    <button 
+                      onClick={() => { setPnjControle(p); setPageCourante('mon-personnage') }}
+                      className="text-[9px] font-black opacity-30 hover:opacity-100 hover:text-main transition-all uppercase"
+                    >
+                      Gérer
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[8px] font-black opacity-40 uppercase">
+                      <span>HP</span>
+                      <span>{p.hp_actuel} / {p.hp_max}</span>
+                    </div>
+                    <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-red-500/60" style={{ width: `${(p.hp_actuel / p.hp_max) * 100}%` }} />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+            
+            {[...pnjs, ...mobs].length > 10 && (
+              <p className="text-center text-[10px] font-black opacity-30 mt-4 uppercase">Et {( [...pnjs, ...mobs].length - 10 )} autres entités...</p>
+            )}
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <Card className="bg-blue-500/5 border-blue-500/20">
+                <h4 className="font-black text-[10px] uppercase opacity-50 mb-2 tracking-tighter">Dernier Événement</h4>
+                <p className="text-xs italic opacity-70">"L'univers de {sessionActive?.nom} s'éveille sous vos ordres."</p>
+             </Card>
+             <Card className="bg-purple-500/5 border-purple-500/20">
+                <h4 className="font-black text-[10px] uppercase opacity-50 mb-2 tracking-tighter">Astuce</h4>
+                <p className="text-xs italic opacity-70">Utilise les Modèles pour invoquer rapidement des groupes d'ennemis.</p>
+             </Card>
+          </div>
+        </div>
+
       </div>
     </div>
   )

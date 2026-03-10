@@ -3,12 +3,12 @@ import { Item, Modificateur, Stat, CategorieItem } from '../types';
 
 export const itemsService = {
   /**
-   * Récupère tous les items d'une session
+   * Récupère tous les items d'une session avec leurs modificateurs
    */
-  getItems: async (idSession: string): Promise<Item[]> => {
+  getItems: async (idSession: string): Promise<(Item & { item_modificateurs: any[] })[]> => {
     const { data, error } = await supabase
       .from('items')
-      .select('*')
+      .select('*, item_modificateurs(*)')
       .eq('id_session', idSession)
       .order('nom');
     
@@ -25,26 +25,10 @@ export const itemsService = {
   getStats: async (): Promise<Stat[]> => {
     const { data, error } = await supabase
       .from('stats')
-      .select('id, nom');
+      .select('id, nom, description');
     
     if (error) {
       console.error("Erreur récupération stats:", error);
-      return [];
-    }
-    return data || [];
-  },
-
-  /**
-   * Récupère les modificateurs d'un item
-   */
-  getItemModificateurs: async (idItem: string): Promise<Modificateur[]> => {
-    const { data, error } = await supabase
-      .from('item_modificateurs')
-      .select('*')
-      .eq('id_item', idItem);
-    
-    if (error) {
-      console.error("Erreur récupération modificateurs:", error);
       return [];
     }
     return data || [];
@@ -57,8 +41,9 @@ export const itemsService = {
     idSession: string,
     idCompte: string | undefined,
     itemData: { nom: string; description: string; categorie: CategorieItem },
-    modificateurs: Modificateur[]
+    modificateurs: Partial<Modificateur>[]
   ): Promise<Item | null> => {
+    // 1. Création de l'item
     const { data: newItem, error: itemError } = await supabase
       .from('items')
       .insert({
@@ -70,26 +55,25 @@ export const itemsService = {
       .single();
 
     if (itemError || !newItem) {
-      alert(`Erreur lors de la création de l'item : ${itemError?.message || 'Erreur inconnue'}`);
-      console.error("Erreur création item:", itemError);
+      alert(`Erreur création item : ${itemError?.message}`);
       return null;
     }
 
+    // 2. Création des modificateurs
     if (modificateurs.length > 0) {
       const { error: modifError } = await supabase
         .from('item_modificateurs')
         .insert(
           modificateurs.map(m => ({
             id_item: newItem.id,
-            type: m.type,
-            id_stat: m.type === 'stat' ? m.id_stat : null,
+            id_stat: m.id_stat || null,
+            type: m.type || (m.id_stat ? 'stat' : 'unknown'),
             valeur: m.valeur,
           }))
         );
       
       if (modifError) {
-        alert(`Erreur lors de la création des modificateurs : ${modifError.message}`);
-        console.error("Erreur création modificateurs:", modifError);
+        alert(`Attention : L'item a été créé mais les bonus ont échoué.\nErreur : ${modifError.message}\n\nAs-tu ajouté la colonne 'type' à la table 'item_modificateurs' ?`);
       }
     }
 
@@ -97,7 +81,7 @@ export const itemsService = {
   },
 
   /**
-   * Supprime un item (les modificateurs sont supprimés en cascade par la DB)
+   * Supprime un item
    */
   deleteItem: async (idItem: string): Promise<boolean> => {
     const { error } = await supabase

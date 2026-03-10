@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { itemsService } from '../services/itemsService';
 import { Item, Modificateur, Stat } from '../types';
-import { useStore } from '../store/useStore';
+import { useStore } from '../Store/useStore';
 
 export function useItems() {
   const sessionActive = useStore(s => s.sessionActive);
@@ -22,16 +22,17 @@ export function useItems() {
     setItems(itemsData);
     setStats(statsData);
 
-    // Récupérer les modificateurs pour chaque item
-    const modifsPromises = itemsData.map(async (item) => {
-      const modifs = await itemsService.getItemModificateurs(item.id);
-      return { id: item.id, modifs };
-    });
-
-    const allModifs = await Promise.all(modifsPromises);
     const modifsMap: Record<string, Modificateur[]> = {};
-    allModifs.forEach(({ id, modifs }) => {
-      modifsMap[id] = modifs;
+    itemsData.forEach((item: any) => {
+      // Détection universelle : on cherche item_modificateurs ou item_modificateur
+      const rawModifs = item.item_modificateurs || item.item_modificateur;
+      if (Array.isArray(rawModifs)) {
+        modifsMap[item.id] = rawModifs;
+      } else if (rawModifs) {
+        modifsMap[item.id] = [rawModifs];
+      } else {
+        modifsMap[item.id] = [];
+      }
     });
 
     setItemModifs(modifsMap);
@@ -56,13 +57,12 @@ export function useItems() {
   const creerItem = async (
     idCompte: string | undefined,
     itemData: { nom: string; description: string; categorie: any },
-    modificateurs: Modificateur[]
+    modificateurs: Partial<Modificateur>[]
   ) => {
     if (!sessionActive) return null;
     const newItem = await itemsService.createItem(sessionActive.id, idCompte, itemData, modificateurs);
     if (newItem) {
-      setItems(prev => [...prev, newItem].sort((a, b) => a.nom.localeCompare(b.nom)));
-      setItemModifs(prev => ({ ...prev, [newItem.id]: modificateurs }));
+      await chargerItems();
     }
     return newItem;
   };

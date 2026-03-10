@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../../store/useStore'
+import { useStore } from '../../Store/useStore'
 import { useCompetences } from '../../hooks/useCompetences'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'

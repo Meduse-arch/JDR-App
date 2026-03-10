@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../../supabase'
-import { useStore } from '../../store/useStore'
+import { useStore } from '../../Store/useStore'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/Badge'
 
 import { ConfirmButton } from '../../components/ui/ConfirmButton'
 
-type Session = { id: string; nom: string; description: string; date_creation?: string; cree_par: string }
+type Session = { id: string; nom: string; description: string; created_at?: string; cree_par: string }
 type Compte  = { id: string; pseudo: string }
 
 export default function Sessions() {
@@ -31,7 +31,7 @@ export default function Sessions() {
 
   const chargerSessions = async () => {
     setChargement(true)
-    const { data } = await supabase.from('sessions').select('*').order('date_creation', { ascending: false })
+    const { data } = await supabase.from('sessions').select('*').order('created_at', { ascending: false })
     if (data) {
       setSessions(data)
       const ids = [...new Set(data.map((s: Session) => s.cree_par))]
@@ -50,7 +50,7 @@ export default function Sessions() {
   const sessionsFiltrees = useMemo(() => sessions.filter(s => {
     const matchNom  = s.nom?.toLowerCase().includes(recherche.toLowerCase()) ?? false
     const matchMJ   = (comptes[s.cree_par] || '').toLowerCase().includes(filtreMJ.toLowerCase())
-    const matchDate = s.date_creation && filtreDate ? s.date_creation.startsWith(filtreDate) : true
+    const matchDate = s.created_at && filtreDate ? s.created_at.startsWith(filtreDate) : true
     return matchNom && matchMJ && matchDate
   }), [sessions, recherche, filtreMJ, filtreDate, comptes])
 
@@ -85,12 +85,8 @@ export default function Sessions() {
     setPageCourante('accueil')
   }
 
-  if (chargement) return (
-    <div className="flex items-center justify-center h-full animate-pulse font-bold text-lg"
-      style={{ color: 'var(--text-muted)' }}>
-      Recherche des univers...
-    </div>
-  )
+  // On retire le blocage visuel du chargement
+
 
   return (
     <div
@@ -217,9 +213,9 @@ export default function Sessions() {
                 <Badge variant="ghost" className="flex items-center gap-1 w-fit">
                   👑 {comptes[session.cree_par] || 'Inconnu'}
                 </Badge>
-                {session.date_creation && (
+                {session.created_at && (
                   <span className="text-[10px] font-bold uppercase tracking-wider opacity-50 flex items-center gap-1">
-                    📅 {new Date(session.date_creation).toLocaleDateString('fr-FR')}
+                    📅 {new Date(session.created_at).toLocaleDateString('fr-FR')}
                   </span>
                 )}
               </div>

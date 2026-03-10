@@ -1,103 +1,106 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
-import { useStore } from '../store/useStore' // Vérifie bien le chemin (Store ou store selon ta casse)
+import { useStore } from '../Store/useStore'
 
-export type StatCalculee = {
-  nom: string;
-  valeur: number;
+export type StatValeur = {
+  id: string
+  nom: string
+  description: string
+  valeur: number
+  base: number
+  bonus: number
 }
+
+const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme']
 
 export function useStats() {
   const compte = useStore(s => s.compte)
   const pnjControle = useStore(s => s.pnjControle)
   
-  const [stats, setStats] = useState<StatCalculee[]>([])
+  const [stats, setStats] = useState<StatValeur[]>([])
   const [chargement, setChargement] = useState(true)
 
-  const chargerStats = async () => {
+  const chargerStats = useCallback(async () => {
     setChargement(true)
-    
     try {
       let idPersonnage = pnjControle?.id
 
-      // 1. Identifier le personnage actif
       if (!idPersonnage) {
-        if (!compte) {
-          setChargement(false)
-          return
-        }
-        const { data: personnage } = await supabase
+        if (!compte) return
+        const { data: perso } = await supabase
           .from('personnages')
           .select('id')
           .eq('lie_au_compte', compte.id)
-          .eq('est_pnj', false)
+          .eq('type', 'Joueur')
+          .eq('is_template', false)
           .single()
         
-        if (!personnage) {
-          setChargement(false)
-          return
-        }
-        idPersonnage = personnage.id
+        if (!perso) return
+        idPersonnage = perso.id
       }
 
-      // 2. Charger ses stats de base
+      // 1. Récupérer les stats de base
       const { data: baseStats } = await supabase
         .from('personnage_stats')
-        .select('id_stat, valeur, stats(nom)')
+        .select('valeur, id_stat, stats(id, nom, description)')
         .eq('id_personnage', idPersonnage)
 
-      if (!baseStats) {
-        setChargement(false)
-        return
-      }
-
-      // 3. Charger ses items équipés
-      const { data: equipements } = await supabase
+      // 2. Récupérer les bonus des équipements équipés
+      const { data: equipement } = await supabase
         .from('inventaire')
-        .select('id_item')
+        .select(`
+          equipe,
+          items (
+            item_modificateurs (
+              id_stat,
+              valeur,
+              type
+            )
+          )
+        `)
         .eq('id_personnage', idPersonnage)
         .eq('equipe', true)
 
-      const statBonus: Record<string, number> = {}
-
-      if (equipements && equipements.length > 0) {
-        const itemIds = equipements.map(e => e.id_item)
-        
-        // 4. Charger les modificateurs de type "stat" de ces items
-        const { data: modifs } = await supabase
-          .from('item_modificateurs')
-          .select('*')
-          .in('id_item', itemIds)
-          .eq('type', 'stat')
-
-        if (modifs) {
-          modifs.forEach(mod => {
-            if (mod.id_stat) {
-              statBonus[mod.id_stat] = (statBonus[mod.id_stat] || 0) + mod.valeur
+      if (baseStats) {
+        // Calcul des bonus par stat ID
+        const bonusMap: Record<string, number> = {}
+        equipement?.forEach(entry => {
+          entry.items?.item_modificateurs?.forEach((m: any) => {
+            if (m.id_stat) {
+              bonusMap[m.id_stat] = (bonusMap[m.id_stat] || 0) + (m.valeur || 0)
             }
           })
-        }
+        })
+
+        const formatted = baseStats.map((d: any) => {
+          const bonus = bonusMap[d.id_stat] || 0
+          return {
+            id: d.stats.id,
+            nom: d.stats.nom,
+            description: d.stats.description,
+            base: d.valeur,
+            bonus: bonus,
+            valeur: d.valeur + bonus // Valeur finale affichée
+          }
+        })
+
+        const sorted = formatted.sort((a, b) => ORDRE_STATS.indexOf(a.nom) - ORDRE_STATS.indexOf(b.nom))
+        setStats(sorted)
       }
-
-      // 5. Additionner la Base + L'Équipement
-      const statsFinales = baseStats.map((d: any) => ({
-        nom: d.stats.nom,
-        valeur: d.valeur + (statBonus[d.id_stat] || 0)
-      }))
-
-      setStats(statsFinales)
     } catch (error) {
-      console.error("Erreur lors du calcul des stats:", error)
+      console.error("Erreur lors du chargement des stats:", error)
     } finally {
       setChargement(false)
     }
-  }
+  }, [compte, pnjControle])
 
-  // Se déclenche tout seul au chargement ou si on change de personnage
   useEffect(() => {
     chargerStats()
-  }, [pnjControle, compte])
+  }, [chargerStats])
 
-  // On renvoie les données + une fonction pour forcer le rechargement si on équipe un item
-  return { stats, chargement, rechargerStats: chargerStats }
+  return { 
+    stats, 
+    chargement, 
+    rechargerStats: chargerStats 
+  }
 }

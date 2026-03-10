@@ -25,17 +25,19 @@ export default function LancerDes() {
     const nb    = Math.max(1, getNum(nbDesInput, 1))
     const mod   = getNum(modInput, 0)
     const faces = Math.max(2, getNum(facesForcees, 0) || getNum(facesDeInput, 20))
+    
     const res   = lancerDes(nb, faces, mod)
-    const label = labelPerso || `${nb}d${faces}${mod !== 0 ? (mod > 0 ? '+' : '') + mod : ''}`
+    
+    // Si c'est un jet de stat, on construit un label plus explicite
+    const label = labelPerso 
+      ? `${labelPerso} (d${faces}${mod !== 0 ? (mod > 0 ? '+' : '') + mod : ''})`
+      : `${nb}d${faces}${mod !== 0 ? (mod > 0 ? '+' : '') + mod : ''}`
+      
     setHistorique(h => [{ label, ...res }, ...h].slice(0, 20))
   }
 
-  if (chargement) return (
-    <div className="flex items-center justify-center h-full animate-pulse font-bold text-lg"
-      style={{ color: 'var(--text-muted)' }}>
-      Recherche des dés...
-    </div>
-  )
+  // On retire le blocage visuel du chargement
+
 
   const modAffichage = getNum(modInput, 0)
 
@@ -44,7 +46,6 @@ export default function LancerDes() {
       className="flex flex-col h-full p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar"
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}
     >
-      {/* Header */}
       <div className="mb-8 pb-6" style={{ borderBottom: '1px solid var(--border)' }}>
         <h2
           className="text-3xl md:text-4xl font-black tracking-tight"
@@ -60,13 +61,8 @@ export default function LancerDes() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
-
-        {/* ── Colonne gauche ── */}
         <div className="lg:col-span-8 flex flex-col gap-8">
-
-          {/* Jet manuel */}
           <Card className="relative overflow-hidden p-6 md:p-8">
-            {/* Brillance */}
             <div
               className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-30"
               style={{ backgroundColor: 'var(--color-glow)' }}
@@ -78,7 +74,6 @@ export default function LancerDes() {
             </h3>
 
             <div className="flex flex-col sm:flex-row flex-wrap items-center gap-4 relative z-10">
-              {/* Dés + Faces */}
               <div className="flex items-center p-2 gap-2 w-full sm:w-auto rounded-2xl" 
                    style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
                 <div className="flex flex-col items-center px-3 flex-1 sm:flex-none">
@@ -107,7 +102,6 @@ export default function LancerDes() {
 
               <span className="font-black text-2xl hidden sm:block opacity-30">+</span>
 
-              {/* Modificateur */}
               <div className="flex flex-col items-center p-2 w-full sm:w-auto rounded-2xl" 
                    style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
                 <label className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-50">Modificateur</label>
@@ -119,7 +113,6 @@ export default function LancerDes() {
                 />
               </div>
 
-              {/* Bouton lancer */}
               <Button
                 size="lg"
                 onClick={() => executerLancer('')}
@@ -131,18 +124,17 @@ export default function LancerDes() {
             </div>
           </Card>
 
-          {/* Jets de stats rapides */}
           {stats.length > 0 && (
             <div>
               <h3 className="text-xs font-black uppercase tracking-widest mb-4"
                 style={{ color: 'var(--text-muted)' }}>
-                Jets de Statistiques
+                Jets de Statistiques (+ Modificateur actuel)
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                 {stats.map(stat => (
                   <button
                     key={stat.nom}
-                    onClick={() => executerLancer(`Test ${stat.nom}`, stat.valeur)}
+                    onClick={() => executerLancer(stat.nom, stat.valeur)}
                     className="p-4 rounded-2xl transition-all duration-300 flex flex-col items-center justify-center gap-2 hover:-translate-y-1 group"
                     style={{
                       backgroundColor: 'var(--bg-card)',
@@ -161,9 +153,16 @@ export default function LancerDes() {
                       style={{ color: 'var(--text-secondary)' }}>
                       {stat.nom}
                     </span>
-                    <Badge variant="ghost" className="text-sm px-3 group-hover:bg-[var(--color-main)] group-hover:text-white transition-colors">
-                      d{stat.valeur}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="ghost" className="text-sm px-3 group-hover:bg-[var(--color-main)] group-hover:text-white transition-colors">
+                        d{stat.valeur}
+                      </Badge>
+                      {modAffichage !== 0 && (
+                        <span className={`text-xs font-black ${modAffichage > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {modAffichage > 0 ? `+${modAffichage}` : modAffichage}
+                        </span>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -171,7 +170,6 @@ export default function LancerDes() {
           )}
         </div>
 
-        {/* ── Historique ── */}
         <div className="lg:col-span-4 flex flex-col h-[500px] lg:h-[600px]">
           <Card className="flex flex-col h-full p-0 overflow-hidden">
             <div

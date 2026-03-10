@@ -1,267 +1,218 @@
-import { useState } from 'react'
-import { useStore } from '../../store/useStore'
+import { useEffect, useState } from 'react'
+import { useStore } from '../../Store/useStore'
 import { useItems } from '../../hooks/useItems'
-import { CATEGORIES, CATEGORIE_EMOJI } from '../../utils/constants'
-import { formatLabelModif } from '../../utils/formatters'
 import { Modificateur, CategorieItem } from '../../types'
+import { CATEGORIES, CATEGORIE_EMOJI } from '../../utils/constants'
 import { Card } from '../../components/ui/Card'
-import { Input } from '../../components/ui/Input'
-import { Select } from '../../components/ui/Select'
 import { Button } from '../../components/ui/Button'
-import { Badge } from '../../components/ui/Badge'
+import { Input } from '../../components/ui/Input'
 import { ConfirmButton } from '../../components/ui/ConfirmButton'
+import { Badge } from '../../components/ui/Badge'
+import { formatLabelModif } from '../../utils/formatters'
 
 export default function Items() {
   const sessionActive = useStore(s => s.sessionActive)
-  const compte        = useStore(s => s.compte)
+  const compte = useStore(s => s.compte)
 
-  const { items, stats, itemModifs, supprimerItem, creerItem } = useItems()
+  const { items, stats, itemModifs, creerItem, supprimerItem } = useItems()
+  const [vue, setVue] = useState<'liste' | 'creer'>('liste')
+  const [enCours, setEnCours] = useState(false)
 
-  const [filtreCategorie, setFiltreCategorie] = useState('Tous')
-  const [recherche, setRecherche] = useState('')
-  const [afficherFormulaire, setAfficherFormulaire] = useState(false)
-  const [message,   setMessage]   = useState('')
+  const [nom, setNom] = useState('')
+  const [description, setDescription] = useState('')
+  const [categorie, setCategorie] = useState<CategorieItem>('Divers')
+  const [modifs, setModifs] = useState<Partial<Modificateur>[]>([])
 
-  const [nom,          setNom]          = useState('')
-  const [description,  setDescription]  = useState('')
-  const [categorie,    setCategorie]    = useState<CategorieItem>('Divers')
-  const [modificateurs, setModificateurs] = useState<Modificateur[]>([])
-
-  const ajouterModificateur = () =>
-    setModificateurs(prev => [...prev, { type: 'hp', id_stat: null, valeur: 1 }])
-
-  const majModificateur = (index: number, champ: keyof Modificateur, val: any) =>
-    setModificateurs(prev => prev.map((m, i) => {
-      if (i !== index) return m
-      if (champ === 'type') return { ...m, type: val, id_stat: val === 'stat' ? m.id_stat : null }
-      return { ...m, [champ]: val }
-    }))
-
-  const supprimerModificateur = (index: number) =>
-    setModificateurs(prev => prev.filter((_, i) => i !== index))
-
-  const handleCreerItem = async () => {
-    if (!nom || !sessionActive) return
-    const success = await creerItem(compte?.id, { nom, description, categorie }, modificateurs)
-    if (success) {
-      setNom(''); setDescription(''); setCategorie('Divers'); setModificateurs([])
-      setAfficherFormulaire(false)
-      setMessage('✅ Item créé !'); setTimeout(() => setMessage(''), 2500)
+  const handleCreer = async () => {
+    if (!sessionActive || !nom || enCours) return
+    
+    setEnCours(true)
+    console.log("Début création item...", { nom, categorie, modifs });
+    
+    try {
+      const success = await creerItem(
+        compte?.id,
+        { nom, description, categorie },
+        modifs
+      )
+      
+      if (success) {
+        console.log("Item créé avec succès !");
+        setVue('liste'); 
+        setNom(''); 
+        setDescription(''); 
+        setCategorie('Divers'); 
+        setModifs([])
+      }
+    } catch (err) {
+      console.error("Erreur fatale lors de la création:", err);
+      alert("Une erreur critique est survenue. Vérifie la console.");
+    } finally {
+      setEnCours(false)
     }
   }
 
-  const itemsFiltres = items
-    .filter(i => filtreCategorie === 'Tous' || i.categorie === filtreCategorie)
-    .filter(i => i.nom.toLowerCase().includes(recherche.toLowerCase()))
+  const toggleModif = (type: string, idStat: string | null = null) => {
+    const exists = modifs.find(m => m.type === type && m.id_stat === idStat)
+    if (exists) {
+      setModifs(modifs.filter(m => !(m.type === type && m.id_stat === idStat)))
+    } else {
+      setModifs([...modifs, { type, id_stat: idStat, valeur: 1 }])
+    }
+  }
 
-  return (
-    <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar"
-      style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
+  const updateValeurModif = (idx: number, val: number) => {
+    const newModifs = [...modifs]
+    newModifs[idx].valeur = val
+    setModifs(newModifs)
+  }
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6"
-        style={{ borderBottom: '1px solid var(--border)' }}>
-        <h2 className="text-2xl md:text-3xl font-black tracking-tight"
-          style={{
-            background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>
-          📚 Bibliothèque d'items
-        </h2>
-        <div className="flex items-center gap-3 shrink-0">
-          {message && (
-            <span className="text-sm font-bold" style={{ color: '#4ade80' }}>{message}</span>
-          )}
-          <Button
-            variant={afficherFormulaire ? 'secondary' : 'primary'}
-            onClick={() => { setAfficherFormulaire(!afficherFormulaire); setModificateurs([]) }}
-          >
-            {afficherFormulaire ? '✕ Annuler' : '+ Créer un item'}
-          </Button>
-        </div>
+  const getLabel = (type: string, idStat: string | null) => {
+    if (type === 'stat') return stats.find(s => s.id === idStat)?.nom || 'Stat'
+    const labels: Record<string, string> = {
+      hp: 'Soin PV', hp_max: 'Augm. PV Max',
+      mana: 'Restaure Mana', mana_max: 'Augm. Mana Max',
+      stam: 'Restaure Stam', stam_max: 'Augm. Stam Max'
+    }
+    return labels[type] || type.toUpperCase()
+  }
+
+  if (vue === 'creer') return (
+    <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar">
+      <div className="flex justify-between items-center mb-8 gap-4">
+        <h2 className="text-3xl font-black uppercase italic">Forger un Objet</h2>
+        <Button variant="secondary" onClick={() => setVue('liste')}>Retour</Button>
       </div>
 
-      {!sessionActive && (
-        <p className="text-center mt-16" style={{ color: 'var(--text-secondary)' }}>
-          Rejoins une session d'abord
-        </p>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto w-full pb-20">
+        <Card className="p-8 flex flex-col gap-6 h-fit">
+          <Input label="Nom de l'objet" placeholder="Ex: Potion de Vie ou Anneau de Force" value={nom} onChange={e => setNom(e.target.value)} />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black uppercase opacity-40 ml-1">Catégorie</label>
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map(cat => (
+                <button key={cat} onClick={() => setCategorie(cat)} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${categorie === cat ? 'bg-main border-main text-white' : 'bg-white/5 border-white/10 opacity-60'}`}>
+                  {CATEGORIE_EMOJI[cat]} {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black uppercase opacity-40 ml-1">Description</label>
+            <textarea className="w-full bg-surface border border-border rounded-xl p-4 min-h-[100px] outline-none focus:border-main text-sm" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+        </Card>
 
-      {sessionActive && (
         <div className="flex flex-col gap-6">
-          {/* Formulaire de création */}
-          {afficherFormulaire && (
-            <Card className="animate-in fade-in slide-in-from-top-4 duration-300">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase mb-1.5 opacity-50 ml-1">Nom de l'item</label>
-                    <Input
-                      type="text" value={nom} onChange={e => setNom(e.target.value)}
-                      placeholder="Ex: Épée en fer"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase mb-1.5 opacity-50 ml-1">Catégorie</label>
-                    <Select
-                      value={categorie} onChange={e => setCategorie(e.target.value as CategorieItem)}
-                    >
-                      {CATEGORIES.map(cat => (
-                        <option key={cat} value={cat}>{CATEGORIE_EMOJI[cat]} {cat}</option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase mb-1.5 opacity-50 ml-1">Description</label>
-                    <textarea
-                      value={description} onChange={e => setDescription(e.target.value)}
-                      placeholder="Effets, histoire..."
-                      className="w-full px-4 py-3 rounded-xl outline-none transition-all focus:ring-2 focus:ring-blue-500/20 min-h-[100px] resize-none"
-                      style={{
-                        backgroundColor: 'var(--bg-input)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--border)',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center mb-1.5 ml-1">
-                    <label className="text-xs font-bold uppercase opacity-50">Modificateurs (Stats/Ressources)</label>
-                    <button
-                      onClick={ajouterModificateur}
-                      className="text-[10px] bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg transition-colors font-bold uppercase"
-                    >
-                      + Ajouter
-                    </button>
-                  </div>
-
-                  <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                    {modificateurs.map((m, i) => (
-                      <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 p-3 rounded-xl bg-black/20 border border-white/5">
-                        <select
-                          value={m.type === 'stat' ? 'stat' : m.type}
-                          onChange={e => majModificateur(i, 'type', e.target.value)}
-                          className="flex-1 min-w-[120px] bg-transparent text-sm outline-none cursor-pointer"
-                        >
-                          <optgroup label="Ressources">
-                            <option value="hp">❤️ PV actuel</option>
-                            <option value="mana">💧 Mana actuel</option>
-                            <option value="stam">⚡ Stamina actuel</option>
-                            <option value="hp_max">❤️ PV Max</option>
-                            <option value="mana_max">💧 Mana Max</option>
-                            <option value="stam_max">⚡ Stamina Max</option>
-                          </optgroup>
-                          <optgroup label="Statistiques">
-                            <option value="stat">📊 Autre Statistique</option>
-                          </optgroup>
-                        </select>
-
-                        {m.type === 'stat' && (
-                          <select
-                            value={m.id_stat || ''}
-                            onChange={e => majModificateur(i, 'id_stat', e.target.value)}
-                            className="flex-1 min-w-[120px] bg-transparent text-sm outline-none cursor-pointer"
-                          >
-                            <option value="">-- Choisir --</option>
-                            {stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                          </select>
-                        )}
-
-                        <input
-                          type="number" value={m.valeur}
-                          onChange={e => majModificateur(i, 'valeur', parseInt(e.target.value) || 0)}
-                          className="w-20 bg-transparent text-sm font-bold outline-none border-b border-white/10 focus:border-blue-500 transition-colors"
-                        />
-
-                        <button
-                          onClick={() => supprimerModificateur(i)}
-                          className="p-1 hover:text-red-400 transition-colors"
-                        >
-                          ✕
+          <Card className="p-8 flex flex-col gap-6">
+            <h3 className="font-black uppercase tracking-widest text-xs text-main">Propriétés & Effets</h3>
+            
+            <div className="flex flex-col gap-6">
+              <div>
+                <p className="text-[9px] font-black uppercase opacity-30 mb-3 tracking-widest">❤️ Vitalité (Soin vs Permanent)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[8px] font-bold opacity-40 uppercase text-center">Effet Immédiat (Soin)</p>
+                    <div className="flex gap-2">
+                      {['hp', 'mana', 'stam'].map(id => (
+                        <button key={id} onClick={() => toggleModif(id)} className={`flex-1 p-2 rounded-xl border transition-all flex flex-col items-center gap-1 ${modifs.find(m => m.type === id) ? 'bg-main/20 border-main' : 'bg-white/5 border-white/10 opacity-60'}`}>
+                          <span className="text-lg">{id === 'hp' ? '❤️' : id === 'mana' ? '💧' : '⚡'}</span>
                         </button>
-                      </div>
-                    ))}
-                    {modificateurs.length === 0 && (
-                      <p className="text-center py-8 text-sm opacity-30 italic">Aucun modificateur</p>
-                    )}
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[8px] font-bold opacity-40 uppercase text-center">Bonus Permanent (Max)</p>
+                    <div className="flex gap-2">
+                      {['hp_max', 'mana_max', 'stam_max'].map(id => (
+                        <button key={id} onClick={() => toggleModif(id)} className={`flex-1 p-2 rounded-xl border transition-all flex flex-col items-center gap-1 ${modifs.find(m => m.type === id) ? 'bg-main/20 border-main' : 'bg-white/5 border-white/10 opacity-60'}`}>
+                          <span className="text-lg">⬆️</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <Button size="lg" onClick={handleCreerItem} className="mt-8 uppercase tracking-widest">
-                💾 Enregistrer l'item
-              </Button>
-            </Card>
-          )}
-
-          {/* Filtres et recherche */}
-          <div className="flex flex-col md:flex-row gap-4">
-            <Input
-              icon="🔍"
-              type="text" placeholder="Rechercher un item..."
-              value={recherche} onChange={e => setRecherche(e.target.value)}
-            />
-            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
-              {['Tous', ...CATEGORIES].map(cat => (
-                <Button
-                  key={cat}
-                  variant={filtreCategorie === cat ? 'active' : 'secondary'}
-                  onClick={() => setFiltreCategorie(cat)}
-                  className="whitespace-nowrap"
-                >
-                  {cat !== 'Tous' && <span className="mr-1">{CATEGORIE_EMOJI[cat as CategorieItem]}</span>}{cat}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Liste des items */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {itemsFiltres.map(item => (
-              <Card key={item.id} hoverEffect className="group">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl shrink-0">{CATEGORIE_EMOJI[item.categorie]}</span>
-                    <h3 className="font-bold leading-tight group-hover:text-blue-400 transition-colors">{item.nom}</h3>
-                  </div>
-                  <ConfirmButton
-                    variant="ghost"
-                    size="sm"
-                    onConfirm={() => supprimerItem(item.id)}
-                    className="opacity-0 group-hover:opacity-100 text-red-400"
-                  >
-                    🗑️
-                  </ConfirmButton>
-                </div>
-
-                <p className="text-sm opacity-60 mb-4 line-clamp-2 min-h-[40px] leading-relaxed">
-                  {item.description || 'Pas de description'}
-                </p>
-
-                <div className="flex flex-wrap gap-1.5 mt-auto">
-                  {itemModifs[item.id]?.map((m, i) => (
-                    <Badge key={i}>
-                      {formatLabelModif(m, stats)}
-                    </Badge>
+              <div>
+                <p className="text-[9px] font-black uppercase opacity-30 mb-3 tracking-widest">⚔️ Statistiques de Base</p>
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                  {stats.map(s => (
+                    <button key={s.id} onClick={() => toggleModif('stat', s.id)} className={`p-2 rounded-xl border transition-all flex flex-col items-center gap-1 ${modifs.find(m => m.id_stat === s.id) ? 'bg-main/20 border-main' : 'bg-white/5 border-white/10 opacity-60'}`}>
+                      <span className="text-[8px] font-black uppercase text-center leading-none">{s.nom.slice(0, 4)}</span>
+                    </button>
                   ))}
-                  {(!itemModifs[item.id] || itemModifs[item.id].length === 0) && (
-                    <span className="text-[10px] opacity-20 italic">Aucun effet</span>
-                  )}
                 </div>
-              </Card>
-            ))}
-          </div>
-
-          {itemsFiltres.length === 0 && (
-            <div className="text-center py-20 opacity-30">
-              <p className="text-4xl mb-4">📦</p>
-              <p>Aucun item trouvé</p>
+              </div>
             </div>
-          )}
+
+            {modifs.length > 0 && (
+              <div className="mt-4 pt-6 border-t border-white/5 flex flex-col gap-3">
+                <p className="text-[9px] font-black uppercase opacity-30">Valeur des effets</p>
+                {modifs.map((m, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-main">{getLabel(m.type!, m.id_stat || null)}</span>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => updateValeurModif(idx, m.valeur! - 1)} className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold">-</button>
+                      <span className="w-10 text-center font-black text-sm text-white">{m.valeur! > 0 ? `+${m.valeur}` : m.valeur}</span>
+                      <button onClick={() => updateValeurModif(idx, m.valeur! + 1)} className="w-6 h-6 rounded-lg bg-main/20 hover:bg-main/40 font-bold text-main">+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+          <Button size="lg" className="w-full py-6 text-lg uppercase tracking-widest" onClick={handleCreer} disabled={!nom || enCours}>
+            {enCours ? 'Forge en cours...' : "Forger l'objet ✓"}
+          </Button>
         </div>
-      )}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar">
+      <div className="flex justify-between items-end mb-8 border-b border-white/5 pb-6">
+        <div>
+          <h2 className="text-3xl font-black uppercase italic tracking-tighter">🎒 Bibliothèque d'Items</h2>
+          <p className="text-sm opacity-50">Objets magiques et équipements</p>
+        </div>
+        <Button onClick={() => setVue('creer')}>+ Nouvel Item</Button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
+        {items.map(item => (
+          <Card key={item.id} className="flex-col gap-3 group relative overflow-visible h-full min-h-[140px]">
+            <div className="flex justify-between items-start w-full">
+              <Badge variant="outline" className="text-[8px]">{CATEGORIE_EMOJI[item.categorie]} {item.categorie}</Badge>
+              <div className="shrink-0">
+                <ConfirmButton 
+                  variant="danger" 
+                  size="sm" 
+                  confirmText="OK?"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity" 
+                  onConfirm={() => supprimerItem(item.id)}
+                >
+                  🗑️
+                </ConfirmButton>
+              </div>
+            </div>
+            <h3 className="font-black text-sm uppercase truncate pr-2" title={item.nom}>{item.nom}</h3>
+            {item.description && <p className="text-[10px] opacity-50 line-clamp-2 italic leading-relaxed">"{item.description}"</p>}
+            
+            <div className="flex flex-wrap gap-1 mt-auto pt-2">
+              {itemModifs[item.id]?.length > 0 ? (
+                itemModifs[item.id].map((m, i) => (
+                  <Badge key={i} variant="default" className="text-[9px] py-0.5 px-2">
+                    {formatLabelModif(m, stats)}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-[8px] opacity-20 uppercase font-bold tracking-tighter">Aucun bonus</span>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }
