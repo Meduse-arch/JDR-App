@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../supabase'
 import { useStore } from '../../../store/useStore'
+import { personnageService } from '../../../services/personnageService'
 import GererStats from './GererStats'
 import GererInventaire from './GererInventaire'
 import GererCompetences from './GererCompetences'
@@ -14,7 +15,7 @@ type Stat           = { id: string; nom: string; description: string }
 type PersonnageStat = { id_stat: string; valeur: number }
 
 // Suppression de 'tous'
-type FiltreType = 'joueur' | 'pnj'
+type FiltreType = 'joueur' | 'pnj' | 'modele'
 
 export default function Gerer() {
   const sessionActive = useStore(s => s.sessionActive)
@@ -27,6 +28,9 @@ export default function Gerer() {
   // Initialisation sur 'joueur' au lieu de 'tous'
   const [filtreType,      setFiltreType]      = useState<FiltreType>('joueur')
 
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [newName, setNewName] = useState('')
+
   useEffect(() => { chargerPersonnages() }, [sessionActive])
   useEffect(() => {
     supabase.from('stats').select('*').then(({ data }) => { if (data) setStats(data) })
@@ -34,61 +38,96 @@ export default function Gerer() {
 
   const chargerPersonnages = async () => {
     if (!sessionActive) return
+    
+    // Charger les persos de la session
     const { data: sjData } = await supabase
       .from('session_joueurs').select('id_personnage').eq('id_session', sessionActive.id)
-    if (!sjData || sjData.length === 0) return
-    const ids = sjData.map((r: any) => r.id_personnage)
-    const { data } = await supabase.from('personnages').select('*').in('id', ids)
+    
+    const idsSession = sjData ? sjData.map((r: any) => r.id_personnage) : []
+
+    // Charger TOUS les personnages qui sont soit dans la session, soit des modèles
+    const { data } = await supabase
+      .from('personnages')
+      .select('*')
+      .or(`id.in.(${idsSession.length > 0 ? idsSession.join(',') : '00000000-0000-0000-0000-000000000000'}),nom.like.[Modèle]%`)
+    
     if (data) setPersonnages(data)
   }
 
   const selectionnerPersonnage = async (p: Personnage) => {
     setSelectionne(p)
+    setNewName(p.nom.replace('[Modèle] ', ''))
+    setIsEditingName(false)
     const { data } = await supabase
       .from('personnage_stats').select('id_stat, valeur').eq('id_personnage', p.id)
     if (data) setPersonnageStats(data)
   }
 
-  const nbJoueurs = personnages.filter(p => !p.est_pnj).length
-  const nbPnjs    = personnages.filter(p => p.est_pnj).length
+  const handleRename = async () => {
+    if (!selectionne || !newName.trim()) return
+    
+    let finalNom = newName.trim()
+    if (selectionne.nom.startsWith('[Modèle]')) {
+      finalNom = `[Modèle] ${finalNom}`
+    }
+
+    const success = await personnageService.updatePersonnage(selectionne.id, { nom: finalNom })
+    if (success) {
+      const updated = { ...selectionne, nom: finalNom }
+      setSelectionne(updated)
+      setPersonnages(prev => prev.map(p => p.id === selectionne.id ? updated : p))
+      setIsEditingName(false)
+    }
+  }
+
+  const nbJoueurs  = personnages.filter(p => !p.est_pnj).length
+  const nbPnjs     = personnages.filter(p => p.est_pnj && !p.nom.startsWith('[Modèle]')).length
+  const nbModeles  = personnages.filter(p => p.nom.startsWith('[Modèle]')).length
 
   // Logique de filtrage simplifiée
   const personnagesFiltres = personnages.filter(p => {
     if (filtreType === 'joueur') return !p.est_pnj
-    return p.est_pnj
+    if (filtreType === 'modele') return p.nom.startsWith('[Modèle]')
+    return p.est_pnj && !p.nom.startsWith('[Modèle]')
   })
 
-  const btnFiltre = (id: FiltreType, label: string, count: number) => (
-    <button
-      key={id}
-      onClick={() => {
-        setFiltreType(id)
-        if (selectionne) {
-          // Désélection si le type ne correspond plus
-          const visible = id === 'joueur' ? !selectionne.est_pnj : selectionne.est_pnj
-          if (!visible) setSelectionne(null)
-        }
-      }}
-      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
-      style={{
-        backgroundColor: filtreType === id ? 'var(--color-main)' : 'var(--bg-surface)',
-        color: filtreType === id ? '#fff' : 'var(--text-secondary)',
-        border: `1px solid ${filtreType === id ? 'var(--color-main)' : 'var(--border)'}`,
-        boxShadow: filtreType === id ? '0 0 8px var(--color-glow)' : 'none',
-      }}
-    >
-      {label}
-      <span
-        className="px-1.5 py-0.5 rounded-md text-[10px] font-black"
+  const btnFiltre = (id: FiltreType, label: string, count: number) => {
+    const isActif = filtreType === id
+    return (
+      <button
+        key={id}
+        onClick={() => {
+          setFiltreType(id)
+          if (selectionne) {
+            let visible = false
+            if (id === 'joueur') visible = !selectionne.est_pnj
+            else if (id === 'modele') visible = selectionne.nom.startsWith('[Modèle]')
+            else visible = selectionne.est_pnj && !selectionne.nom.startsWith('[Modèle]')
+            
+            if (!visible) setSelectionne(null)
+          }
+        }}
+        className="flex-1 flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-xl text-[10px] font-bold transition-all"
         style={{
-          backgroundColor: filtreType === id ? 'rgba(255,255,255,0.25)' : 'var(--bg-app)',
-          color: filtreType === id ? '#fff' : 'var(--text-muted)',
+          backgroundColor: isActif ? 'var(--color-main)' : 'var(--bg-surface)',
+          color: isActif ? '#fff' : 'var(--text-secondary)',
+          border: `1px solid ${isActif ? 'var(--color-main)' : 'var(--border)'}`,
+          boxShadow: isActif ? '0 0 8px var(--color-glow)' : 'none',
         }}
       >
-        {count}
-      </span>
-    </button>
-  )
+        <span>{label}</span>
+        <span
+          className="px-1.5 py-0.5 rounded-md text-[9px] font-black"
+          style={{
+            backgroundColor: isActif ? 'rgba(255,255,255,0.25)' : 'var(--bg-app)',
+            color: isActif ? '#fff' : 'var(--text-muted)',
+          }}
+        >
+          {count}
+        </span>
+      </button>
+    )
+  }
 
   const btnOnglet = (id: 'stats' | 'inventaire' | 'competences', label: string) => (
     <button key={id} onClick={() => setOnglet(id)}
@@ -124,13 +163,14 @@ export default function Gerer() {
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 min-h-0 flex-1">
 
           <div
-            className="flex flex-col md:w-56 shrink-0 p-3 rounded-2xl gap-3"
+            className="flex flex-col md:w-64 shrink-0 p-3 rounded-2xl gap-3"
             style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
           >
             {/* Filtre "Tous" retiré ici */}
             <div className="flex gap-1.5">
               {btnFiltre('joueur', '🧑 Joueurs', nbJoueurs)}
               {btnFiltre('pnj',    '👤 PNJ',     nbPnjs)}
+              {btnFiltre('modele', '🐉 Modèles', nbModeles)}
             </div>
 
             <div className="h-px" style={{ backgroundColor: 'var(--border)' }} />
@@ -139,7 +179,7 @@ export default function Gerer() {
               {personnagesFiltres.length === 0 && (
                 <p className="text-sm px-1 whitespace-nowrap md:whitespace-normal"
                   style={{ color: 'var(--text-muted)' }}>
-                  Aucun {filtreType === 'pnj' ? 'PNJ' : 'joueur'}
+                  Aucun {filtreType === 'modele' ? 'modèle' : filtreType === 'pnj' ? 'PNJ' : 'joueur'}
                 </p>
               )}
 
@@ -153,8 +193,12 @@ export default function Gerer() {
                     border: `1px solid ${selectionne?.id === p.id ? 'var(--color-main)' : 'transparent'}`,
                   }}
                 >
-                  <span className="shrink-0">{p.est_pnj ? '👤' : '🧑'}</span>
-                  <span className="truncate">{p.nom}</span>
+                  <span className="shrink-0">
+                    {p.nom.startsWith('[Modèle]') ? '🐉' : p.est_pnj ? '👤' : '🧑'}
+                  </span>
+                  <span className="truncate">
+                    {p.nom.replace('[Modèle] ', '')}
+                  </span>
                 </button>
               ))}
             </div>
@@ -173,10 +217,52 @@ export default function Gerer() {
             {selectionne && (
               <div className="flex flex-col gap-4 sm:gap-5">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <h3 className="text-lg sm:text-xl font-black">{selectionne.nom}</h3>
+                  {isEditingName ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRename()
+                          if (e.key === 'Escape') setIsEditingName(false)
+                        }}
+                        className="bg-surface border border-border rounded-xl px-3 py-1.5 text-sm outline-none focus:border-main font-bold"
+                        style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                        autoFocus
+                      />
+                      <button 
+                        onClick={handleRename}
+                        className="p-1.5 bg-green-600/20 hover:bg-green-600/40 text-green-400 rounded-xl transition-colors"
+                        title="Valider"
+                      >
+                        ✅
+                      </button>
+                      <button 
+                        onClick={() => setIsEditingName(false)}
+                        className="p-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-xl transition-colors"
+                        title="Annuler"
+                      >
+                        ❌
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="text-lg sm:text-xl font-black">
+                        {selectionne.nom.replace('[Modèle] ', '')}
+                      </h3>
+                      <button 
+                        onClick={() => setIsEditingName(true)}
+                        className="p-1.5 hover:bg-white/5 rounded-xl transition-colors opacity-50 hover:opacity-100"
+                        title="Renommer"
+                      >
+                        ✏️
+                      </button>
+                    </>
+                  )}
                   <span className="text-xs px-2 py-1 rounded-lg font-bold"
                     style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                    {selectionne.est_pnj ? '👤 PNJ' : '🧑 Joueur'}
+                    {selectionne.nom.startsWith('[Modèle]') ? '🐉 Modèle' : selectionne.est_pnj ? '👤 PNJ' : '🧑 Joueur'}
                   </span>
                 </div>
 

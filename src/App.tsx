@@ -18,6 +18,7 @@ import Items from './pages/admin/Items'
 import Competences from './pages/admin/Competences'
 import MonInventaire from './pages/shared/MonInventaire'
 import MesCompetences from './pages/shared/MesCompetences'
+import Bestiaire from './pages/admin/Bestiaire'
 
 type PageAuth = 'accueil' | 'connexion' | 'inscription'
 
@@ -32,6 +33,7 @@ function PageCourante() {
   if (pageCourante === 'mon-personnage')              return <MonPersonnage />
   if (pageCourante === 'mes-competences')             return <MesCompetences />
   if (pageCourante === 'pnj'     && estAdminOuMJ)     return <PNJ />
+  if (pageCourante === 'bestiaire' && estAdminOuMJ)   return <Bestiaire />
   if (pageCourante === 'joueurs' && estAdminOuMJ)     return <Joueurs />
   if (pageCourante === 'gerer'   && estAdminOuMJ)     return <Gerer />
   if (pageCourante === 'items'   && estAdminOuMJ)     return <Items />

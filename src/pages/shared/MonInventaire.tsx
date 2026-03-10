@@ -3,19 +3,22 @@ import { useStore } from '../../store/useStore'
 import { useInventaire } from '../../hooks/useInventaire'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { useItems } from '../../hooks/useItems'
+import { useStats } from '../../hooks/useStats'
 import { CATEGORIES, CATEGORIE_EMOJI } from '../../utils/constants'
 import { formatLabelModif } from '../../utils/formatters'
 import { ItemCard } from '../../components/ItemCard'
 import { InventaireEntry } from '../../types'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { personnageService } from '../../services/personnageService'
 
 export default function MonInventaire() {
   const pnjControle    = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
 
   const { inventaire, chargement: chargementInv, toggleEquipementOptimiste, consommerItemOptimiste } = useInventaire()
-  const { personnage, mettreAJourLocalement } = usePersonnage()
+  const { personnage, mettreAJourLocalement, rechargerPersonnage } = usePersonnage()
+  const { rechargerStats } = useStats()
   const { stats, itemModifs } = useItems()
 
   const [filtreCategorie, setFiltreCategorie]   = useState('Tous')
@@ -35,13 +38,23 @@ export default function MonInventaire() {
     let utile = false
 
     for (const mod of listeModifs) {
-      if (mod.type === 'stat') { utile = true; continue }
+      if (mod.type === 'stat') {
+        if (mod.id_stat) {
+          await personnageService.updateBaseStat(personnage.id, mod.id_stat, mod.valeur)
+          utile = true
+        }
+        continue
+      }
+      
       const estMax      = mod.type.endsWith('_max')
+      // Mappage correct : hp -> hp_actuel, mana -> mana_actuel, stam -> stam_actuel
       const champActuel = estMax ? mod.type : `${mod.type}_actuel`
       const champMax    = estMax ? mod.type : `${mod.type}_max`
+      
       const actuel = Number((personnage as any)[champActuel] ?? 0)
       const max    = Number((personnage as any)[champMax]    ?? actuel + mod.valeur)
       const nouvelleValeur = estMax ? actuel + mod.valeur : Math.max(0, Math.min(max, actuel + mod.valeur))
+      
       if (nouvelleValeur !== actuel) {
         updates[champActuel] = nouvelleValeur
         utile = true
@@ -55,12 +68,19 @@ export default function MonInventaire() {
       if (pnjControle && pnjControle.id === personnage.id)
         setPnjControle({ ...pnjControle, ...updates } as any)
     }
+
     await consommerItemOptimiste(entry.id, entry.quantite)
+    
+    // Tout rafraîchir pour être sûr
+    await rechargerPersonnage()
+    await rechargerStats()
+    
     afficherToast(`✨ ${entry.items.nom} utilisé !`)
   }
 
   const toggleEquiper = async (entry: InventaireEntry) => {
     await toggleEquipementOptimiste(entry.id, !entry.equipe)
+    await rechargerPersonnage()
     afficherToast(entry.equipe ? `🔓 ${entry.items.nom} rangé` : `⚔️ ${entry.items.nom} équipé !`)
   }
 

@@ -34,6 +34,8 @@ export type Personnage = {
   stam_actuel: number
   stam_max: number
   est_pnj: boolean
+  is_template?: boolean
+  categorie_pnj?: 'PNJ' | 'Monstre'
   lie_au_compte?: string | null
   // Jointure optionnelle (présente dans DashboardAdmin via la requête Supabase)
   comptes?: { pseudo: string }

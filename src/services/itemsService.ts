@@ -70,6 +70,7 @@ export const itemsService = {
       .single();
 
     if (itemError || !newItem) {
+      alert(`Erreur lors de la création de l'item : ${itemError?.message || 'Erreur inconnue'}`);
       console.error("Erreur création item:", itemError);
       return null;
     }
@@ -87,6 +88,7 @@ export const itemsService = {
         );
       
       if (modifError) {
+        alert(`Erreur lors de la création des modificateurs : ${modifError.message}`);
         console.error("Erreur création modificateurs:", modifError);
       }
     }

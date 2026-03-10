@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../../supabase'
+import { personnageService } from '../../../services/personnageService'
 
 type Personnage = {
   id: string; nom: string; est_pnj: boolean
@@ -29,17 +30,10 @@ export default function GererStats({ personnage, stats, personnageStats, onUpdat
     setModifications(prev => ({ ...prev, [idStat]: isNaN(n) ? 0 : n }))
   }
 
-  const calculerRessources = (statsMap: Record<string, number>) => ({
-    hp_max:   (statsMap['Constitution'] ?? 0) * 4,
-    mana_max: (statsMap['Intelligence'] ?? 0) * 10,
-    stam_max: Math.round(((statsMap['Force'] ?? 0) + (statsMap['Agilité'] ?? 0) + (statsMap['Constitution'] ?? 0)) / 3 * 10),
-  })
-
   const appliquer = async () => {
     setChargement(true); setMessage('')
-    const statsMap: Record<string, number> = {}
-    for (const stat of stats) statsMap[stat.nom] = getValeur(stat.id)
 
+    // 1. Mettre à jour les stats de base
     for (const [idStat, delta] of Object.entries(modifications)) {
       if (delta === 0) continue
       const ancienne = personnageStats.find(s => s.id_stat === idStat)
@@ -49,17 +43,17 @@ export default function GererStats({ personnage, stats, personnageStats, onUpdat
           .eq('id_personnage', personnage.id).eq('id_stat', idStat)
     }
 
-    const { hp_max, mana_max, stam_max } = calculerRessources(statsMap)
-    const hp_actuel   = Math.min(personnage.hp_actuel, hp_max)
-    const mana_actuel = Math.min(personnage.mana_actuel, mana_max)
-    const stam_actuel = Math.min(personnage.stam_actuel, stam_max)
-    await supabase.from('personnages')
-      .update({ hp_max, hp_actuel, mana_max, mana_actuel, stam_max, stam_actuel })
-      .eq('id', personnage.id)
+    // 2. Utiliser le service pour tout recalculer (Stats de base + Équipement)
+    const updatedPerso = await personnageService.recalculerStats(personnage.id)
 
-    setMessage('✅ Stats mises à jour !')
-    setModifications({})
-    onUpdate({ ...personnage, hp_max, hp_actuel, mana_max, mana_actuel, stam_max, stam_actuel })
+    if (updatedPerso) {
+      setMessage('✅ Stats mises à jour !')
+      setModifications({})
+      onUpdate(updatedPerso as Personnage)
+    } else {
+      setMessage('❌ Erreur lors du recalcul')
+    }
+    
     setChargement(false)
   }
 
@@ -91,11 +85,11 @@ export default function GererStats({ personnage, stats, personnageStats, onUpdat
           return (
             <div key={stat.id} className="p-4 rounded-2xl flex flex-col gap-3" style={cardStyle}>
               <div className="flex justify-between items-center gap-2">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-bold truncate">{stat.nom}</p>
-                  <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{stat.description}</p>
+                  <p className="text-xs truncate opacity-50" title={stat.description}>{stat.description}</p>
                 </div>
-                <span className="text-2xl font-black shrink-0"
+                <span className="text-2xl font-black shrink-0 ml-2"
                   style={{ color: delta !== 0 ? '#fbbf24' : 'var(--color-light)' }}>
                   {valeurFinale}
                 </span>

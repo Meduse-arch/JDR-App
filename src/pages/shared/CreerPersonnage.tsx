@@ -8,9 +8,14 @@ import { Badge } from '../../components/ui/Badge'
 
 type Stat    = { id: string; nom: string; description: string }
 type StatJet = { stat: Stat; valeur: number }
-type Props   = { estPnj: boolean; retour: () => void }
+type Props   = { 
+  estPnj: boolean; 
+  isTemplate?: boolean; 
+  categorie?: 'PNJ' | 'Monstre';
+  retour: () => void 
+}
 
-export default function CreerPersonnage({ estPnj, retour }: Props) {
+export default function CreerPersonnage({ estPnj, isTemplate = false, categorie = 'PNJ', retour }: Props) {
   const compte        = useStore(s => s.compte)
   const sessionActive = useStore(s => s.sessionActive)
 
@@ -49,27 +54,35 @@ export default function CreerPersonnage({ estPnj, retour }: Props) {
   const confirmer = async () => {
     const constitution = jets.find(j => j.stat.nom === 'Constitution')
     const intelligence = jets.find(j => j.stat.nom === 'Intelligence')
+    const sagesse      = jets.find(j => j.stat.nom === 'Sagesse')
     const force        = jets.find(j => j.stat.nom === 'Force')
     const agilite      = jets.find(j => j.stat.nom === 'Agilité')
 
     const hp   = constitution ? constitution.valeur * 4 : 0
-    const mana = intelligence ? intelligence.valeur * 10 : 0
+    const mana = Math.round((( (intelligence?.valeur || 0) + (sagesse?.valeur || 0) ) / 2) * 10)
     const stam = (force && agilite && constitution)
       ? Math.round((force.valeur + agilite.valeur + constitution.valeur) / 3 * 10)
       : 0
 
+    const insertData: any = {
+      nom: isTemplate ? `[Modèle] ${nom}` : nom,
+      est_pnj: estPnj,
+      categorie_pnj: categorie,
+      lie_au_compte: estPnj ? null : compte?.id,
+      hp_max: hp, hp_actuel: hp,
+      mana_max: mana, mana_actuel: mana,
+      stam_max: stam, stam_actuel: stam,
+    };
+
     const { data: personnage, error } = await supabase
       .from('personnages')
-      .insert({
-        nom, est_pnj: estPnj,
-        lie_au_compte: estPnj ? null : compte?.id,
-        hp_max: hp, hp_actuel: hp,
-        mana_max: mana, mana_actuel: mana,
-        stam_max: stam, stam_actuel: stam,
-      })
+      .insert(insertData)
       .select().single()
 
-    if (error || !personnage) return
+    if (error || !personnage) {
+      console.error("Erreur création personnage:", error);
+      return;
+    }
 
     await supabase.from('personnage_stats').insert(
       jets.map(j => ({ id_personnage: personnage.id, id_stat: j.stat.id, valeur: j.valeur }))

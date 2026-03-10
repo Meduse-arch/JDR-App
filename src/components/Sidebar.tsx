@@ -156,7 +156,8 @@ export default function Sidebar() {
               style={{ borderColor: 'var(--border)' }}
             >
               <NavGroup id="admin" label="Administration" emoji="👑">
-                <NavItem id="pnj"         label="Bestiaire & PNJ"     isSubItem />
+                <NavItem id="pnj"         label="PNJ"         isSubItem />
+                <NavItem id="bestiaire"   label="Bestiaire & Mobs"    isSubItem />
                 <NavItem id="items"       label="Bibliothèque Items"   isSubItem />
                 <NavItem id="competences" label="Compétences"         isSubItem />
                 <NavItem id="joueurs"     label="Gérer les Joueurs"    isSubItem />

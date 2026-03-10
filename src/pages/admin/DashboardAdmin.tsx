@@ -22,7 +22,7 @@ export default function DashboardAdmin() {
     if (data) {
       const persos = data.map((d: any) => d.personnages).filter(Boolean)
       setJoueurs(persos.filter((p: any) => !p.est_pnj))
-      setPnjs(persos.filter((p: any) => p.est_pnj).slice(0, 4))
+      setPnjs(persos.filter((p: any) => p.est_pnj && !p.nom.startsWith('[Modèle]')).slice(0, 4))
     }
     setChargement(false)
   }
@@ -56,9 +56,9 @@ export default function DashboardAdmin() {
       </div>
 
       {/* Raccourcis */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         {[
-          { label: 'Bestiaire', emoji: '👹', id: 'pnj' },
+          { label: 'Bestiaire', emoji: '👹', id: 'bestiaire' },
           { label: 'Items', emoji: '📚', id: 'items' },
           { label: 'Compétences', emoji: '📖', id: 'competences' },
           { label: 'Dés', emoji: '🎲', id: 'lancer-des' },

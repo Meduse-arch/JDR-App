@@ -28,7 +28,7 @@ export default function Items() {
   const [modificateurs, setModificateurs] = useState<Modificateur[]>([])
 
   const ajouterModificateur = () =>
-    setModificateurs(prev => [...prev, { type: 'ressource', id_stat: null, valeur: 1 }])
+    setModificateurs(prev => [...prev, { type: 'hp', id_stat: null, valeur: 1 }])
 
   const majModificateur = (index: number, champ: keyof Modificateur, val: any) =>
     setModificateurs(prev => prev.map((m, i) => {

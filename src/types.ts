@@ -14,7 +14,7 @@ export interface Stat {
 }
 
 export interface Modificateur {
-  type: 'stat' | 'ressource';
+  type: 'stat' | 'hp' | 'mana' | 'stam' | 'hp_max' | 'mana_max' | 'stam_max';
   id_stat: string | null;
   valeur: number;
 }
@@ -23,13 +23,14 @@ export interface Personnage {
   id: string;
   nom: string;
   est_pnj: boolean;
+  is_template?: boolean;
+  categorie_pnj?: 'PNJ' | 'Monstre';
   hp_actuel: number;
   hp_max: number;
   mana_actuel: number;
   mana_max: number;
   stam_actuel: number;
   stam_max: number;
-  // Ajoute d'autres propriétés si nécessaire
 }
 
 export interface InventaireEntry {
