@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore, type Personnage, type PersonnageType } from '../../Store/useStore'
+import { useStore, type Personnage, type PersonnageType } from '../../store/useStore'
 import CreerPersonnage from '../shared/CreerPersonnage'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -21,7 +21,6 @@ export default function PNJ() {
   const [recherche, setRecherche] = useState('')
   const [filtreType, setFiltreType] = useState<FiltreType>('Tous')
 
-  const pnjControle     = useStore(s => s.pnjControle)
   const setPnjControle  = useStore(s => s.setPnjControle)
   const setPageCourante = useStore(s => s.setPageCourante)
   const sessionActive   = useStore(s => s.sessionActive)
@@ -199,14 +198,6 @@ export default function PNJ() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant={pnjControle?.id === pnj.id ? 'primary' : 'ghost'} 
-                size="sm" 
-                onClick={() => { setPnjControle(pnj); setPageCourante('mon-personnage') }}
-                className="border border-white/5"
-              >
-                🎭 {pnjControle?.id === pnj.id ? 'Incarné' : 'Posséder'}
-              </Button>
               <Button variant="secondary" size="sm" onClick={() => { setPnjControle(pnj); setPageCourante('mon-personnage') }}>Gérer</Button>
               <ConfirmButton variant="danger" size="sm" onConfirm={() => supprimerPnj(pnj.id)}>🗑️</ConfirmButton>
             </div>

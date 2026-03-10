@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore } from '../../Store/useStore'
+import { useStore } from '../../store/useStore'
 
 type Compte = { id: string; pseudo: string; role: string }
 

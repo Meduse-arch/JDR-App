@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { bestiaireService } from '../services/bestiaireService'
-import { type Personnage } from '../Store/useStore'
+import { type Personnage } from '../store/useStore'
 
 export function useBestiaire(sessionId?: string) {
   const [templates, setTemplates] = useState<Personnage[]>([])

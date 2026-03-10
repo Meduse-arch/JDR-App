@@ -1,4 +1,4 @@
-export { type Personnage } from './Store/useStore';
+export { type Personnage } from './store/useStore';
 
 export type CategorieItem = 'Arme' | 'Armure' | 'Bijou' | 'Consommable' | 'Artéfact' | 'Divers';
 

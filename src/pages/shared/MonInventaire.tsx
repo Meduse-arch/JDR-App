@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../../Store/useStore'
+import { useStore } from '../../store/useStore'
 import { useInventaire } from '../../hooks/useInventaire'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { useItems } from '../../hooks/useItems'

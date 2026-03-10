@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useStore, type Personnage } from '../../Store/useStore'
+import { useStore, type Personnage } from '../../store/useStore'
 import CreerTemplate from './CreerTemplate'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -16,7 +16,6 @@ export default function Bestiaire() {
   const [recherche, setRecherche] = useState('')
   const [quantites, setQuantites] = useState<Record<string, number>>({})
   
-  const pnjControle     = useStore(s => s.pnjControle)
   const setPnjControle  = useStore(s => s.setPnjControle)
   const setPageCourante = useStore(s => s.setPageCourante)
   const sessionActive   = useStore(s => s.sessionActive)
@@ -138,14 +137,6 @@ export default function Bestiaire() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button 
-                    variant={pnjControle?.id === m.id ? 'primary' : 'ghost'} 
-                    size="sm" 
-                    onClick={() => { setPnjControle(m); setPageCourante('mon-personnage') }}
-                    className="border border-white/5"
-                  >
-                    🎭 {pnjControle?.id === m.id ? 'Incarné' : 'Posséder'}
-                  </Button>
                   <Button variant="secondary" size="sm" onClick={() => { setPnjControle(m); setPageCourante('mon-personnage') }}>Gérer</Button>
                   <ConfirmButton variant="danger" size="sm" onConfirm={() => supprimerMonstre(m.id)}>🗑️</ConfirmButton>
                 </div>

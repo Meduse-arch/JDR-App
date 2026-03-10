@@ -1,4 +1,4 @@
-import { useStore } from './Store/useStore'
+import { useStore } from './store/useStore'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 import DashboardAdmin from './pages/admin/DashboardAdmin'
@@ -58,7 +58,7 @@ export default function App() {
       case 'items':          return <Items />
       case 'competences':    return <Competences />
       case 'quetes':         return <GererQuetes />
-      case 'gerer':          return <Possession /> 
+      case 'gerer':          return <Possession />
       case 'gerer-univers':  return <Gerer />      
       case 'gerer-mj':       return <GererMj />
       default:               return (roleEffectif === 'admin' || roleEffectif === 'mj') ? <DashboardAdmin /> : <DashboardJoueur />

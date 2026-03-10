@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../../Store/useStore'
+import { useStore } from '../../store/useStore'
 import { useCompetences } from '../../hooks/useCompetences'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
@@ -120,11 +120,13 @@ export default function Competences() {
 
           {/* Filtres et recherche */}
           <div className="flex flex-col md:flex-row gap-4">
-            <Input
-              icon="🔍"
-              type="text" placeholder="Rechercher une compétence..."
-              value={recherche} onChange={e => setRecherche(e.target.value)}
-            />
+            <div className="w-full md:max-w-md">
+              <Input
+                icon="🔍"
+                type="text" placeholder="Rechercher une compétence..."
+                value={recherche} onChange={e => setRecherche(e.target.value)}
+              />
+            </div>
             <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
               {['Tous', ...TYPES].map(type => (
                 <Button

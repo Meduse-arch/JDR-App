@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useStore } from '../../Store/useStore'
+import { useStore } from '../../store/useStore'
 import { queteService, Quete, Recompense } from '../../services/queteService'
 import { sessionService } from '../../services/sessionService'
 import { itemsService } from '../../services/itemsService'
@@ -19,6 +19,7 @@ export default function GererQuetes() {
   
   const [vue, setVue] = useState<'liste' | 'creer' | 'modifier'>('liste')
   const [queteDetail, setQueteDetail] = useState<Quete | null>(null)
+  const [recherche, setRecherche] = useState('')
 
   // Formulaire
   const [idModif, setIdModif] = useState<string | null>(null)
@@ -94,15 +95,29 @@ export default function GererQuetes() {
     setRecompenses(newRecs)
   }
 
+  const quetesFiltrees = quetes.filter(q => 
+    q.titre.toLowerCase().includes(recherche.toLowerCase()) ||
+    q.description.toLowerCase().includes(recherche.toLowerCase())
+  )
+
   return (
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar">
-      <div className="flex justify-between items-end mb-8 border-b border-white/5 pb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 border-b border-white/5 pb-6 gap-4">
         <div>
           <h2 className="text-3xl font-black uppercase italic tracking-tighter">📜 Journal des Quêtes</h2>
           <p className="text-sm opacity-50">Gère les objectifs et récompenses de ton univers</p>
         </div>
         <Button onClick={() => { resetForm(); setVue('creer'); }}>+ Forger une Quête</Button>
       </div>
+
+      {vue === 'liste' && (
+        <div className="w-full md:max-w-md mb-8">
+          <Input 
+            icon="🔍" placeholder="Rechercher une quête..." 
+            value={recherche} onChange={e => setRecherche(e.target.value)}
+          />
+        </div>
+      )}
 
       {(vue === 'creer' || vue === 'modifier') ? (
         <Card className="max-w-3xl mx-auto w-full flex flex-col gap-6 p-8 mb-10">
@@ -211,13 +226,13 @@ export default function GererQuetes() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-10">
-          {quetes.length === 0 && (
+          {quetesFiltrees.length === 0 && (
             <div className="col-span-full py-20 flex flex-col items-center justify-center opacity-30">
               <span className="text-6xl mb-4">📜</span>
-              <p className="text-lg font-bold">Aucune quête dans cet univers.</p>
+              <p className="text-lg font-bold">Aucune quête trouvée.</p>
             </div>
           )}
-          {quetes.map(q => (
+          {quetesFiltrees.map(q => (
             <Card key={q.id} hoverEffect className="flex-col gap-4 cursor-pointer" onClick={() => setQueteDetail(q)}>
               <div className="flex justify-between items-start">
                 <h3 className="font-black text-lg uppercase tracking-tighter truncate pr-2">{q.titre}</h3>

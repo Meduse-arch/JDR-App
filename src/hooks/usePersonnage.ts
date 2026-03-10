@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
-import { useStore, type Personnage } from '../Store/useStore'
+import { useStore, type Personnage } from '../store/useStore'
 import { personnageService } from '../services/personnageService'
 
 export function usePersonnage() {

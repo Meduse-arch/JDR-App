@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
-import { useStore } from '../Store/useStore'
+import { useStore } from '../store/useStore'
 
 export type StatValeur = {
   id: string
@@ -62,25 +62,25 @@ export function useStats() {
         .eq('equipe', true)
 
       if (baseStats) {
-        // Calcul des bonus par stat ID
-        const bonusMap: Record<string, number> = {}
+        // Calcul des bonus par nom de stat (via le champ 'type')
+        const bonusMapByStatId: Record<string, number> = {}
         equipement?.forEach(entry => {
           (entry.items as any)?.item_modificateurs?.forEach((m: any) => {
-            if (m.id_stat) {
-              bonusMap[m.id_stat] = (bonusMap[m.id_stat] || 0) + (m.valeur || 0)
+            if (m.type === 'stat' && m.id_stat) {
+              bonusMapByStatId[m.id_stat] = (bonusMapByStatId[m.id_stat] || 0) + (m.valeur || 0)
             }
           })
         })
 
         const formatted = baseStats.map((d: any) => {
-          const bonus = bonusMap[d.id_stat] || 0
+          const bonus = bonusMapByStatId[d.id_stat] || 0
           return {
             id: d.stats.id,
             nom: d.stats.nom,
             description: d.stats.description,
             base: d.valeur,
             bonus: bonus,
-            valeur: d.valeur + bonus // Valeur finale affichée
+            valeur: (d.valeur || 0) + bonus // Valeur finale affichée
           }
         })
 

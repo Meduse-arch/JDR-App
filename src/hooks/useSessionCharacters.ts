@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { sessionService } from '../services/sessionService'
 import { personnageService } from '../services/personnageService'
-import { type Personnage } from '../Store/useStore'
+import { type Personnage } from '../store/useStore'
 
 export function useSessionCharacters(sessionId?: string) {
   const [joueurs, setJoueurs] = useState<Personnage[]>([])

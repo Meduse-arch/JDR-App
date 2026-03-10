@@ -66,8 +66,8 @@ export const itemsService = {
         .insert(
           modificateurs.map(m => ({
             id_item: newItem.id,
+            type: m.type || 'stat', // 'stat', 'hp_max', 'mana_max', etc.
             id_stat: m.id_stat || null,
-            type: m.type || (m.id_stat ? 'stat' : 'unknown'),
             valeur: m.valeur,
           }))
         );

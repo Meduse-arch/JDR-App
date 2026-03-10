@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore, type Personnage } from '../../Store/useStore'
+import { useStore, type Personnage } from '../../store/useStore'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -16,7 +16,8 @@ export default function DashboardAdmin() {
   const [stats, setStats] = useState({
     items: 0,
     competences: 0,
-    templates: 0
+    templates: 0,
+    quetes: 0
   })
 
   useEffect(() => {
@@ -54,16 +55,18 @@ export default function DashboardAdmin() {
     }
 
     // 2. Statistiques globales
-    const [itemsRes, compRes, tmplRes] = await Promise.all([
+    const [itemsRes, compRes, tmplRes, quetesRes] = await Promise.all([
       supabase.from('items').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id),
       supabase.from('competences').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id),
-      supabase.from('personnages').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id).eq('is_template', true)
+      supabase.from('personnages').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id).eq('is_template', true),
+      supabase.from('quetes').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id)
     ])
 
     setStats({
       items: itemsRes.count || 0,
       competences: compRes.count || 0,
-      templates: tmplRes.count || 0
+      templates: tmplRes.count || 0,
+      quetes: quetesRes.count || 0
     })
   }
 
@@ -106,10 +109,11 @@ export default function DashboardAdmin() {
           )}
         </div>
         
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto">
           <QuickStat label="Modèles" value={stats.templates} icon="📋" color="var(--color-main)" />
           <QuickStat label="Objets" value={stats.items} icon="🎒" color="#10b981" />
           <QuickStat label="Sorts" value={stats.competences} icon="✨" color="#a855f7" />
+          <QuickStat label="Quêtes" value={stats.quetes} icon="📜" color="#f59e0b" />
         </div>
       </div>
 
