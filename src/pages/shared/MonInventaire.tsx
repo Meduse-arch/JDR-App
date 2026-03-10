@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore, type Personnage } from '../../Store/useStore'
+import { useStore } from '../../Store/useStore'
 import { useInventaire } from '../../hooks/useInventaire'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { useItems } from '../../hooks/useItems'
@@ -16,7 +16,7 @@ export default function MonInventaire() {
   const pnjControle    = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
 
-  const { inventaire, chargement: chargementInv, toggleEquipementOptimiste, consommerItemOptimiste } = useInventaire()
+  const { inventaire, toggleEquipementOptimiste, consommerItemOptimiste } = useInventaire()
   const { personnage, mettreAJourLocalement, rechargerPersonnage } = usePersonnage()
   const { rechargerStats } = useStats()
   const { stats, itemModifs } = useItems()

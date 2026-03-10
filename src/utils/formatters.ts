@@ -1,4 +1,4 @@
-import { Modificateur, Stat } from '../types';
+import { Stat } from '../types';
 import { CONFIG_RESSOURCES } from './constants';
 
 export const formatLabelModif = (m: any, stats: Stat[]) => {

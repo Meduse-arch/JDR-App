@@ -9,7 +9,6 @@ export default function Possession() {
   const [personnages, setPersonnages] = useState<Personnage[]>([])
   const [filtreType,  setFiltreType]  = useState<FiltreType>('tout')
   const [recherche,   setRecherche]   = useState('')
-  const [chargement,  setChargement]  = useState(true)
 
   const sessionActive = useStore(s => s.sessionActive)
   const pnjControle = useStore(s => s.pnjControle)
@@ -21,14 +20,12 @@ export default function Possession() {
   }, [sessionActive])
 
   const chargerPersonnages = async () => {
-    setChargement(true)
     const { data } = await supabase
       .from('personnages')
       .select('*')
       .eq('id_session', sessionActive?.id)
       .order('nom')
     if (data) setPersonnages(data)
-    setChargement(false)
   }
 
   const persosFiltres = personnages.filter(p => {

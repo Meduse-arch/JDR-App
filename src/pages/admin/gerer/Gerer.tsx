@@ -15,7 +15,7 @@ export default function Gerer() {
   const [filtreType,  setFiltreType]  = useState<FiltreType>('tout')
   const [recherche,   setRecherche]   = useState('')
   const [onglet,      setOnglet]      = useState<'stats' | 'inventaire' | 'competences'>('stats')
-  const [chargement,  setChargement]  = useState(true)
+
 
   const sessionActive = useStore(s => s.sessionActive)
   const setPnjControle = useStore(s => s.setPnjControle)
@@ -26,7 +26,6 @@ export default function Gerer() {
   }, [sessionActive])
 
   const chargerPersonnages = async () => {
-    setChargement(true)
     const { data } = await supabase
       .from('personnages')
       .select('*')
@@ -34,7 +33,6 @@ export default function Gerer() {
       .order('nom')
     
     if (data) setPersonnages(data)
-    setChargement(false)
   }
 
   const persosFiltres = personnages.filter(p => {

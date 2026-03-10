@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useStore } from '../../Store/useStore'
 import { useItems } from '../../hooks/useItems'
 import { Modificateur, CategorieItem } from '../../types'

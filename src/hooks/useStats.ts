@@ -65,7 +65,7 @@ export function useStats() {
         // Calcul des bonus par stat ID
         const bonusMap: Record<string, number> = {}
         equipement?.forEach(entry => {
-          entry.items?.item_modificateurs?.forEach((m: any) => {
+          (entry.items as any)?.item_modificateurs?.forEach((m: any) => {
             if (m.id_stat) {
               bonusMap[m.id_stat] = (bonusMap[m.id_stat] || 0) + (m.valeur || 0)
             }

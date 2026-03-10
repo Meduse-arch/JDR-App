@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../supabase'
 import { useStore, type Personnage } from '../../Store/useStore'
 import CreerTemplate from './CreerTemplate'
 import { Card } from '../../components/ui/Card'

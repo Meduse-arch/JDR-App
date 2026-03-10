@@ -46,7 +46,7 @@ export default function GererQuetes() {
 
   const handleCreer = async () => {
     if (!sessionActive || !titre) return
-    const success = await queteService.creerQuete(sessionActive.id, { titre, description }, participants, recompenses)
+    const success = await queteService.creerQuete(sessionActive.id, { titre, description }, participants, recompenses as Recompense[])
     if (success) {
       setVue('liste')
       resetForm()
@@ -85,7 +85,13 @@ export default function GererQuetes() {
   }
 
   const ajouterRecompense = (type: 'Item' | 'Autre') => {
-    setRecompenses(prev => [...prev, { type, valeur: 1, description: '', id_item: null }])
+    setRecompenses(prev => [...prev, { type, valeur: 1, description: '', id_item: null, distribution: 'commune' }])
+  }
+
+  const updateRecompense = (idx: number, updates: Partial<Recompense>) => {
+    const newRecs = [...recompenses]
+    newRecs[idx] = { ...newRecs[idx], ...updates }
+    setRecompenses(newRecs)
   }
 
   return (
@@ -120,7 +126,7 @@ export default function GererQuetes() {
               <div className="flex gap-2">
                 {(['En cours', 'Terminée', 'Échouée'] as const).map(s => (
                   <button key={s} onClick={() => setStatut(s)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${statut === s ? 'bg-main border-main' : 'bg-white/5 border-white/10 opacity-40'}`}>
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${statut === s ? 'bg-main border-main text-white' : 'bg-white/5 border-white/10 opacity-40'}`}>
                     {s}
                   </button>
                 ))}
@@ -138,40 +144,48 @@ export default function GererQuetes() {
             </div>
             
             {recompenses.map((rec, idx) => (
-              <div key={idx} className="flex items-center gap-3 bg-black/20 p-3 rounded-xl border border-white/5">
-                {rec.type === 'Item' ? (
-                  <>
-                    <Select 
-                      className="flex-1 !py-2 !px-3 text-sm font-bold"
-                      value={rec.id_item || ''}
-                      onChange={e => {
-                        const newRecs = [...recompenses]
-                        newRecs[idx].id_item = e.target.value
-                        setRecompenses(newRecs)
-                      }}
+              <div key={idx} className="flex flex-col gap-3 bg-black/20 p-4 rounded-xl border border-white/5">
+                <div className="flex items-center gap-3">
+                  {rec.type === 'Item' ? (
+                    <>
+                      <Select 
+                        className="flex-1 !py-2 !px-3 text-sm font-bold"
+                        value={rec.id_item || ''}
+                        onChange={e => updateRecompense(idx, { id_item: e.target.value })}
+                      >
+                        <option value="" className="bg-surface text-primary">Choisir un objet...</option>
+                        {itemsDispos.map(i => <option key={i.id} value={i.id} className="bg-surface text-primary">{i.nom}</option>)}
+                      </Select>
+                      <input type="number" className="w-12 bg-white/5 text-center rounded-lg py-2 border border-white/10" value={rec.valeur} onChange={e => updateRecompense(idx, { valeur: parseInt(e.target.value) || 1 })} />
+                    </>
+                  ) : (
+                    <input 
+                      className="flex-1 bg-transparent text-sm font-bold outline-none border border-white/10 rounded-xl px-3 py-2 bg-white/5"
+                      placeholder="Récompense personnalisée..."
+                      value={rec.description || ''}
+                      onChange={e => updateRecompense(idx, { description: e.target.value })}
+                    />
+                  )}
+                  <button className="text-red-400 opacity-50 hover:opacity-100 p-2" onClick={() => setRecompenses(recompenses.filter((_, i) => i !== idx))}>✕</button>
+                </div>
+                
+                <div className="flex items-center gap-4 px-1">
+                  <label className="text-[9px] font-black uppercase opacity-30">Distribution :</label>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => updateRecompense(idx, { distribution: 'commune' })}
+                      className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase border transition-all ${rec.distribution === 'commune' ? 'bg-main/20 border-main text-main' : 'bg-white/5 border-white/10 opacity-40'}`}
                     >
-                      <option value="" className="bg-surface text-primary">Choisir un objet...</option>
-                      {itemsDispos.map(i => <option key={i.id} value={i.id} className="bg-surface text-primary">{i.nom}</option>)}
-                    </Select>
-                    <input type="number" className="w-12 bg-white/5 text-center rounded-lg py-2 border border-white/10" value={rec.valeur} onChange={e => {
-                      const newRecs = [...recompenses]
-                      newRecs[idx].valeur = parseInt(e.target.value) || 1
-                      setRecompenses(newRecs)
-                    }} />
-                  </>
-                ) : (
-                  <input 
-                    className="flex-1 bg-transparent text-sm font-bold outline-none border border-white/10 rounded-xl px-3 py-2 bg-white/5"
-                    placeholder="Récompense personnalisée..."
-                    value={rec.description || ''}
-                    onChange={e => {
-                      const newRecs = [...recompenses]
-                      newRecs[idx].description = e.target.value
-                      setRecompenses(newRecs)
-                    }}
-                  />
-                )}
-                <button className="text-red-400 opacity-50 hover:opacity-100 p-2" onClick={() => setRecompenses(recompenses.filter((_, i) => i !== idx))}>✕</button>
+                      👥 Commune
+                    </button>
+                    <button 
+                      onClick={() => updateRecompense(idx, { distribution: 'par_personne' })}
+                      className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase border transition-all ${rec.distribution === 'par_personne' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-white/5 border-white/10 opacity-40'}`}
+                    >
+                      👤 Par Personne
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -212,8 +226,9 @@ export default function GererQuetes() {
               <p className="text-xs opacity-60 line-clamp-2 italic">"{q.description}"</p>
               <div className="mt-auto pt-4 border-t border-white/5 flex flex-wrap gap-2">
                 {q.quete_recompenses?.map((r, i) => (
-                  <span key={i} className="text-[9px] font-black uppercase px-2 py-1 bg-main/10 text-main rounded-md">
+                  <span key={i} className={`text-[9px] font-black uppercase px-2 py-1 rounded-md border ${r.distribution === 'par_personne' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-main/10 text-main border-main/20'}`}>
                     {r.type === 'Item' ? `🎁 ${r.items?.nom} (x${r.valeur})` : `✨ ${r.description}`}
+                    {r.distribution === 'par_personne' && ' / pers.'}
                   </span>
                 ))}
               </div>
@@ -238,9 +253,14 @@ export default function GererQuetes() {
               <p className="text-[10px] font-black uppercase opacity-40">Butin à récupérer :</p>
               <div className="grid grid-cols-1 gap-2">
                 {queteDetail.quete_recompenses?.map((r, i) => (
-                  <div key={i} className="p-3 rounded-xl bg-white/5 border border-white/5 font-bold text-sm flex items-center gap-2">
-                    <span>{r.type === 'Item' ? '🎁' : '✨'}</span>
-                    <span>{r.type === 'Item' ? `${r.items?.nom} (x${r.valeur})` : r.description}</span>
+                  <div key={i} className={`p-3 rounded-xl bg-white/5 border border-white/5 font-bold text-sm flex items-center justify-between`}>
+                    <div className="flex items-center gap-2">
+                      <span>{r.type === 'Item' ? '🎁' : '✨'}</span>
+                      <span>{r.type === 'Item' ? `${r.items?.nom} (x${r.valeur})` : r.description}</span>
+                    </div>
+                    <Badge variant="ghost" className="text-[8px] uppercase opacity-60">
+                      {r.distribution === 'par_personne' ? '👤 Individuel' : '👥 Commun'}
+                    </Badge>
                   </div>
                 ))}
                 {(!queteDetail.quete_recompenses || queteDetail.quete_recompenses.length === 0) && (

@@ -9,7 +9,6 @@ import { sessionService } from '../../services/sessionService'
 export default function Joueurs() {
   const [personnages, setPersonnages] = useState<Personnage[]>([])
   const [mjsIds, setMjsIds] = useState<string[]>([])
-  const [chargement, setChargement] = useState(true)
 
   const setPnjControle  = useStore(s => s.setPnjControle)
   const setPageCourante = useStore(s => s.setPageCourante)
@@ -22,7 +21,6 @@ export default function Joueurs() {
 
   const chargerDonnees = async () => {
     if (!sessionActive) return
-    setChargement(true)
 
     // 1. Charger les joueurs
     const { data: persos } = await supabase
@@ -40,7 +38,6 @@ export default function Joueurs() {
 
     if (persos) setPersonnages(persos)
     if (mjs) setMjsIds(mjs.map(m => m.id_compte))
-    setChargement(false)
   }
 
   const toggleMJ = async (idCompte: string, estDejaMJ: boolean) => {

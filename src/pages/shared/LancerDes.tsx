@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/Badge'
 type Resultat = { label: string; des: number[]; modifier: number; total: number }
 
 export default function LancerDes() {
-  const { stats, chargement } = useStats()
+  const { stats } = useStats()
 
   const [nbDesInput,    setNbDesInput]    = useState<string | number>(1)
   const [facesDeInput,  setFacesDeInput]  = useState<string | number>(20)

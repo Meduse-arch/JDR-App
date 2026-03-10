@@ -1,58 +1,46 @@
 import { useState, useCallback } from 'react'
-import { personnageService } from '../services/personnageService'
-import { useStore, type Personnage } from '../Store/useStore'
-import { type InventaireEntry, type Modificateur } from '../types'
+import { useStore } from '../Store/useStore'
+import { type InventaireEntry } from '../types'
 
 export function useItemUsage(
-  personnage: Personnage | null,
-  itemModifs: Record<string, Modificateur[]>,
-  mettreAJourLocalement: (updates: Partial<Personnage>) => Promise<void>,
-  consommerItemOptimiste: (idInventaire: string, quantiteActuelle: number) => Promise<void>,
-  rechargerPersonnage: () => Promise<void>,
-  rechargerStats: () => Promise<void>
+  personnage: any, 
+  mettreAJourLocalement: (updates: any) => Promise<void>,
+  consommerItemOptimiste: (id: string, q: number) => Promise<void>
 ) {
-  const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([])
+  const [toasts, setToasts] = useState<string[]>([])
   const pnjControle = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
 
-  const afficherToast = useCallback((msg: string) => {
-    const id = Date.now()
-    setToasts(prev => [...prev, { id, msg }])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 2500)
-  }, [])
+  const afficherToast = (msg: string) => {
+    setToasts(prev => [...prev, msg])
+    setTimeout(() => setToasts(prev => prev.filter(t => t !== msg)), 3000)
+  }
 
-  const utiliserItem = async (entry: InventaireEntry) => {
+  const utiliserItem = useCallback(async (entry: InventaireEntry) => {
     if (!personnage) return
-    const modifs = itemModifs[entry.items.id] || []
+
+    const { items } = entry
+    const message = `Utilisation de ${items.nom}`
     
-    // 1. Calculer les changements
+    // 1. Calculer les bonus immédiats
     const updates: any = {}
-    let message = `Utilisation de ${entry.items.nom}`
+    
+    // Pour l'instant on gère juste un log, la logique de soin pourra être ajoutée ici
+    console.log(message, entry)
 
-    modifs.forEach(m => {
-      if (m.type === 'hp') {
-        const total = Math.min(personnage.hp_max, personnage.hp_actuel + m.valeur)
-        updates.hp_actuel = total
-        message += ` (+${m.valeur} PV)`
+    // 2. Appliquer les changements (si soin par exemple)
+    if (Object.keys(updates).length > 0) {
+      await mettreAJourLocalement(updates)
+      if (pnjControle && personnage.id === pnjControle.id) {
+        setPnjControle({ ...pnjControle, ...updates })
       }
-      if (m.type === 'mana') {
-        const total = Math.min(personnage.mana_max, personnage.mana_actuel + m.valeur)
-        updates.mana_actuel = total
-        message += ` (+${m.valeur} Mana)`
-      }
-    })
-
-    // 2. Appliquer localement
-    await mettreAJourLocalement(updates)
-    if (pnjControle && pnjControle.id === personnage.id) {
-      setPnjControle({ ...pnjControle, ...updates })
     }
 
     // 3. Consommer l'item
     await consommerItemOptimiste(entry.id, entry.quantite)
     
     afficherToast(message)
-  }
+  }, [personnage, mettreAJourLocalement, consommerItemOptimiste, pnjControle, setPnjControle])
 
   return { toasts, utiliserItem }
 }

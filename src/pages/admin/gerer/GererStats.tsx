@@ -10,7 +10,6 @@ type Props = { personnage: Personnage }
 export default function GererStats({ personnage }: Props) {
   const [stats, setStats] = useState<any[]>([])
   const [tempStats, setTempStats] = useState<Record<string, number>>({})
-  const [chargement, setChargement] = useState(true)
   const [sauvegardant, setSauvegardant] = useState(false)
 
   useEffect(() => {
@@ -18,7 +17,6 @@ export default function GererStats({ personnage }: Props) {
   }, [personnage.id])
 
   const chargerStats = async () => {
-    setChargement(true)
     const { data } = await supabase
       .from('personnage_stats')
       .select('id_stat, valeur, stats(nom)')
@@ -31,7 +29,6 @@ export default function GererStats({ personnage }: Props) {
       s.forEach(item => initialTemp[item.nom] = item.valeur)
       setTempStats(initialTemp)
     }
-    setChargement(false)
   }
 
   // Calcul des ressources dérivées en temps réel

@@ -17,9 +17,9 @@ export default function MonPersonnage() {
   const pnjControle    = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
 
-  const { personnage, chargement: chargementPerso, rechargerPersonnage, mettreAJourLocalement } = usePersonnage()
-  const { stats, chargement: chargementStats } = useStats()
-  
+  const { personnage, rechargerPersonnage, mettreAJourLocalement } = usePersonnage()
+  const { stats } = useStats()
+
   const { deltas, updateDelta, adjustDelta, appliquerDelta } = useResourceManagement(personnage, mettreAJourLocalement)
 
   const [pseudoJoueur, setPseudoJoueur] = useState<string | null>(null)
@@ -41,6 +41,7 @@ export default function MonPersonnage() {
   }
 
   // On retire le blocage visuel du chargement
+
 
   if (!personnage && compte?.role === 'joueur')
     return <CreerPersonnage type="Joueur" retour={() => rechargerPersonnage()} />
@@ -97,7 +98,6 @@ export default function MonPersonnage() {
             key={r.rKey}
             label={r.label}
             color={r.color}
-            icon={r.icon}
             emoji={r.emoji}
             glow={r.glow}
             gradient={r.gradient}

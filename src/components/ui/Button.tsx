@@ -1,71 +1,39 @@
 import { ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'active';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'active' | 'success';
   size?: 'sm' | 'md' | 'lg';
   children: ReactNode;
-  className?: string;
 }
 
 export function Button({ 
   variant = 'primary', 
   size = 'md', 
-  children, 
   className = '', 
+  children, 
   ...props 
 }: ButtonProps) {
-  const baseClasses = "rounded-xl font-bold transition-all flex justify-center items-center gap-2";
-  
-  const sizeClasses = {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2 text-sm",
-    lg: "px-5 py-3 text-base w-full",
+  const variants = {
+    primary: 'bg-main text-white shadow-lg shadow-main/20 hover:opacity-90',
+    secondary: 'bg-white/5 border border-white/10 text-white hover:bg-white/10',
+    danger: 'bg-red-500 text-white shadow-lg shadow-red-500/20 hover:bg-red-600',
+    ghost: 'bg-transparent hover:bg-white/5 text-secondary hover:text-white',
+    active: 'bg-white/10 border border-white/20 text-white',
+    success: 'bg-green-500 text-white shadow-lg shadow-green-500/20 hover:bg-green-600',
   };
 
-  const getVariantStyles = () => {
-    switch (variant) {
-      case 'primary':
-        return {
-          background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))',
-          color: '#fff',
-          border: 'none',
-          boxShadow: '0 4px 14px color-mix(in srgb, var(--color-main) 30%, transparent)',
-        };
-      case 'active':
-        return {
-          backgroundColor: 'var(--color-main)',
-          color: '#fff',
-          border: 'none',
-        };
-      case 'secondary':
-        return {
-          backgroundColor: 'var(--bg-surface)',
-          color: 'var(--text-secondary)',
-          border: '1px solid var(--border)',
-        };
-      case 'danger':
-        return {
-          backgroundColor: 'color-mix(in srgb, #ef4444 10%, transparent)',
-          color: '#f87171',
-          border: '1px solid color-mix(in srgb, #ef4444 30%, transparent)',
-        };
-      case 'ghost':
-        return {
-          backgroundColor: 'transparent',
-          color: 'var(--text-secondary)',
-          border: '1px solid transparent',
-        };
-      default:
-        return {};
-    }
+  const sizes = {
+    sm: 'px-3 py-1.5 text-xs font-bold rounded-lg',
+    md: 'px-5 py-2.5 text-sm font-bold rounded-xl',
+    lg: 'px-8 py-4 text-base font-black rounded-2xl tracking-widest',
   };
 
   return (
     <button
-      className={`${baseClasses} ${sizeClasses[size]} ${
-        variant === 'primary' ? 'hover:-translate-y-0.5 hover:shadow-lg active:scale-95' : 'hover:opacity-80'
-      } ${className}`}
-      style={getVariantStyles()}
+      className={`inline-flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
+      style={{
+        backgroundColor: variant === 'primary' ? 'var(--color-main)' : undefined,
+      }}
       {...props}
     >
       {children}

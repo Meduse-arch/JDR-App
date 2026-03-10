@@ -16,7 +16,6 @@ export default function DashboardJoueur() {
   const [quetesSuivies, setQuetesSuivies] = useState<Quete[]>([])
   const [indexQuete, setIndexQuete] = useState(0)
   const [queteDetail, setQueteDetail] = useState<Quete | null>(null)
-  const [chargement, setChargement] = useState(true)
 
   useEffect(() => {
     if (compte && sessionActive) chargerPersonnage()
@@ -35,11 +34,9 @@ export default function DashboardJoueur() {
   }, [personnage])
 
   const chargerPersonnage = async () => {
-    setChargement(true)
     const { data } = await supabase
       .from('personnages').select('*').eq('id_session', sessionActive?.id).eq('lie_au_compte', compte?.id).eq('type', 'Joueur').eq('is_template', false).maybeSingle()
     if (data) setPersonnage(data as Personnage)
-    setChargement(false)
   }
 
   const chargerQuetes = async () => {

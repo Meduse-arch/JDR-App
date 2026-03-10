@@ -1,4 +1,4 @@
-import { useStore, type RoleId } from '../Store/useStore'
+import { useStore } from '../Store/useStore'
 
 export default function Sidebar() {
   const pageCourante = useStore(s => s.pageCourante)
@@ -7,7 +7,6 @@ export default function Sidebar() {
   const sessionActive = useStore(s => s.sessionActive)
   const pnjControle = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
-  const compte = useStore(s => s.compte)
 
   const isMJ = roleEffectif === 'admin' || roleEffectif === 'mj'
 

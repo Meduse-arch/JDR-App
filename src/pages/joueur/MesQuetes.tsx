@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useStore } from '../../Store/useStore'
 import { queteService, Quete } from '../../services/queteService'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { Card } from '../../components/ui/Card'
@@ -9,7 +8,6 @@ import { Button } from '../../components/ui/Button'
 export default function MesQuetes() {
   const { personnage } = usePersonnage()
   const [quetes, setQuetes] = useState<(Quete & { suivie?: boolean })[]>([])
-  const [chargement, setChargement] = useState(true)
   const [queteDetail, setQueteDetail] = useState<(Quete & { suivie?: boolean }) | null>(null)
   const [filtreSuivies, setFiltreSuivies] = useState(false)
 
@@ -18,10 +16,8 @@ export default function MesQuetes() {
   }, [personnage])
 
   const chargerQuetes = async () => {
-    setChargement(true)
     const data = await queteService.getQuetesPersonnage(personnage!.id)
     setQuetes(data)
-    setChargement(false)
   }
 
   const toggleSuivre = async (e: React.MouseEvent, q: Quete & { suivie?: boolean }) => {
@@ -78,8 +74,9 @@ export default function MesQuetes() {
             <p className="text-xs opacity-60 line-clamp-2 italic">"{q.description}"</p>
             <div className="mt-auto pt-4 border-t border-white/5 flex flex-wrap gap-2">
               {q.quete_recompenses?.map((r, i) => (
-                <span key={i} className="text-[9px] font-black uppercase px-2 py-1 bg-main/10 text-main rounded-md">
+                <span key={i} className={`text-[9px] font-black uppercase px-2 py-1 rounded-md border ${r.distribution === 'par_personne' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-main/10 text-main border-main/20'}`}>
                   {r.type === 'Item' ? `🎁 ${r.items?.nom} (x${r.valeur})` : `✨ ${r.description}`}
+                  {r.distribution === 'par_personne' && ' / pers.'}
                 </span>
               ))}
             </div>
@@ -116,12 +113,17 @@ export default function MesQuetes() {
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Récompenses promises :</p>
                 <div className="grid grid-cols-1 gap-2">
                   {queteDetail.quete_recompenses?.map((r, i) => (
-                    <div key={i} className="p-4 rounded-2xl bg-white/5 border border-white/10 font-bold text-sm flex items-center gap-3">
-                      <span className="text-xl">{r.type === 'Item' ? '🎁' : '✨'}</span>
-                      <div>
-                        <p className="text-xs opacity-40 uppercase font-black tracking-tighter">{r.type === 'Item' ? 'Objet de quête' : 'Bonus spécial'}</p>
-                        <p className="text-base">{r.type === 'Item' ? `${r.items?.nom} (Quantité: ${r.valeur})` : r.description}</p>
+                    <div key={i} className={`p-4 rounded-2xl bg-white/5 border border-white/10 font-bold text-sm flex items-center justify-between`}>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{r.type === 'Item' ? '🎁' : '✨'}</span>
+                        <div>
+                          <p className="text-xs opacity-40 uppercase font-black tracking-tighter">{r.type === 'Item' ? 'Objet de quête' : 'Bonus spécial'}</p>
+                          <p className="text-base">{r.type === 'Item' ? `${r.items?.nom} (Quantité: ${r.valeur})` : r.description}</p>
+                        </div>
                       </div>
+                      <Badge variant={r.distribution === 'par_personne' ? 'default' : 'ghost'} className="text-[8px] uppercase">
+                        {r.distribution === 'par_personne' ? '👤 Pour toi' : '👥 À partager'}
+                      </Badge>
                     </div>
                   ))}
                 </div>

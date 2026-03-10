@@ -7,6 +7,7 @@ export interface Recompense {
   id_item?: string | null
   valeur: number // Utilisé pour la quantité si c'est un item
   description?: string | null
+  distribution: 'commune' | 'par_personne'
   items?: { nom: string } 
 }
 
@@ -23,8 +24,6 @@ export interface Quete {
 
 export const queteService = {
   getQuetes: async (sessionId: string): Promise<Quete[]> => {
-    // We try to get quetes with rewards. 
-    // If the 'suivie' column doesn't exist yet, we don't want to break everything.
     const { data, error } = await supabase
       .from('quetes')
       .select('*, quete_recompenses(*, items(nom)), personnage_quetes(*)')
@@ -33,7 +32,6 @@ export const queteService = {
     
     if (error) {
       console.error("Erreur getQuetes:", error)
-      // Fallback without personnage_quetes if it's the cause
       const { data: fallback } = await supabase
         .from('quetes')
         .select('*, quete_recompenses(*, items(nom))')
@@ -71,7 +69,11 @@ export const queteService = {
 
     if (recompenses.length > 0) {
       await supabase.from('quete_recompenses').insert(
-        recompenses.map(r => ({ ...r, id_quete: newQuete.id }))
+        recompenses.map(r => ({ 
+          ...r, 
+          id_quete: newQuete.id,
+          distribution: r.distribution || 'commune'
+        }))
       )
     }
 
@@ -98,7 +100,8 @@ export const queteService = {
         type: r.type,
         id_item: r.id_item || null,
         valeur: r.valeur || 0,
-        description: r.description || null
+        description: r.description || null,
+        distribution: r.distribution || 'commune'
       }))
       
       const { error: rErr } = await supabase.from('quete_recompenses').insert(cleanRewards)

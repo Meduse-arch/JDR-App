@@ -19,7 +19,6 @@ export default function Sessions() {
 
   const [sessions,   setSessions]   = useState<Session[]>([])
   const [comptes,    setComptes]    = useState<Record<string, string>>({})
-  const [chargement, setChargement] = useState(true)
   const [nom,        setNom]        = useState('')
   const [description, setDescription] = useState('')
   const [afficherFormulaire, setAfficherFormulaire] = useState(false)
@@ -30,7 +29,6 @@ export default function Sessions() {
   useEffect(() => { chargerSessions() }, [])
 
   const chargerSessions = async () => {
-    setChargement(true)
     const { data } = await supabase.from('sessions').select('*').order('created_at', { ascending: false })
     if (data) {
       setSessions(data)
@@ -44,7 +42,6 @@ export default function Sessions() {
         }
       }
     }
-    setChargement(false)
   }
 
   const sessionsFiltrees = useMemo(() => sessions.filter(s => {
