@@ -88,39 +88,49 @@ export const personnageService = {
       const resourceBonuses: Record<string, number> = {
         hp_max: 0, mana_max: 0, stam_max: 0
       }
-      const statBonuses: Record<string, number> = {}
+      const statBonusesByName: Record<string, number> = {}
 
       if (equipements && equipements.length > 0) {
         const itemIds = equipements.map(e => e.id_item)
         const { data: modifs } = await supabase
           .from('item_modificateurs')
-          .select('*')
+          .select('*, stats(nom)')
           .in('id_item', itemIds)
 
         if (modifs) {
-          modifs.forEach(mod => {
+          modifs.forEach((mod: any) => {
             if (mod.type === 'stat' && mod.id_stat) {
-              statBonuses[mod.id_stat] = (statBonuses[mod.id_stat] || 0) + mod.valeur
+              // On récupère le nom de la stat via id_stat pour le calcul
+              const statFound = baseStats.find((s: any) => s.id_stat === mod.id_stat)
+              if (statFound) {
+                const nomStat = Array.isArray(statFound.stats) ? statFound.stats[0]?.nom : (statFound.stats as any)?.nom
+                if (nomStat) {
+                  statBonusesByName[nomStat] = (statBonusesByName[nomStat] || 0) + mod.valeur
+                }
+              }
             } else if (['hp_max', 'mana_max', 'stam_max'].includes(mod.type)) {
-              resourceBonuses[mod.type] = (resourceBonuses[mod.type] || 0) + mod.valeur
+              resourceBonuses[mod.type] += mod.valeur
             }
           })
         }
       }
 
-      // 3. Calculer les ressources de base à partir des statistiques de BASE uniquement
-      const baseStatsMap: Record<string, number> = {}
+      // 3. Calculer les ressources de base à partir des statistiques de BASE + BONUS
+      const statsFinales: Record<string, number> = {}
       baseStats.forEach((s: any) => {
-        baseStatsMap[s.stats.nom] = s.valeur
+        const nomStat = s.stats.nom
+        const valeurBase = s.valeur
+        const bonus = statBonusesByName[nomStat] || 0
+        statsFinales[nomStat] = valeurBase + bonus
       })
 
-      // Formules sur les stats de base
-      let new_hp_max   = (baseStatsMap['Constitution'] ?? 0) * 4
+      // Formules sur les stats finales (base + équipement)
+      let new_hp_max   = (statsFinales['Constitution'] ?? 0) * 4
       let new_mana_max = Math.round(
-        (((baseStatsMap['Intelligence'] ?? 0) + (baseStatsMap['Sagesse'] ?? 0)) / 2) * 10
+        (((statsFinales['Intelligence'] ?? 0) + (statsFinales['Sagesse'] ?? 0)) / 2) * 10
       )
       let new_stam_max = Math.round(
-        ((baseStatsMap['Force'] ?? 0) + (baseStatsMap['Agilité'] ?? 0) + (baseStatsMap['Constitution'] ?? 0)) / 3 * 10
+        ((statsFinales['Force'] ?? 0) + (statsFinales['Agilité'] ?? 0) + (statsFinales['Constitution'] ?? 0)) / 3 * 10
       )
 
       // 4. Ajouter UNIQUEMENT les bonus directs de ressources de l'équipement

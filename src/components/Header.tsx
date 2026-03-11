@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useStore, type ThemeId } from '../Store/useStore'
+import { useStore, type ThemeId } from '../store/useStore'
 import { Button } from './ui/Button'
 
 const THEMES: { id: ThemeId; nom: string; from: string; to: string }[] = [
@@ -51,7 +51,7 @@ export default function Header() {
         {sessionActive && (
           <button 
             onClick={() => setSessionActive(null)}
-            className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 transition-all group"
+            className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 transition-all group"
           >
             <span className="text-[10px] font-black opacity-30 uppercase group-hover:text-main transition-colors">Univers</span>
             <span className="text-xs font-bold">{sessionActive.nom}</span>
@@ -60,7 +60,7 @@ export default function Header() {
         )}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         <div className="relative" ref={themeRef}>
           <button
             onClick={() => setMenuThemeOuvert(!menuThemeOuvert)}

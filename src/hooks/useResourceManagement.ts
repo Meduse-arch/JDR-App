@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore, type Personnage } from '../Store/useStore'
+import { useStore, type Personnage } from '../store/useStore'
 
 export type RessourceKey = 'hp' | 'mana' | 'stam'
 

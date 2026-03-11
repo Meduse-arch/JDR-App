@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore, type Personnage } from '../../Store/useStore'
+import { useStore, type Personnage } from '../../store/useStore'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -87,6 +87,7 @@ export default function DashboardAdmin() {
           <QuickStat label="Quêtes" value={stats.quetes} icon="📜" color="#f59e0b" />
           <QuickStat label="Objets" value={stats.items} icon="🎒" color="#10b981" />
           <QuickStat label="Sorts" value={stats.competences} icon="✨" color="#a855f7" />
+          <QuickStat label="Quêtes" value={stats.quetes} icon="📜" color="#f59e0b" />
         </div>
       </div>
 

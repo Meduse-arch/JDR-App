@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useStore } from '../Store/useStore'
-import { type InventaireEntry } from '../types'
+import { useStore } from '../store/useStore'
 
 export function useItemUsage(
   personnage: any, 
@@ -16,17 +15,26 @@ export function useItemUsage(
     setTimeout(() => setToasts(prev => prev.filter(t => t !== msg)), 3000)
   }
 
-  const utiliserItem = useCallback(async (entry: InventaireEntry) => {
+  const utiliserItem = useCallback(async (entry: any) => {
     if (!personnage) return
 
     const { items } = entry
-    const message = `Utilisation de ${items.nom}`
+    const modifs = items.item_modificateurs || []
     
     // 1. Calculer les bonus immédiats
     const updates: any = {}
     
-    // Pour l'instant on gère juste un log, la logique de soin pourra être ajoutée ici
-    console.log(message, entry)
+    modifs.forEach((m: any) => {
+      if (m.type === 'hp') {
+        updates.hp_actuel = Math.min(personnage.hp_max, (updates.hp_actuel ?? personnage.hp_actuel) + m.valeur)
+      }
+      if (m.type === 'mana') {
+        updates.mana_actuel = Math.min(personnage.mana_max, (updates.mana_actuel ?? personnage.mana_actuel) + m.valeur)
+      }
+      if (m.type === 'stam') {
+        updates.stam_actuel = Math.min(personnage.stam_max, (updates.stam_actuel ?? personnage.stam_actuel) + m.valeur)
+      }
+    })
 
     // 2. Appliquer les changements (si soin par exemple)
     if (Object.keys(updates).length > 0) {
@@ -36,10 +44,10 @@ export function useItemUsage(
       }
     }
 
-    // 3. Consommer l'item
-    await consommerItemOptimiste(entry.id, entry.quantite)
+    // 3. Consommer l'item (on diminue la quantité de 1)
+    await consommerItemOptimiste(entry.id, 1)
     
-    afficherToast(message)
+    afficherToast(`Utilisation de ${items.nom}`)
   }, [personnage, mettreAJourLocalement, consommerItemOptimiste, pnjControle, setPnjControle])
 
   return { toasts, utiliserItem }

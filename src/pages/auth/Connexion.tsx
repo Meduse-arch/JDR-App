@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore } from '../../Store/useStore'
+import { useStore } from '../../store/useStore'
 import CryptoJS from 'crypto-js'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'

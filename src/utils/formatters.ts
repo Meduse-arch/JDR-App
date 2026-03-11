@@ -1,21 +1,24 @@
 import { Stat } from '../types';
-import { CONFIG_RESSOURCES } from './constants';
 
 export const formatLabelModif = (m: any, stats: Stat[]) => {
-  // Si on a un id_stat, c'est une statistique de base (Force, etc.)
-  if (m.id_stat) {
-    const stat = stats.find(s => s.id === m.id_stat);
-    return `${m.valeur > 0 ? '+' : ''}${m.valeur} ${stat?.nom ?? 'Stat Inconnue'}`;
-  }
-  
-  // Sinon c'est une ressource (hp, mana, stam...)
-  const resKey = m.type as keyof typeof CONFIG_RESSOURCES;
-  const config = CONFIG_RESSOURCES[resKey];
-  
-  if (config) {
-    return `${m.valeur > 0 ? '+' : ''}${m.valeur} ${config.label}`;
-  }
+  const stat = stats.find(s => s.id === m.id_stat);
+  if (!stat) return `${m.valeur > 0 ? '+' : ''}${m.valeur} Stat Inconnue`;
 
-  // Fallback
-  return `${m.valeur > 0 ? '+' : ''}${m.valeur} ${m.type || 'Inconnu'}`;
+  let emoji = '';
+  const nom = stat.nom.toLowerCase();
+  if (nom.includes('pv') || nom.includes('vie')) emoji = '❤️ ';
+  if (nom.includes('mana')) emoji = '💧 ';
+  if (nom.includes('stam')) emoji = '⚡ ';
+
+  const labels: Record<string, string> = {
+    hp: 'Soin PV',
+    mana: 'Restaur. Mana',
+    stam: 'Restaur. Endurance',
+    hp_max: 'PV Maximum',
+    mana_max: 'Mana Maximum',
+    stam_max: 'Endurance Max'
+  };
+
+  const label = labels[m.type] || stat?.nom || m.type || 'Stat Inconnue';
+  return `${emoji}${m.valeur > 0 ? '+' : ''}${m.valeur} ${label}`;
 };

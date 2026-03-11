@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore } from '../../Store/useStore'
+import { useStore } from '../../store/useStore'
 import CreerPersonnage from './CreerPersonnage'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { useStats } from '../../hooks/useStats'
@@ -63,13 +63,13 @@ export default function MonPersonnage() {
   }))
 
   return (
-    <div className="flex flex-col h-full p-4 sm:p-6 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar"
+    <div className="flex flex-col h-full p-3 sm:p-6 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar"
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6 pb-5"
         style={{ borderBottom: '1px solid var(--border)' }}>
         <div>
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight"
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight"
             style={{
               background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
@@ -78,15 +78,16 @@ export default function MonPersonnage() {
           </h2>
           <Badge 
             variant={personnage.type === 'Joueur' ? 'default' : 'warning'} 
-            className="mt-2"
+            className="mt-2 text-[10px]"
           >
             {personnage.type === 'Joueur' ? `Joué par : ${pseudoJoueur ?? '...'}` : personnage.type}
           </Badge>
         </div>
         <ConfirmButton
           variant="danger"
+          size="sm"
           onConfirm={handleSupprimerPersonnage}
-          className="ml-auto sm:ml-0"
+          className="sm:ml-0"
         >
           Supprimer
         </ConfirmButton>

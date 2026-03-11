@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../../Store/useStore'
+import { useStore } from '../../store/useStore'
 import { useItems } from '../../hooks/useItems'
 import { itemsService } from '../../services/itemsService'
 import { Modificateur, CategorieItem, Item } from '../../types'

@@ -1,4 +1,4 @@
-import { useStore } from '../Store/useStore'
+import { useStore } from '../store/useStore'
 
 export default function Sidebar() {
   const pageCourante = useStore(s => s.pageCourante)
@@ -12,7 +12,15 @@ export default function Sidebar() {
 
   const isMJ = roleEffectif === 'admin' || roleEffectif === 'mj'
 
-  // Menu Standard MJ
+  const handleNav = (id: string) => {
+    setPageCourante(id)
+    // On ne ferme automatiquement QUE si on est en mode "mobile" (largeur < 1024px)
+    if (window.innerWidth < 1024) {
+      setSidebarOuverte(false)
+    }
+  }
+
+  // Menus
   const menuMJ = [
     { id: 'dashboard',    label: 'Tableau de bord', icon: '🏰' },
     { id: 'joueurs',      label: 'Joueurs & MJ',    icon: '👥' },
@@ -26,7 +34,6 @@ export default function Sidebar() {
     { id: 'gerer-univers',label: 'Gérer Univers',   icon: '⚙️' },
   ]
 
-  // Menu Possession (SANS dashboard pour immersion totale)
   const menuPossession = [
     { id: 'mon-personnage', label: 'Ma Fiche',        icon: '📖' },
     { id: 'mon-inventaire', label: 'Mon Sac',         icon: '🎒' },
@@ -35,7 +42,6 @@ export default function Sidebar() {
     { id: 'lancer-des',     label: 'Lancer des dés',  icon: '🎲' },
   ]
 
-  // Menu Joueur Standard
   const menuJoueur = [
     { id: 'dashboard',      label: 'Mon Destin',      icon: '🕯️' },
     { id: 'mon-personnage', label: 'Ma Fiche',        icon: '📖' },
@@ -45,10 +51,7 @@ export default function Sidebar() {
     { id: 'lancer-des',     label: 'Lancer des dés',  icon: '🎲' },
   ]
 
-  let menu = menuJoueur
-  if (isMJ) {
-    menu = pnjControle ? menuPossession : menuMJ
-  }
+  let menu = isMJ ? (pnjControle ? menuPossession : menuMJ) : menuJoueur
 
   if (!sessionActive) return null
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase'
-import { useStore, type Personnage } from '../../Store/useStore'
+import { useStore, type Personnage } from '../../store/useStore'
 import { Badge } from '../../components/ui/Badge'
 
 type FiltreType = 'tout' | 'joueur' | 'pnj' | 'monstre' | 'modele'
@@ -44,9 +44,6 @@ export default function Possession() {
     setPageCourante('mon-personnage')
   }
 
-  // On retire le blocage visuel du chargement
-
-
   return (
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -87,7 +84,7 @@ export default function Possession() {
             <button
               key={p.id}
               onClick={() => posseder(p)}
-              className={`flex flex-col gap-4 p-5 rounded-3xl border transition-all text-left group relative overflow-hidden ${estPossede ? 'bg-main/10 border-main ring-2 ring-main/20 shadow-lg shadow-main/10' : 'bg-card border-border hover:border-white/20'}`}
+              className={`flex flex-col gap-4 p-5 rounded-3xl border transition-all text-left group relative overflow-hidden ${estPossede ? 'bg-main/10 border-main' : 'bg-card border-border hover:border-white/20'}`}
             >
               <div className="flex items-center gap-3">
                 <span className="text-3xl">{p.is_template ? '📋' : p.type === 'Joueur' ? '🧑' : p.type === 'PNJ' ? '👤' : '🐉'}</span>

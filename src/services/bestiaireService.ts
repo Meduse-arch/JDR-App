@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { PersonnageType } from '../Store/useStore'
+import { PersonnageType } from '../store/useStore'
 
 export const bestiaireService = {
   /**
