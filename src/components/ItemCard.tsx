@@ -6,25 +6,33 @@ interface ItemCardProps {
   entry: InventaireEntry;
   onUtiliser: (entry: InventaireEntry) => void;
   onEquiper: (entry: InventaireEntry) => void;
+  onClick?: (entry: InventaireEntry) => void;
   labelModif: (m: Modificateur) => string;
   modifs: Modificateur[];
 }
 
 export function ItemCard({
-  entry, onUtiliser, onEquiper, labelModif, modifs,
+  entry, onUtiliser, onEquiper, onClick, labelModif, modifs,
 }: ItemCardProps) {
   const estConsommable = entry.items.categorie === 'Consommable';
   const [pressed, setPressed] = useState(false);
 
-  const handleEquiper = () => {
+  const handleEquiper = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setPressed(true);
     setTimeout(() => setPressed(false), 300);
     onEquiper(entry);
   };
 
+  const handleUtiliser = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onUtiliser(entry);
+  };
+
   return (
     <div
-      className="relative p-5 rounded-3xl flex flex-col gap-3 transition-all duration-300 hover:-translate-y-1"
+      onClick={() => onClick?.(entry)}
+      className="relative p-5 rounded-3xl flex flex-col gap-3 transition-all duration-300 hover:-translate-y-1 cursor-pointer group"
       style={{
         backgroundColor: entry.equipe
           ? 'color-mix(in srgb, var(--color-main) 8%, var(--bg-card))'
@@ -38,12 +46,12 @@ export function ItemCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-12 h-12 flex items-center justify-center rounded-2xl text-2xl shrink-0"
+          <div className="w-12 h-12 flex items-center justify-center rounded-2xl text-2xl shrink-0 transition-transform group-hover:scale-110"
             style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
             {CATEGORIE_EMOJI[entry.items.categorie]}
           </div>
           <div className="min-w-0">
-            <p className="font-bold leading-tight truncate" style={{ color: 'var(--text-primary)' }}>
+            <p className="font-bold leading-tight truncate group-hover:text-main transition-colors" style={{ color: 'var(--text-primary)' }}>
               {entry.items.nom}
             </p>
             <span className="text-[10px] font-bold uppercase tracking-wider"
@@ -57,12 +65,6 @@ export function ItemCard({
           x{entry.quantite}
         </span>
       </div>
-
-      {entry.items.description && (
-        <p className="text-xs italic line-clamp-2" style={{ color: 'var(--text-muted)' }}>
-          {entry.items.description}
-        </p>
-      )}
 
       {modifs.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -86,7 +88,7 @@ export function ItemCard({
 
       <div className="flex gap-2 mt-auto pt-2">
         {estConsommable ? (
-          <button onClick={() => onUtiliser(entry)}
+          <button onClick={handleUtiliser}
             className="flex-1 py-2 rounded-xl text-xs font-bold transition-all text-white active:scale-95"
             style={{
               background: 'linear-gradient(135deg, var(--color-main), var(--color-accent2))',

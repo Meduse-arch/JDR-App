@@ -8,8 +8,10 @@ import { CATEGORIES, CATEGORIE_EMOJI } from '../../utils/constants'
 import { formatLabelModif } from '../../utils/formatters'
 import { ItemCard } from '../../components/ItemCard'
 import { InventaireEntry, CategorieItem } from '../../types'
+import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
 import { inventaireService } from '../../services/inventaireService'
 import { personnageService } from '../../services/personnageService'
 
@@ -25,6 +27,7 @@ export default function MonInventaire() {
   const [filtre, setFiltre] = useState('Tous')
   const [recherche, setRecherche] = useState('')
   const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([])
+  const [itemDetail, setItemDetail] = useState<InventaireEntry | null>(null)
 
   const afficherToast = (msg: string) => {
     const id = Date.now()
@@ -60,6 +63,10 @@ export default function MonInventaire() {
     }
 
     await inventaireService.retirerItem(entry.id, 1)
+    if (itemDetail?.id === entry.id) {
+      if (entry.quantite <= 1) setItemDetail(null)
+      else setItemDetail({ ...entry, quantite: entry.quantite - 1 })
+    }
     await rechargerPersonnage()
     await rechargerStats()
     await chargerInventaire()
@@ -67,7 +74,11 @@ export default function MonInventaire() {
   }
 
   const toggleEquiper = async (entry: InventaireEntry) => {
-    await inventaireService.toggleEquipement(entry.id, !entry.equipe)
+    const nouveauStatut = !entry.equipe
+    await inventaireService.toggleEquipement(entry.id, nouveauStatut)
+    if (itemDetail?.id === entry.id) {
+      setItemDetail({ ...entry, equipe: nouveauStatut })
+    }
     await chargerInventaire()
     await personnageService.recalculerStats(personnage!.id)
     await rechargerPersonnage()
@@ -94,10 +105,73 @@ export default function MonInventaire() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
         {itemsFiltrés.map(entry => (
-          <ItemCard key={entry.id} entry={entry} onUtiliser={utiliserItem} onEquiper={toggleEquiper} labelModif={m => formatLabelModif(m, stats)} modifs={entry.items.item_modificateurs || []} />
+          <ItemCard 
+            key={entry.id} 
+            entry={entry} 
+            onUtiliser={utiliserItem} 
+            onEquiper={toggleEquiper} 
+            onClick={setItemDetail}
+            labelModif={m => formatLabelModif(m, stats)} 
+            modifs={entry.items.item_modificateurs || []} 
+          />
         ))}
         {itemsFiltrés.length === 0 && <div className="col-span-full py-20 text-center opacity-20 font-black uppercase italic">Le sac est vide...</div>}
       </div>
+
+      {/* MODAL DETAIL */}
+      {itemDetail && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={() => setItemDetail(null)}>
+          <Card className="max-w-md w-full p-8 gap-6 animate-in zoom-in duration-200 shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Accent Visuel */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-main" />
+            
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-4xl shrink-0">
+                  {CATEGORIE_EMOJI[itemDetail.items.categorie]}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black uppercase tracking-tighter text-white">{itemDetail.items.nom}</h3>
+                  <Badge variant="ghost" className="uppercase text-[10px] opacity-50">{itemDetail.items.categorie}</Badge>
+                </div>
+              </div>
+              <button className="text-2xl opacity-20 hover:opacity-100 transition-opacity" onClick={() => setItemDetail(null)}>✕</button>
+            </div>
+
+            <div className="flex flex-col gap-6">
+              {itemDetail.items.description && (
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 italic text-sm opacity-80 leading-relaxed">
+                  "{itemDetail.items.description}"
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Propriétés & Effets :</p>
+                <div className="flex flex-wrap gap-2">
+                  {itemDetail.items.item_modificateurs?.map((m, i) => (
+                    <span key={i} className="px-3 py-1.5 rounded-xl bg-main/10 border border-main/20 text-main font-bold text-xs">
+                      {formatLabelModif(m, stats)}
+                    </span>
+                  ))}
+                  {(!itemDetail.items.item_modificateurs || itemDetail.items.item_modificateurs.length === 0) && (
+                    <p className="text-xs opacity-30 italic">Aucun effet particulier.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                {itemDetail.items.categorie === 'Consommable' ? (
+                  <Button className="flex-1" onClick={() => utiliserItem(itemDetail)}>✨ Utiliser (x{itemDetail.quantite})</Button>
+                ) : (
+                  <Button className="flex-1" variant={itemDetail.equipe ? 'secondary' : 'primary'} onClick={() => toggleEquiper(itemDetail)}>
+                    {itemDetail.equipe ? '🔓 Ranger dans le sac' : '⚔️ Équiper l\'objet'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-50 pointer-events-none">
         {toasts.map(t => (

@@ -115,25 +115,24 @@ export const personnageService = {
         }
       }
 
-      // 3. Calculer les ressources de base à partir des statistiques de BASE + BONUS
-      const statsFinales: Record<string, number> = {}
+      // 3. Calculer les ressources de base à partir des statistiques de BASE UNIQUEMENT
+      // Les bonus de stats d'équipement (ex: +2 Force) n'augmentent PAS la Stamina max
+      const baseStatsMap: Record<string, number> = {}
       baseStats.forEach((s: any) => {
         const nomStat = s.stats.nom
-        const valeurBase = s.valeur
-        const bonus = statBonusesByName[nomStat] || 0
-        statsFinales[nomStat] = valeurBase + bonus
+        baseStatsMap[nomStat] = s.valeur
       })
 
-      // Formules sur les stats finales (base + équipement)
-      let new_hp_max   = (statsFinales['Constitution'] ?? 0) * 4
+      // Formules sur les stats de BASE (pureté du personnage)
+      let new_hp_max   = (baseStatsMap['Constitution'] ?? 0) * 4
       let new_mana_max = Math.round(
-        (((statsFinales['Intelligence'] ?? 0) + (statsFinales['Sagesse'] ?? 0)) / 2) * 10
+        (((baseStatsMap['Intelligence'] ?? 0) + (baseStatsMap['Sagesse'] ?? 0)) / 2) * 10
       )
       let new_stam_max = Math.round(
-        ((statsFinales['Force'] ?? 0) + (statsFinales['Agilité'] ?? 0) + (statsFinales['Constitution'] ?? 0)) / 3 * 10
+        ((baseStatsMap['Force'] ?? 0) + (baseStatsMap['Agilité'] ?? 0) + (baseStatsMap['Constitution'] ?? 0)) / 3 * 10
       )
 
-      // 4. Ajouter UNIQUEMENT les bonus directs de ressources de l'équipement
+      // 4. Ajouter ensuite les bonus DIRECTS de ressources provenant de l'équipement (ex: Anneau +20 HP)
       new_hp_max   += resourceBonuses['hp_max']
       new_mana_max += resourceBonuses['mana_max']
       new_stam_max += resourceBonuses['stam_max']
