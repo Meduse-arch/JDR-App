@@ -23,7 +23,7 @@ import GererMj from './pages/admin/GererMj'
 import Possession from './pages/admin/Possession'
 
 export default function App() {
-  const { compte, sessionActive, pageCourante, roleEffectif, theme, mode, setPageCourante } = useStore()
+  const { compte, sessionActive, pageCourante, roleEffectif, theme, mode, setPageCourante, sidebarOuverte, pnjControle } = useStore()
 
   if (!compte) {
     if (pageCourante === 'inscription') {

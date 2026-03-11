@@ -41,7 +41,7 @@ export default function Possession() {
 
   const posseder = (p: Personnage) => {
     setPnjControle(p)
-    setPageCourante('mon-personnage')
+    setTimeout(() => setPageCourante('mon-personnage'), 50)
   }
 
   return (

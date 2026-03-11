@@ -34,10 +34,10 @@ export default function Header() {
             className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-[var(--color-light)]"
             onClick={() => setSidebarOuverte(!sidebarOuverte)}
           >
-            <div className="w-5 h-3.5 relative flex flex-col justify-between">
-              <span className={`w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-center ${sidebarOuverte ? 'translate-y-[6px] rotate-45' : ''}`} />
+            <div className="w-5 h-3 relative flex flex-col justify-between">
+              <span className={`w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-center ${sidebarOuverte ? 'translate-y-[5px] rotate-45' : ''}`} />
               <span className={`w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-center ${sidebarOuverte ? 'opacity-0 scale-x-0' : 'opacity-100 scale-x-100'}`} />
-              <span className={`w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-center ${sidebarOuverte ? '-translate-y-[6px] -rotate-45' : ''}`} />
+              <span className={`w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-center ${sidebarOuverte ? '-translate-y-[5px] -rotate-45' : ''}`} />
             </div>
           </button>
         )}

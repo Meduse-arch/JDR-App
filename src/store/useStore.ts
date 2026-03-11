@@ -50,10 +50,10 @@ export const useStore = create<JdrState>((set) => ({
   sessionActive: JSON.parse(localStorage.getItem('jdr-session') || 'null'),
   roleEffectif: (localStorage.getItem('jdr-role-effectif') as RoleId) || null,
   pageCourante: 'sessions',
-  pnjControle: null,
+  pnjControle: JSON.parse(localStorage.getItem('jdr-pnj-controle') || 'null'),
   theme: (localStorage.getItem('jdr-theme') as ThemeId) || 'theme-violet',
   mode: (localStorage.getItem('jdr-mode') as ModeId) || 'mode-dark',
-  sidebarOuverte: window.innerWidth >= 1024,
+  sidebarOuverte: true,
   setCompte: (compte) => {
     if (compte) localStorage.setItem('jdr-compte', JSON.stringify(compte))
     else localStorage.removeItem('jdr-compte')
@@ -61,8 +61,11 @@ export const useStore = create<JdrState>((set) => ({
   },
   setSessionActive: (session) => {
     if (session) localStorage.setItem('jdr-session', JSON.stringify(session))
-    else localStorage.removeItem('jdr-session')
-    set({ sessionActive: session })
+    else {
+      localStorage.removeItem('jdr-session')
+      localStorage.removeItem('jdr-pnj-controle')
+    }
+    set({ sessionActive: session, sidebarOuverte: !!session, pnjControle: session ? JSON.parse(localStorage.getItem('jdr-pnj-controle') || 'null') : null })
   },
   setRoleEffectif: (role) => {
     if (role) localStorage.setItem('jdr-role-effectif', role)
@@ -73,7 +76,11 @@ export const useStore = create<JdrState>((set) => ({
     set({ pageCourante: page })
     if (window.innerWidth < 1024) set({ sidebarOuverte: false })
   },
-  setPnjControle: (pnj) => set({ pnjControle: pnj }),
+  setPnjControle: (pnj) => {
+    if (pnj) localStorage.setItem('jdr-pnj-controle', JSON.stringify(pnj))
+    else localStorage.removeItem('jdr-pnj-controle')
+    set({ pnjControle: pnj })
+  },
   setTheme: (theme) => { localStorage.setItem('jdr-theme', theme); set({ theme }) },
   setMode: (mode) => { localStorage.setItem('jdr-mode', mode); set({ mode }) },
   setSidebarOuverte: (o) => set({ sidebarOuverte: o }),

@@ -1,14 +1,12 @@
 import { useStore } from '../store/useStore'
 
 export default function Sidebar() {
-  const pageCourante = useStore(s => s.pageCourante)
-  const setPageCourante = useStore(s => s.setPageCourante)
-  const roleEffectif = useStore(s => s.roleEffectif)
-  const sessionActive = useStore(s => s.sessionActive)
-  const pnjControle = useStore(s => s.pnjControle)
-  const setPnjControle = useStore(s => s.setPnjControle)
-  const sidebarOuverte = useStore(s => s.sidebarOuverte)
-  const setSidebarOuverte = useStore(s => s.setSidebarOuverte)
+  const { 
+    pageCourante, setPageCourante, 
+    roleEffectif, sessionActive, 
+    pnjControle, setPnjControle, 
+    sidebarOuverte, setSidebarOuverte 
+  } = useStore()
 
   const isMJ = roleEffectif === 'admin' || roleEffectif === 'mj'
 
