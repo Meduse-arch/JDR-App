@@ -5,7 +5,7 @@ This is **jdr-app**, a desktop application designed to manage role-playing game 
 
 ### Main Technologies
 - **Core:** Electron, Vite, React, TypeScript.
-- **State Management:** Zustand (`src/Store/useStore.ts`).
+- **State Management:** Zustand (`src/store/useStore.ts`).
 - **Backend:** Supabase (Database, Auth, Realtime).
 - **Styling:** Tailwind CSS v4 (with dynamic theme support).
 - **Key Libraries:** `@supabase/supabase-js`, `bcryptjs`, `crypto-js`.
@@ -17,7 +17,7 @@ The project follows a modular React architecture:
 - `src/hooks/`: Custom React hooks for domain-specific logic (e.g., `useInventaire`, `useStats`).
 - `src/pages/`: Main application screens, divided by role and functionality.
 - `src/services/`: API layer for interacting with Supabase.
-- `src/Store/`: Centralized state and types (Single Source of Truth).
+- `src/store/`: Centralized state and types (Single Source of Truth).
 - `src/utils/`: Helper functions for dice rolls, formatting, and math.
 
 ## Building and Running
@@ -26,7 +26,7 @@ The project follows a modular React architecture:
 - **Linting:** `npm run lint`.
 
 ## Development Conventions
-- **TypeScript:** Rigorous typing is expected. Key types are exported from `src/Store/useStore.ts`.
+- **TypeScript:** Rigorous typing is expected. Key types are exported from `src/store/useStore.ts`.
 - **State:** Use the Zustand store (`useStore`) for global state like user profile, active session, and controlled characters.
 - **Database:** All data persistence is handled via Supabase services in `src/services/`.
 - **Styling:** Use Tailwind utility classes. Themes are applied via CSS variables defined in `index.css` and controlled by classes on the root element (e.g., `.theme-violet .mode-dark`).
@@ -42,6 +42,6 @@ The application requires the following environment variables (typically in a `.e
 - `package.json`: Project dependencies and scripts.
 - `electron/main.ts`: Electron entry point and window management.
 - `src/App.tsx`: Main React entry point with role-based routing.
-- `src/Store/useStore.ts`: Central state and shared types.
+- `src/store/useStore.ts`: Central state and shared types.
 - `src/supabase.ts`: Supabase client initialization.
 - `src/index.css`: Global styles and theme variable definitions.

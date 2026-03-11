@@ -87,7 +87,6 @@ export default function DashboardAdmin() {
           <QuickStat label="Quêtes" value={stats.quetes} icon="📜" color="#f59e0b" />
           <QuickStat label="Objets" value={stats.items} icon="🎒" color="#10b981" />
           <QuickStat label="Sorts" value={stats.competences} icon="✨" color="#a855f7" />
-          <QuickStat label="Quêtes" value={stats.quetes} icon="📜" color="#f59e0b" />
         </div>
       </div>
 

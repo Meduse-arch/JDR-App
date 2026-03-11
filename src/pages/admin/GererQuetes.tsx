@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useStore } from '../../Store/useStore'
+import { useStore } from '../../store/useStore'
 import { useQuetes } from '../../hooks/useQuetes'
 import { queteService } from '../../services/queteService'
 import { sessionService } from '../../services/sessionService'
@@ -20,7 +20,6 @@ export default function GererQuetes() {
   const [itemsDispos, setItemsDispos] = useState<Item[]>([])
   const [vue, setVue] = useState<'liste' | 'form'>('liste')
   const [queteDetail, setQueteDetail] = useState<Quete | null>(null)
-  const [recherche, setRecherche] = useState('')
 
   // État du formulaire unique
   const [form, setForm] = useState<Partial<Quete>>({ titre: '', description: '', statut: 'En cours' })
@@ -58,11 +57,6 @@ export default function GererQuetes() {
   }
 
   const quetesFiltrees = quetes.filter(q => (filtreStatut === 'Tous' || q.statut === filtreStatut) && q.titre.toLowerCase().includes(recherche.toLowerCase()))
-
-  const quetesFiltrees = quetes.filter(q => 
-    q.titre.toLowerCase().includes(recherche.toLowerCase()) ||
-    q.description.toLowerCase().includes(recherche.toLowerCase())
-  )
 
   return (
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>

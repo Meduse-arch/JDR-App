@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { itemsService } from '../services/itemsService';
 import { Item, Stat } from '../types';
-import { useStore } from '../Store/useStore';
+import { useStore } from '../store/useStore';
 import { supabase } from '../supabase';
 
 export function useItems() {

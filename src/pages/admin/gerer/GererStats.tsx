@@ -3,6 +3,7 @@ import { supabase } from '../../../supabase'
 import { personnageService } from '../../../services/personnageService'
 import { type Personnage } from '../../../store/useStore'
 import { Card } from '../../../components/ui/Card'
+import { Button } from '../../../components/ui/Button'
 
 type Props = { personnage: Personnage }
 
@@ -59,16 +60,8 @@ export default function GererStats({ personnage }: Props) {
     setTempStats(prev => ({ ...prev, [nom]: Math.max(0, prev[nom] + amount) }))
   }
 
-  const adjustDelta = (idStat: string, amount: number) => {
-    const current = parseInt(deltas[idStat]) || 0
-    const next = current + amount
-    setDeltas(prev => ({ ...prev, [idStat]: next === 0 ? '' : (next > 0 ? `+${next}` : next.toString()) }))
-  }
-
-  const appliquerTout = async () => {
-    const mods = Object.entries(deltas).map(([id, v]) => ({ id, val: parseInt(v) || 0 })).filter(m => m.val !== 0)
-    if (mods.length === 0) return
-    setChargement(true)
+  const enregistrer = async () => {
+    setSauvegardant(true)
     try {
       for (const s of stats) {
         const nv = tempStats[s.nom]
@@ -77,7 +70,6 @@ export default function GererStats({ personnage }: Props) {
         }
       }
       await personnageService.recalculerStats(personnage.id)
-      setDeltas({})
       await chargerStats()
     } catch (e) {
       console.error(e)

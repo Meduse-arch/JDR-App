@@ -16,6 +16,7 @@ export default function Bestiaire() {
   const [recherche, setRecherche] = useState('')
   const [quantites, setQuantites] = useState<Record<string, number>>({})
   
+  const pnjControle     = useStore(s => s.pnjControle)
   const setPnjControle  = useStore(s => s.setPnjControle)
   const setPageCourante = useStore(s => s.setPageCourante)
   const sessionActive   = useStore(s => s.sessionActive)

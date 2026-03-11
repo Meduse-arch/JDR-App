@@ -15,7 +15,7 @@ export default function Gerer() {
   const [filtreType,  setFiltreType]  = useState<FiltreType>('tout')
   const [recherche,   setRecherche]   = useState('')
   const [onglet,      setOnglet]      = useState<'stats' | 'inventaire' | 'competences'>('stats')
-  const [menuOuvert,  setMenuOuvert]  = useState(true) // Pour le responsive
+
 
   const sessionActive = useStore(s => s.sessionActive)
   const setPnjControle = useStore(s => s.setPnjControle)
@@ -47,13 +47,8 @@ export default function Gerer() {
     return true
   })
 
-  const selectionnerPerso = (p: Personnage) => {
-    setSelectionne(p)
-    // Sur mobile, on ferme le menu quand on sélectionne
-    if (window.innerWidth < 768) {
-      setMenuOuvert(false)
-    }
-  }
+  // On retire le blocage visuel du chargement
+
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
@@ -96,12 +91,12 @@ export default function Gerer() {
           {persosFiltres.map(p => (
             <button
               key={p.id}
-              onClick={() => selectionnerPerso(p)}
+              onClick={() => setSelectionne(p)}
               className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left group ${selectionne?.id === p.id ? 'bg-main/10 border-main' : 'bg-surface border-border hover:border-white/20'}`}
             >
               <span className="text-xl">{p.is_template ? '📋' : p.type === 'Joueur' ? '🧑' : p.type === 'PNJ' ? '👤' : '🐉'}</span>
               <div className="flex-1 min-w-0">
-                <p className={`font-bold truncate text-sm ${selectionne?.id === p.id ? 'text-main' : 'text-primary'}`}>{p.nom}</p>
+                <p className={`font-bold truncate text-sm ${selectionne?.id === p.id ? 'text-main' : ''}`}>{p.nom}</p>
                 <p className="text-[10px] uppercase font-black opacity-40">{p.is_template ? 'Modèle' : p.type}</p>
               </div>
             </button>
@@ -111,14 +106,11 @@ export default function Gerer() {
         {/* Édition à droite */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
           {selectionne ? (
-            <div className="max-w-4xl mx-auto flex flex-col gap-6 md:gap-8">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <div className="flex flex-col gap-2 w-full sm:w-auto">
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setMenuOuvert(true)} className="md:hidden text-main">←</button>
-                    <h3 className="text-2xl md:text-3xl font-black tracking-tighter text-primary">{selectionne.nom}</h3>
-                  </div>
-                  <div className="flex gap-2">
+            <div className="max-w-4xl mx-auto flex flex-col gap-8">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h3 className="text-3xl font-black tracking-tighter">{selectionne.nom}</h3>
+                  <div className="flex gap-2 mt-2">
                     <Badge variant={selectionne.is_template ? 'outline' : 'default'}>{selectionne.is_template ? 'MODÈLE' : selectionne.type}</Badge>
                     <Button 
                       variant="ghost" 
@@ -126,18 +118,18 @@ export default function Gerer() {
                       className="text-[10px] uppercase font-black border border-white/5"
                       onClick={() => { setPnjControle(selectionne); setPageCourante('mon-personnage') }}
                     >
-                      🎭 Gérer
+                      🎭 Posséder
                     </Button>
                   </div>
                 </div>
-                <div className="flex gap-1 p-1 bg-surface border border-border rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
+                <div className="flex gap-2 p-1 bg-surface border border-border rounded-xl">
                   {([['stats', '📊'], ['inventaire', '🎒'], ['competences', '✨']] as const).map(([id, icon]) => (
                     <button
                       key={id} onClick={() => setOnglet(id)}
-                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all ${onglet === id ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${onglet === id ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
                     >
                       <span>{icon}</span>
-                      <span className="uppercase tracking-widest text-[9px] md:text-[10px]">{id}</span>
+                      <span className="hidden sm:inline uppercase tracking-widest text-[10px]">{id}</span>
                     </button>
                   ))}
                 </div>
@@ -151,9 +143,8 @@ export default function Gerer() {
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center opacity-20 select-none">
-              <span className="text-6xl md:text-8xl mb-4">⚙️</span>
-              <p className="text-sm md:text-xl font-black uppercase tracking-widest text-center italic">Sélectionne une entité<br/>pour configurer ses registres</p>
-              <Button variant="secondary" size="sm" className="mt-6 md:hidden" onClick={() => setMenuOuvert(true)}>Ouvrir la liste</Button>
+              <span className="text-8xl mb-4">⚙️</span>
+              <p className="text-xl font-black uppercase tracking-widest text-center italic">Sélectionne une entité<br/>pour configurer ses registres</p>
             </div>
           )}
         </div>

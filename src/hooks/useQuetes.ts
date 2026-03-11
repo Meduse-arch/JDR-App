@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
-import { useStore } from '../Store/useStore'
+import { useStore } from '../store/useStore'
 import { queteService } from '../services/queteService'
 import { Quete } from '../types'
 

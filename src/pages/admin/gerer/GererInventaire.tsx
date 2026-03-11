@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../supabase'
 import { useItems } from '../../../hooks/useItems'
+import { CATEGORIES, CATEGORIE_EMOJI } from '../../../utils/constants'
+import { formatLabelModif } from '../../../utils/formatters'
 import { inventaireService } from '../../../services/inventaireService'
-import { CATEGORIE_EMOJI } from '../../../utils/constants'
 import { Personnage, InventaireEntry } from '../../../types'
 import { Card } from '../../../components/ui/Card'
 import { Input } from '../../../components/ui/Input'
 import { Button } from '../../../components/ui/Button'
+import { Badge } from '../../../components/ui/Badge'
 
 type Props = { personnage: Personnage }
 
@@ -15,10 +17,12 @@ export default function GererInventaire({ personnage }: Props) {
 
   const [inventaire,        setInventaire]        = useState<InventaireEntry[]>([])
   const [onglet,            setOnglet]            = useState<'inventaire' | 'ajouter'>('inventaire')
-  const [deltas,            setDeltas]            = useState<Record<string, string>>({})
+  const [itemSelectionne,   setItemSelectionne]   = useState('')
+  const [quantiteAjout,     setQuantiteAjout]     = useState(1)
+  const [filtreCategorie,   setFiltreCategorie]   = useState('Tous')
   const [recherche,         setRecherche]         = useState('')
   const [rechercheAjout,    setRechercheAjout]    = useState('')
-  const [chargement,        setChargement]        = useState(false)
+  const [message,           setMessage]           = useState('')
 
   useEffect(() => {
     chargerInventaire()
@@ -51,24 +55,59 @@ export default function GererInventaire({ personnage }: Props) {
     if (success) chargerInventaire()
   }
 
-  const aDesChangements = Object.values(deltas).some(v => (parseInt(v) || 0) !== 0)
-
   const inventaireFiltré = inventaire
+    .filter(e => filtreCategorie === 'Tous' || e.items.categorie === filtreCategorie)
     .filter(e => e.items.nom.toLowerCase().includes(recherche.toLowerCase()))
   
   const bibliothequeFiltrée = itemsBibliotheque
     .filter(i => i.nom.toLowerCase().includes(rechercheAjout.toLowerCase()))
 
   return (
-    <div className="flex flex-col gap-5 pb-24 relative" style={{ color: 'var(--text-primary)' }}>
+    <div className="flex flex-col gap-5" style={{ color: 'var(--text-primary)' }}>
+      {/* Onglets */}
       <div className="flex gap-2 items-center flex-wrap">
-        <Button variant={onglet === 'inventaire' ? 'active' : 'secondary'} onClick={() => { setOnglet('inventaire'); setDeltas({}); }}>🎒 Sac ({inventaire.length})</Button>
-        <Button variant={onglet === 'ajouter' ? 'active' : 'secondary'} onClick={() => { setOnglet('ajouter'); setDeltas({}); }}>➕ Donner</Button>
+        <Button 
+          variant={onglet === 'inventaire' ? 'active' : 'secondary'} 
+          onClick={() => setOnglet('inventaire')}
+        >
+          🎒 Inventaire
+        </Button>
+        <Button 
+          variant={onglet === 'ajouter' ? 'active' : 'secondary'} 
+          onClick={() => setOnglet('ajouter')}
+        >
+          ➕ Ajouter
+        </Button>
+        {message && <span className="ml-auto text-sm font-bold" style={{ color: '#4ade80' }}>{message}</span>}
       </div>
 
+      {/* Inventaire actuel */}
       {onglet === 'inventaire' && (
         <div className="flex flex-col gap-4">
-          <Input icon="🔍" placeholder="Rechercher..." value={recherche} onChange={e => setRecherche(e.target.value)} />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Input 
+              icon="🔍"
+              type="text" placeholder="Rechercher..." value={recherche}
+              onChange={e => setRecherche(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {['Tous', ...CATEGORIES].map(cat => (
+              <Button 
+                key={cat} 
+                size="sm"
+                variant={filtreCategorie === cat ? 'active' : 'secondary'}
+                onClick={() => setFiltreCategorie(cat)}
+              >
+                {cat !== 'Tous' ? CATEGORIE_EMOJI[cat as import('../../../types').CategorieItem] + ' ' : ''}{cat}
+              </Button>
+            ))}
+          </div>
+
+          {inventaireFiltré.length === 0 && (
+            <p className="text-sm text-center mt-4" style={{ color: 'var(--text-muted)' }}>Aucun item</p>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {inventaireFiltré.map(entry => (
               <Card key={entry.id} className="flex-row justify-between items-start">
@@ -96,20 +135,23 @@ export default function GererInventaire({ personnage }: Props) {
                         </Badge>
                       )}
                     </div>
-                    <ConfirmButton onConfirm={() => inventaireService.jeterItem(entry.id).then(chargerInventaire)}>🗑️</ConfirmButton>
-                  </div>
-                  <div className="flex bg-black/20 rounded-xl p-1 border border-white/5 w-full">
-                    <button onClick={() => adjustDelta(entry.id, -1)} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors font-bold">-</button>
-                    <input type="text" value={deltas[entry.id] || ''} onChange={(e) => handleDeltaChange(entry.id, e.target.value)} placeholder="0" className="w-full bg-transparent text-center font-black text-sm outline-none" />
-                    <button onClick={() => adjustDelta(entry.id, 1)} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors font-bold">+</button>
-                  </div>
-                </Card>
-              )
-            })}
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 shrink-0 ml-3">
+                  <Button size="sm" variant="secondary" onClick={() => retirerItem(entry)}>
+                    −1
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => supprimerItem(entry.id)}>
+                    🗑️
+                  </Button>
+                </div>
+              </Card>
+            ))}
           </div>
         </div>
       )}
 
+      {/* Ajouter depuis bibliothèque */}
       {onglet === 'ajouter' && (
         <div className="flex flex-col gap-4">
           <Input 
@@ -149,40 +191,33 @@ export default function GererInventaire({ personnage }: Props) {
                         </Badge>
                       ))}
                     </div>
-                  </div>
-                  <div className="flex bg-black/20 rounded-xl p-1 border border-white/5 w-full">
-                    <button onClick={() => adjustDelta(item.id, -1)} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors font-bold">-</button>
-                    <input type="text" value={deltas[item.id] || ''} onChange={(e) => handleDeltaChange(item.id, e.target.value)} placeholder="0" className="w-full bg-transparent text-center font-black text-sm outline-none" />
-                    <button onClick={() => adjustDelta(item.id, 1)} className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors font-bold">+</button>
-                  </div>
-                </Card>
-              )
-            })}
+                  )}
+                </div>
+              </button>
+            ))}
           </div>
-        </div>
-      )}
 
-      {/* BOUTON FLOTTANT RESPONSIVE */}
-      {aDesChangements && (
-        <div className="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-5 duration-500">
-          <button 
-            onClick={appliquerTout}
-            disabled={chargement}
-            className="group relative px-6 py-2.5 md:px-12 md:py-4 bg-main/80 backdrop-blur-md border border-white/20 text-white rounded-full shadow-lg shadow-main/20 flex items-center justify-center font-black text-[10px] md:text-sm uppercase italic tracking-tighter active:scale-90 transition-all"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--color-main) 85%, transparent)' }}
-          >
-            <span className="relative flex items-center gap-2">
-              {chargement ? '...' : 'Valider les changements ✓'}
-            </span>
-          </button>
+          {itemSelectionne && (
+            <Card className="flex-row items-center gap-3 flex-wrap mt-2">
+              <label className="text-sm font-bold opacity-70">Quantité :</label>
+              <div className="flex items-center gap-3">
+                <Button size="sm" variant="secondary" onClick={() => setQuantiteAjout(q => Math.max(1, q - 1))}>
+                  −
+                </Button>
+                <span className="text-xl font-black w-8 text-center" style={{ color: 'var(--color-main)' }}>
+                  {quantiteAjout}
+                </span>
+                <Button size="sm" variant="secondary" onClick={() => setQuantiteAjout(q => q + 1)}>
+                  +
+                </Button>
+              </div>
+              <Button className="ml-auto flex-1 sm:flex-none" onClick={ajouterItem}>
+                Ajouter à l'inventaire
+              </Button>
+            </Card>
+          )}
         </div>
       )}
     </div>
   )
-}
-
-function ConfirmButton({ onConfirm }: any) {
-  const [confirm, setConfirm] = useState(false)
-  if (confirm) return <Button variant="danger" size="sm" onClick={onConfirm} onMouseLeave={() => setConfirm(false)}>Sûr ?</Button>
-  return <Button variant="ghost" size="sm" onClick={() => setConfirm(true)} className="text-red-400">🗑️</Button>
 }

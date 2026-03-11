@@ -21,6 +21,7 @@ export default function PNJ() {
   const [recherche, setRecherche] = useState('')
   const [filtreType, setFiltreType] = useState<FiltreType>('Tous')
 
+  const pnjControle     = useStore(s => s.pnjControle)
   const setPnjControle  = useStore(s => s.setPnjControle)
   const setPageCourante = useStore(s => s.setPageCourante)
   const sessionActive   = useStore(s => s.sessionActive)

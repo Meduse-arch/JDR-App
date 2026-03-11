@@ -80,7 +80,7 @@ export default function Sidebar() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setPageCourante(item.id)}
+                  onClick={() => handleNav(item.id)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all group ${actif ? 'bg-main text-white shadow-lg shadow-main/20' : 'hover:bg-white/5 opacity-60 hover:opacity-100'}`}
                   style={{ backgroundColor: actif ? 'var(--color-main)' : 'transparent' }}
                 >
@@ -95,13 +95,13 @@ export default function Sidebar() {
             {isMJ && pnjControle && (
               <div className="mt-6 pt-6 border-t border-white/5 flex flex-col gap-1">
                 <p className="text-[9px] font-black uppercase opacity-20 mb-2 ml-4">Pouvoirs MJ</p>
-                <button onClick={() => setPageCourante('gerer')} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${pageCourante === 'gerer' ? 'bg-white/10 text-white' : 'opacity-40 hover:opacity-100'}`}>
+                <button onClick={() => handleNav('gerer')} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${pageCourante === 'gerer' ? 'bg-white/10 text-white' : 'opacity-40 hover:opacity-100'}`}>
                   <span>🎭</span> Possession
                 </button>
-                <button onClick={() => setPageCourante('gerer-univers')} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${pageCourante === 'gerer-univers' ? 'bg-white/10 text-white' : 'opacity-40 hover:opacity-100'}`}>
+                <button onClick={() => handleNav('gerer-univers')} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${pageCourante === 'gerer-univers' ? 'bg-white/10 text-white' : 'opacity-40 hover:opacity-100'}`}>
                   <span>⚙️</span> Gérer Univers
                 </button>
-                <button onClick={() => { setPnjControle(null); setPageCourante('dashboard') }} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase text-red-400 hover:bg-red-500/10 transition-all mt-2">
+                <button onClick={() => { setPnjControle(null); handleNav('dashboard') }} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase text-red-400 hover:bg-red-500/10 transition-all mt-2">
                   <span>✖</span> Lâcher l'hôte
                 </button>
               </div>
