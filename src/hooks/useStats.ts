@@ -16,6 +16,7 @@ const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sages
 export function useStats() {
   const compte = useStore(s => s.compte)
   const pnjControle = useStore(s => s.pnjControle)
+  const sessionActive = useStore(s => s.sessionActive)
   
   const [stats, setStats] = useState<StatValeur[]>([])
   const [chargement, setChargement] = useState(true)
@@ -26,17 +27,18 @@ export function useStats() {
       let idPersonnage = pnjControle?.id
 
       if (!idPersonnage) {
-        if (!compte) return
-        const { data: perso } = await supabase
+        if (!compte || !sessionActive) return
+        const { data: persos, error } = await supabase
           .from('personnages')
           .select('id')
+          .eq('id_session', sessionActive.id)
           .eq('lie_au_compte', compte.id)
           .eq('type', 'Joueur')
           .eq('is_template', false)
-          .single()
+          .limit(1)
         
-        if (!perso) return
-        idPersonnage = perso.id
+        if (error || !persos || persos.length === 0) return
+        idPersonnage = persos[0].id
       }
 
       // 1. Récupérer les stats de base
@@ -92,7 +94,7 @@ export function useStats() {
     } finally {
       setChargement(false)
     }
-  }, [compte, pnjControle])
+  }, [compte, pnjControle, sessionActive])
 
   useEffect(() => {
     chargerStats()

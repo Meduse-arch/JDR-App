@@ -52,8 +52,15 @@ export default function Bestiaire() {
   }
 
   const supprimerMonstre = async (id: string) => {
+    setMonstres(prev => prev.filter(m => m.id !== id))
     const success = await bestiaireService.supprimerInstance(id)
-    if (success) chargerDonnees()
+    if (!success) chargerDonnees()
+  }
+
+  const supprimerTemplate = async (id: string) => {
+    setTemplates(prev => prev.filter(t => t.id !== id))
+    const success = await bestiaireService.supprimerTemplate(id)
+    if (!success) chargerDonnees()
   }
 
   if (creer) return <CreerTemplate type="Monstre" retour={() => { setCreer(false); chargerDonnees() }} />
@@ -117,7 +124,7 @@ export default function Bestiaire() {
                   <input type="number" min="1" max="20" value={quantites[t.id] || 1} onChange={(e) => setQuantites({ ...quantites, [t.id]: parseInt(e.target.value) || 1 })} className="w-12 bg-[var(--bg-app)] border border-[var(--border)] rounded-lg text-center font-bold text-sm p-1" />
                   <Button variant="secondary" size="sm" onClick={() => { setPnjControle(t); setPageCourante('mon-personnage') }}>⚙️</Button>
                   <Button variant="primary" size="sm" onClick={() => instancierMonstre(t)}>Invoquer</Button>
-                  <ConfirmButton variant="danger" size="sm" onConfirm={() => bestiaireService.supprimerTemplate(t.id).then(chargerDonnees)}>🗑️</ConfirmButton>
+                  <ConfirmButton variant="danger" size="sm" onConfirm={() => supprimerTemplate(t.id)}>🗑️</ConfirmButton>
                 </div>
               </Card>
             ))}
@@ -139,14 +146,13 @@ export default function Bestiaire() {
                 </div>
                 <div className="flex gap-2">
                   <Button 
-                    variant={pnjControle?.id === m.id ? 'primary' : 'ghost'} 
+                    variant={pnjControle?.id === m.id ? 'primary' : 'secondary'} 
                     size="sm" 
                     onClick={() => { setPnjControle(m); setPageCourante('mon-personnage') }}
-                    className="border border-white/5"
+                    className="font-black uppercase text-[10px]"
                   >
-                    🎭 {pnjControle?.id === m.id ? 'Incarné' : 'Posséder'}
+                    {pnjControle?.id === m.id ? '🎭 Incarné' : '⚙️ Configurer'}
                   </Button>
-                  <Button variant="secondary" size="sm" onClick={() => { setPnjControle(m); setPageCourante('mon-personnage') }}>Gérer</Button>
                   <ConfirmButton variant="danger" size="sm" onConfirm={() => supprimerMonstre(m.id)}>🗑️</ConfirmButton>
                 </div>
               </Card>

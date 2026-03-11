@@ -33,6 +33,7 @@ interface JdrState {
   pnjControle: Personnage | null
   theme: ThemeId
   mode: ModeId
+  sidebarOuverte: boolean
   setCompte: (c: Compte | null) => void
   setSessionActive: (s: Session | null) => void
   setRoleEffectif: (r: RoleId | null) => void
@@ -40,6 +41,7 @@ interface JdrState {
   setPnjControle: (pnj: Personnage | null) => void
   setTheme: (t: ThemeId) => void
   setMode: (m: ModeId) => void
+  setSidebarOuverte: (o: boolean) => void
   deconnexion: () => void
 }
 
@@ -51,6 +53,7 @@ export const useStore = create<JdrState>((set) => ({
   pnjControle: null,
   theme: (localStorage.getItem('jdr-theme') as ThemeId) || 'theme-violet',
   mode: (localStorage.getItem('jdr-mode') as ModeId) || 'mode-dark',
+  sidebarOuverte: window.innerWidth >= 1024,
   setCompte: (compte) => {
     if (compte) localStorage.setItem('jdr-compte', JSON.stringify(compte))
     else localStorage.removeItem('jdr-compte')
@@ -66,10 +69,14 @@ export const useStore = create<JdrState>((set) => ({
     else localStorage.removeItem('jdr-role-effectif')
     set({ roleEffectif: role })
   },
-  setPageCourante: (page) => set({ pageCourante: page }),
+  setPageCourante: (page) => {
+    set({ pageCourante: page })
+    if (window.innerWidth < 1024) set({ sidebarOuverte: false })
+  },
   setPnjControle: (pnj) => set({ pnjControle: pnj }),
   setTheme: (theme) => { localStorage.setItem('jdr-theme', theme); set({ theme }) },
   setMode: (mode) => { localStorage.setItem('jdr-mode', mode); set({ mode }) },
+  setSidebarOuverte: (o) => set({ sidebarOuverte: o }),
   deconnexion: () => {
     localStorage.clear()
     set({ compte: null, sessionActive: null, roleEffectif: null, pageCourante: 'sessions', pnjControle: null })

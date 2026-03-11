@@ -61,8 +61,9 @@ export default function PNJ() {
   }
 
   const supprimerPnj = async (id: string) => {
+    setPnjs(prev => prev.filter(p => p.id !== id))
     const success = await bestiaireService.supprimerInstance(id)
-    if (success) chargerPnjs()
+    if (!success) chargerPnjs()
   }
 
   const pnjsFiltres = pnjs.filter(p => {
@@ -81,7 +82,7 @@ export default function PNJ() {
         <h2 className="text-2xl md:text-3xl font-black tracking-tight" style={{ background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
           👤 Modèles PNJ
         </h2>
-        <Button variant="secondary" onClick={() => setVue('liste')}>Retour</Button>
+        <Button variant="secondary" onClick={() => setVue('liste')}>✕ Fermer</Button>
       </div>
       <div className="flex flex-col gap-4 max-w-3xl">
         {templates.map(t => (
@@ -200,14 +201,13 @@ export default function PNJ() {
             </div>
             <div className="flex gap-2">
               <Button 
-                variant={pnjControle?.id === pnj.id ? 'primary' : 'ghost'} 
+                variant={pnjControle?.id === pnj.id ? 'primary' : 'secondary'} 
                 size="sm" 
                 onClick={() => { setPnjControle(pnj); setPageCourante('mon-personnage') }}
-                className="border border-white/5"
+                className="font-black uppercase text-[10px]"
               >
-                🎭 {pnjControle?.id === pnj.id ? 'Incarné' : 'Posséder'}
+                {pnjControle?.id === pnj.id ? '🎭 Incarné' : '⚙️ Configurer'}
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => { setPnjControle(pnj); setPageCourante('mon-personnage') }}>Gérer</Button>
               <ConfirmButton variant="danger" size="sm" onConfirm={() => supprimerPnj(pnj.id)}>🗑️</ConfirmButton>
             </div>
           </Card>

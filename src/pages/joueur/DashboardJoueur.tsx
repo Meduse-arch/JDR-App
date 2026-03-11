@@ -5,7 +5,8 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { CONFIG_RESSOURCES } from '../../utils/constants'
-import { queteService, Quete } from '../../services/queteService'
+import { queteService } from '../../services/queteService'
+import { Quete } from '../../types'
 
 export default function DashboardJoueur() {
   const compte = useStore(s => s.compte)
@@ -35,8 +36,14 @@ export default function DashboardJoueur() {
 
   const chargerPersonnage = async () => {
     const { data } = await supabase
-      .from('personnages').select('*').eq('id_session', sessionActive?.id).eq('lie_au_compte', compte?.id).eq('type', 'Joueur').eq('is_template', false).maybeSingle()
-    if (data) setPersonnage(data as Personnage)
+      .from('personnages').select('*')
+      .eq('id_session', sessionActive?.id)
+      .eq('lie_au_compte', compte?.id)
+      .eq('type', 'Joueur')
+      .eq('is_template', false)
+      .limit(1)
+    
+    if (data && data.length > 0) setPersonnage(data[0] as Personnage)
   }
 
   const chargerQuetes = async () => {
@@ -109,52 +116,76 @@ export default function DashboardJoueur() {
         {/* COLONNE DROITE */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           {/* L'UNIVERS */}
-          <Card className="bg-white/[0.02]">
-            <h3 className="font-black uppercase tracking-widest text-[10px] opacity-50 mb-6">L'Univers de la Session</h3>
-            <div className="p-6 rounded-2xl bg-black/20 border border-white/5">
-              <h4 className="text-xl font-bold mb-2 text-main">{sessionActive?.nom}</h4>
-              <p className="text-sm opacity-60 leading-relaxed italic">"{sessionActive?.description || "Aucune description."}"</p>
+          <Card className="bg-white/[0.02] border-white/5">
+            <h3 className="font-black uppercase tracking-widest text-[10px] opacity-50 mb-4 flex items-center gap-2">
+              <span className="w-1 h-1 rounded-full bg-main" /> L'Univers de la Session
+            </h3>
+            <div className="px-5 py-4 rounded-2xl bg-black/20 border border-white/5">
+              <h4 className="text-lg font-bold text-main">{sessionActive?.nom}</h4>
+              <p className="text-xs opacity-60 leading-relaxed italic line-clamp-2">"{sessionActive?.description || "Aucune description."}"</p>
             </div>
           </Card>
 
           {/* BOX QUÊTE UNIQUE */}
-          <Card className="flex-1 bg-white/[0.02]">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-black uppercase tracking-widest text-[10px] opacity-50">📍 Objectif Prioritaire</h3>
+          <div className="flex-1 flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-black uppercase tracking-widest text-[10px] opacity-50 flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-main" /> Objectif Prioritaire
+              </h3>
               {quetesSuivies.length > 1 && (
-                <Button size="sm" variant="ghost" onClick={changerQuete} className="text-[10px] uppercase font-black tracking-widest">
-                  Changer ({indexQuete + 1}/{quetesSuivies.length}) ↻
-                </Button>
+                <button onClick={changerQuete} className="text-[10px] uppercase font-black tracking-widest opacity-40 hover:opacity-100 hover:text-main transition-all flex items-center gap-1">
+                  Suivante ({indexQuete + 1}/{quetesSuivies.length}) ↻
+                </button>
               )}
             </div>
 
             {!queteAffichee ? (
-              <div className="p-10 text-center border-2 border-dashed border-white/5 rounded-2xl opacity-30 cursor-pointer hover:opacity-50 transition-all" onClick={() => setPageCourante('mes-quetes')}>
-                <span className="text-3xl block mb-2">📜</span>
-                <p className="text-xs font-bold uppercase tracking-widest">Aucune quête importée</p>
-                <p className="text-[10px] mt-1 opacity-60">Utilise l'étoile dans ton journal pour l'afficher ici</p>
-              </div>
+              <Card className="flex-1 flex flex-col items-center justify-center p-10 border-2 border-dashed border-white/5 bg-transparent opacity-30 cursor-pointer hover:opacity-50 transition-all" onClick={() => setPageCourante('mes-quetes')}>
+                <span className="text-4xl block mb-2">📜</span>
+                <p className="text-xs font-bold uppercase tracking-widest">Aucune quête en vue</p>
+                <p className="text-[10px] mt-1 opacity-60">Marque une quête comme favorite pour la suivre ici</p>
+              </Card>
             ) : (
-              <Card key={queteAffichee.id} hoverEffect className="bg-main/5 border-main/30 flex-col gap-4 p-6 group cursor-pointer" onClick={() => setQueteDetail(queteAffichee)}>
-                <div className="flex justify-between items-start">
-                  <h4 className="font-black text-xl uppercase tracking-tight text-white group-hover:text-main transition-colors">{queteAffichee.titre}</h4>
-                  <Badge variant="success" className="uppercase">SUIVI</Badge>
-                </div>
-                <p className="text-sm opacity-70 italic line-clamp-3 leading-relaxed">"{queteAffichee.description}"</p>
+              <Card 
+                key={queteAffichee.id} 
+                hoverEffect 
+                className="flex-1 flex flex-col gap-4 p-6 group cursor-pointer border-main/30 bg-main/5 relative overflow-hidden" 
+                onClick={() => setQueteDetail(queteAffichee)}
+              >
+                {/* Accent visuel pour rappeler le style Journal */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-main opacity-50" />
                 
-                <div className="mt-auto pt-4 border-t border-white/5 flex justify-between items-center">
-                  <div className="flex gap-2">
-                    {queteAffichee.quete_recompenses?.map((r, i) => (
-                      <span key={i} className="text-[10px] font-black bg-main/10 text-main px-2 py-1 rounded border border-main/10 uppercase">
-                        {r.type === 'Item' ? `🎁 ${r.items?.nom}` : `✨ Recompense`}
-                      </span>
-                    ))}
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl group-hover:scale-110 transition-transform">📜</span>
+                    <h4 className="font-black text-xl uppercase tracking-tight text-white group-hover:text-main transition-colors">{queteAffichee.titre}</h4>
                   </div>
-                  <span className="text-[10px] font-black opacity-30 uppercase tracking-widest group-hover:opacity-100 transition-opacity">Voir détails →</span>
+                  <Badge variant="success" className="uppercase text-[10px] shadow-lg shadow-green-500/20">En cours</Badge>
+                </div>
+
+                <div className="mt-auto pt-4 border-t border-white/5 flex justify-between items-end">
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[9px] font-black uppercase opacity-30 tracking-widest">Récompenses :</p>
+                    <div className="flex gap-2">
+                      {queteAffichee.quete_recompenses?.slice(0, 2).map((r: any, i: number) => (
+                        <span key={i} className="text-[10px] font-black bg-main/10 text-main px-2 py-1 rounded border border-main/10 uppercase truncate max-w-[120px]">
+                          {r.type === 'Item' ? `🎁 ${r.items?.nom}` : `✨ ${r.description || 'Butin'}`}
+                        </span>
+                      ))}
+                      {(queteAffichee.quete_recompenses?.length || 0) > 2 && (
+                        <span className="text-[10px] font-black bg-white/5 text-white/40 px-2 py-1 rounded border border-white/10 uppercase">
+                          +{(queteAffichee.quete_recompenses?.length || 0) - 2}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black opacity-30 uppercase tracking-widest group-hover:opacity-100 group-hover:text-main transition-all flex items-center gap-1">
+                    Détails du récit <span className="text-base">→</span>
+                  </span>
                 </div>
               </Card>
             )}
-          </Card>
+          </div>
         </div>
       </div>
 
@@ -178,7 +209,7 @@ export default function DashboardJoueur() {
               <div className="flex flex-col gap-3">
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Récompenses promises :</p>
                 <div className="grid grid-cols-1 gap-2">
-                  {queteDetail.quete_recompenses?.map((r, i) => (
+                  {queteDetail.quete_recompenses?.map((r: any, i: number) => (
                     <div key={i} className="p-4 rounded-2xl bg-white/5 border border-white/10 font-bold text-sm flex items-center gap-3">
                       <span className="text-xl">{r.type === 'Item' ? '🎁' : '✨'}</span>
                       <div>

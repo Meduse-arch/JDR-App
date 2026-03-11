@@ -1,32 +1,14 @@
 import { supabase } from '../supabase'
-
-export interface Recompense {
-  id: string
-  id_quete: string
-  type: 'Item' | 'Autre'
-  id_item?: string | null
-  valeur: number // Utilisé pour la quantité si c'est un item
-  description?: string | null
-  distribution: 'commune' | 'par_personne'
-  items?: { nom: string } 
-}
-
-export interface Quete {
-  id: string
-  id_session: string
-  titre: string
-  description: string
-  statut: 'En cours' | 'Terminée' | 'Échouée'
-  created_at?: string
-  quete_recompenses?: Recompense[]
-  personnage_quetes?: { id_personnage: string, suivie: boolean }[]
-}
+import { Quete, Recompense } from '../types'
 
 export const queteService = {
+  /**
+   * Récupère toutes les quêtes d'une session (Admin/MJ)
+   */
   getQuetes: async (sessionId: string): Promise<Quete[]> => {
     const { data, error } = await supabase
       .from('quetes')
-      .select('*, quete_recompenses(*, items(nom)), personnage_quetes(*)')
+      .select('*, quete_recompenses(*, items(nom)), personnage_quetes(*, personnages(nom))')
       .eq('id_session', sessionId)
       .order('created_at', { ascending: false })
     
@@ -37,21 +19,21 @@ export const queteService = {
         .select('*, quete_recompenses(*, items(nom))')
         .eq('id_session', sessionId)
         .order('created_at', { ascending: false })
-      return fallback || []
+      return (fallback || []) as Quete[]
     }
-    return data || []
+    return (data || []) as Quete[]
   },
 
+  /**
+   * Récupère les quêtes assignées à un personnage (Joueur)
+   */
   getQuetesPersonnage: async (personnageId: string): Promise<Quete[]> => {
     const { data, error } = await supabase
       .from('personnage_quetes')
       .select('*, quetes(*, quete_recompenses(*, items(nom)))')
       .eq('id_personnage', personnageId)
     
-    if (error) {
-       console.error("Erreur getQuetesPersonnage:", error)
-       return []
-    }
+    if (error) return []
 
     return data?.map((d: any) => ({
       ...d.quetes,
@@ -59,40 +41,36 @@ export const queteService = {
     })) || []
   },
 
-  creerQuete: async (sessionId: string, quete: Partial<Quete>, participantsIds: string[], recompenses: Partial<Recompense>[]) => {
-    const { data: newQuete, error: qErr } = await supabase
-      .from('quetes')
-      .insert({ titre: quete.titre, description: quete.description, id_session: sessionId })
-      .select().single()
-
-    if (qErr || !newQuete) return false
-
-    if (recompenses.length > 0) {
-      await supabase.from('quete_recompenses').insert(
-        recompenses.map(r => ({ 
-          ...r, 
-          id_quete: newQuete.id,
-          distribution: r.distribution || 'commune'
-        }))
-      )
+  /**
+   * Crée ou modifie une quête (Logique unifiée)
+   */
+  upsertQuete: async (
+    sessionId: string, 
+    quete: Partial<Quete>, 
+    participantsIds: string[], 
+    recompenses: Partial<Recompense>[]
+  ): Promise<boolean> => {
+    const isUpdate = !!quete.id
+    
+    // 1. Gérer la quête principale
+    const queteData = { 
+      titre: quete.titre, 
+      description: quete.description, 
+      statut: quete.statut || 'En cours',
+      id_session: sessionId 
     }
 
-    if (participantsIds.length > 0) {
-      await supabase.from('personnage_quetes').insert(
-        participantsIds.map(pid => ({ id_personnage: pid, id_quete: newQuete.id }))
-      )
+    let queteId = quete.id
+    if (isUpdate) {
+      const { error } = await supabase.from('quetes').update(queteData).eq('id', quete.id)
+      if (error) return false
+    } else {
+      const { data, error } = await supabase.from('quetes').insert(queteData).select().single()
+      if (error || !data) return false
+      queteId = data.id
     }
-    return true
-  },
 
-  modifierQuete: async (queteId: string, quete: Partial<Quete>, participantsIds: string[], recompenses: Partial<Recompense>[]) => {
-    const { error: qErr } = await supabase
-      .from('quetes')
-      .update({ titre: quete.titre, description: quete.description, statut: quete.statut })
-      .eq('id', queteId)
-
-    if (qErr) return false
-
+    // 2. Gérer les récompenses (Nettoyage + Réinsertion)
     await supabase.from('quete_recompenses').delete().eq('id_quete', queteId)
     if (recompenses.length > 0) {
       const cleanRewards = recompenses.map(r => ({
@@ -100,28 +78,20 @@ export const queteService = {
         type: r.type,
         id_item: r.id_item || null,
         valeur: r.valeur || 0,
-        description: r.description || null,
-        distribution: r.distribution || 'commune'
+        description: r.description || null
       }))
-      
-      const { error: rErr } = await supabase.from('quete_recompenses').insert(cleanRewards)
-      if (rErr) console.error("Erreur insertion récompenses:", rErr)
+      await supabase.from('quete_recompenses').insert(cleanRewards)
     }
 
-    const { data: currentParticipants } = await supabase.from('personnage_quetes').select('id_personnage').eq('id_quete', queteId)
-    const currentIds = currentParticipants?.map(p => p.id_personnage) || []
+    // 3. Gérer les participants (Delta sync)
+    const { data: current } = await supabase.from('personnage_quetes').select('id_personnage').eq('id_quete', queteId)
+    const currentIds = current?.map(p => p.id_personnage) || []
     
     const toDelete = currentIds.filter(id => !participantsIds.includes(id))
-    if (toDelete.length > 0) {
-      await supabase.from('personnage_quetes').delete().eq('id_quete', queteId).in('id_personnage', toDelete)
-    }
+    const toAdd    = participantsIds.filter(id => !currentIds.includes(id))
 
-    const toAdd = participantsIds.filter(id => !currentIds.includes(id))
-    if (toAdd.length > 0) {
-      await supabase.from('personnage_quetes').insert(
-        toAdd.map(pid => ({ id_personnage: pid, id_quete: queteId }))
-      )
-    }
+    if (toDelete.length > 0) await supabase.from('personnage_quetes').delete().eq('id_quete', queteId).in('id_personnage', toDelete)
+    if (toAdd.length > 0)    await supabase.from('personnage_quetes').insert(toAdd.map(pid => ({ id_personnage: pid, id_quete: queteId })))
 
     return true
   },

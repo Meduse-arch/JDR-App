@@ -6,6 +6,7 @@ import { personnageService } from '../services/personnageService'
 export function usePersonnage() {
   const compte = useStore(s => s.compte)
   const pnjControle = useStore(s => s.pnjControle)
+  const sessionActive = useStore(s => s.sessionActive)
   
   const [personnage, setPersonnage] = useState<Personnage | null>(null)
   const [chargement, setChargement] = useState(true)
@@ -22,23 +23,26 @@ export function usePersonnage() {
           
         if (data) setPersonnage(data as Personnage)
       } else {
-        if (!compte) return
-        const { data } = await supabase
+        if (!compte || !sessionActive) return
+        const { data, error } = await supabase
           .from('personnages')
           .select('*')
+          .eq('id_session', sessionActive.id)
           .eq('lie_au_compte', compte.id)
           .eq('type', 'Joueur')
           .eq('is_template', false)
-          .single()
+          .limit(1)
           
-        if (data) setPersonnage(data as Personnage)
+        if (error) console.error("Erreur query perso:", error)
+        if (data && data.length > 0) setPersonnage(data[0] as Personnage)
+        else setPersonnage(null)
       }
     } catch (error) {
       console.error("Erreur lors du chargement du personnage:", error)
     } finally {
       setChargement(false)
     }
-  }, [compte, pnjControle])
+  }, [compte, pnjControle, sessionActive])
 
   useEffect(() => {
     chargerPersonnage()

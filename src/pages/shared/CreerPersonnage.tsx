@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/Badge'
 
 type Stat    = { id: string; nom: string; description: string }
 type StatJet = { stat: Stat; valeur: number }
-type Props   = { type: PersonnageType; isTemplate?: boolean; retour: () => void }
+type Props   = { type: PersonnageType; isTemplate?: boolean; retour: () => void | Promise<void> }
 
 const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme']
 
@@ -71,30 +71,46 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
     setJets(nouveauxJets)
   }
 
+  const [enCours, setEnCours] = useState(false)
+
   const confirmer = async () => {
-    if (!sessionActive) return
-    const getVal = (n: string) => jets.find(j => j.stat.nom === n)?.valeur || 0
-    const con = getVal('Constitution'), int = getVal('Intelligence'), sag = getVal('Sagesse'), for_ = getVal('Force'), agi = getVal('Agilité')
-    const hp = con * 4, mana = Math.round(((int + sag) / 2) * 10), stam = Math.round(((for_ + agi + con) / 3) * 10)
+    if (!sessionActive || enCours) return
+    setEnCours(true)
+    try {
+      const getVal = (n: string) => jets.find(j => j.stat.nom === n)?.valeur || 0
+      const con = getVal('Constitution'), int = getVal('Intelligence'), sag = getVal('Sagesse'), for_ = getVal('Force'), agi = getVal('Agilité')
+      const hp = con * 4, mana = Math.round(((int + sag) / 2) * 10), stam = Math.round(((for_ + agi + con) / 3) * 10)
 
-    const { data: personnage, error } = await supabase
-      .from('personnages')
-      .insert({
-        id_session: sessionActive.id,
-        nom, type, is_template: isTemplate,
-        lie_au_compte: (!isTemplate && type === 'Joueur') ? compte?.id : null,
-        hp_max: hp, hp_actuel: hp,
-        mana_max: mana, mana_actuel: mana,
-        stam_max: stam, stam_actuel: stam,
-      })
-      .select().single()
+      const { data: personnage, error } = await supabase
+        .from('personnages')
+        .insert({
+          id_session: sessionActive.id,
+          nom, type, is_template: isTemplate,
+          lie_au_compte: (!isTemplate && type === 'Joueur') ? compte?.id : null,
+          hp_max: hp, hp_actuel: hp,
+          mana_max: mana, mana_actuel: mana,
+          stam_max: stam, stam_actuel: stam,
+        })
+        .select().single()
 
-    if (error || !personnage) { alert(error?.message); return }
+      if (error || !personnage) { 
+        alert(`Erreur de création: ${error?.message}`); 
+        setEnCours(false);
+        return 
+      }
 
-    await supabase.from('personnage_stats').insert(jets.map(j => ({ id_personnage: personnage.id, id_stat: j.stat.id, valeur: j.valeur })))
-    if (!isTemplate) await supabase.from('session_joueurs').insert({ id_session: sessionActive.id, id_personnage: personnage.id })
-    
-    retour()
+      await supabase.from('personnage_stats').insert(jets.map(j => ({ id_personnage: personnage.id, id_stat: j.stat.id, valeur: j.valeur })))
+      if (!isTemplate && type === 'Joueur') {
+        const { error: errSJ } = await supabase.from('session_joueurs').insert({ id_session: sessionActive.id, id_personnage: personnage.id })
+        if (errSJ) console.warn("Notice: session_joueurs issue", errSJ)
+      }
+      
+      await retour()
+      setEnCours(false)
+    } catch (e: any) {
+      alert(`Erreur inattendue: ${e.message}`)
+      setEnCours(false)
+    }
   }
 
   if (etape === 'nom') return (
@@ -134,7 +150,7 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
         </h2>
         <div className="flex items-center gap-4">
           {modeCreation === 'roll' && <Badge variant={rerollsRestants <= 2 ? 'error' : 'default'}>🎲 Rerolls : {rerollsRestants}</Badge>}
-          <Button variant="ghost" size="sm" onClick={() => setEtape('nom')}>← Retour</Button>
+          <Button variant="ghost" size="sm" onClick={() => setEtape('nom')}>✕ Précédent</Button>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
@@ -158,7 +174,9 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
         ))}
       </div>
       <div className="flex justify-center pb-8 mt-auto">
-        <Button size="lg" onClick={confirmer} className="px-10 py-4 text-lg rounded-2xl w-full sm:w-auto">Confirmer ✓</Button>
+        <Button size="lg" onClick={confirmer} disabled={enCours} className="px-10 py-4 text-lg rounded-2xl w-full sm:w-auto">
+          {enCours ? 'Création en cours...' : 'Confirmer ✓'}
+        </Button>
       </div>
     </div>
   )

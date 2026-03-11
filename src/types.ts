@@ -1,4 +1,4 @@
-export { type Personnage } from './Store/useStore';
+export { type Personnage, type PersonnageType, type Session, type Compte } from './Store/useStore';
 
 export type CategorieItem = 'Arme' | 'Armure' | 'Bijou' | 'Consommable' | 'Artéfact' | 'Divers';
 
@@ -9,6 +9,7 @@ export interface Item {
   description: string;
   categorie: CategorieItem;
   cree_par?: string;
+  item_modificateurs?: Modificateur[];
 }
 
 export interface Stat {
@@ -48,4 +49,25 @@ export interface InventaireEntry {
   quantite: number;
   equipe: boolean;
   items: Item;
+}
+
+export interface Recompense {
+  id: string;
+  id_quete: string;
+  type: 'Item' | 'Autre';
+  id_item?: string | null;
+  valeur: number;
+  description?: string | null;
+  items?: { nom: string };
+}
+
+export interface Quete {
+  id: string;
+  id_session: string;
+  titre: string;
+  description: string;
+  statut: 'En cours' | 'Terminée' | 'Échouée';
+  created_at?: string;
+  quete_recompenses?: Recompense[];
+  personnage_quetes?: { id_personnage: string; suivie: boolean; personnages?: { nom: string } }[];
 }

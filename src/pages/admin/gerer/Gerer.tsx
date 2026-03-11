@@ -51,23 +51,32 @@ export default function Gerer() {
 
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-4 md:p-8 flex flex-col gap-6 shrink-0 border-b border-border bg-surface">
-        <h2 className="text-2xl font-black uppercase tracking-tighter italic">Gestion Globale des Entités</h2>
+    <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
+      <div className="p-4 md:p-8 flex flex-col gap-6 shrink-0 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black tracking-tight" style={{ background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              ⚙️ Gestion Globale
+            </h2>
+            <p className="text-sm opacity-60 mt-1">Configuration des entités de l'univers</p>
+          </div>
+        </div>
         
         <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40">🔍</span>
             <input 
               type="text" placeholder="Rechercher un héros, un monstre ou un modèle..." value={recherche} onChange={e => setRecherche(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-border outline-none focus:border-main transition-all font-bold"
+              className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none transition-all font-bold"
+              style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             />
           </div>
-          <div className="flex gap-2 p-1 bg-surface border border-border rounded-xl">
+          <div className="flex gap-2 p-1 rounded-xl overflow-x-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
             {(['tout', 'joueur', 'pnj', 'monstre', 'modele'] as FiltreType[]).map(f => (
               <button
                 key={f} onClick={() => setFiltreType(f)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${filtreType === f ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${filtreType === f ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                style={{ backgroundColor: filtreType === f ? 'var(--color-main)' : 'transparent' }}
               >
                 {f}
               </button>
@@ -76,9 +85,9 @@ export default function Gerer() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* Liste à gauche */}
-        <div className="w-full md:w-80 border-r border-border overflow-y-auto custom-scrollbar flex flex-col gap-2 p-4 bg-black/5">
+        <div className="w-full md:w-80 border-b md:border-b-0 md:border-r overflow-y-auto custom-scrollbar flex flex-col gap-2 p-4 h-48 md:h-auto shrink-0 md:shrink" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-surface)' }}>
           {persosFiltres.map(p => (
             <button
               key={p.id}

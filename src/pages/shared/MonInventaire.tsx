@@ -7,23 +7,24 @@ import { useStats } from '../../hooks/useStats'
 import { CATEGORIES, CATEGORIE_EMOJI } from '../../utils/constants'
 import { formatLabelModif } from '../../utils/formatters'
 import { ItemCard } from '../../components/ItemCard'
-import { InventaireEntry } from '../../types'
+import { InventaireEntry, CategorieItem } from '../../types'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { inventaireService } from '../../services/inventaireService'
 import { personnageService } from '../../services/personnageService'
 
 export default function MonInventaire() {
-  const pnjControle    = useStore(s => s.pnjControle)
+  const pnjControle = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
 
-  const { inventaire, toggleEquipementOptimiste, consommerItemOptimiste } = useInventaire()
-  const { personnage, mettreAJourLocalement, rechargerPersonnage } = usePersonnage()
+  const { personnage, rechargerPersonnage, mettreAJourLocalement } = usePersonnage()
+  const { inventaire, charger: chargerInventaire } = useInventaire(personnage?.id)
+  const { stats } = useItems()
   const { rechargerStats } = useStats()
-  const { stats, itemModifs } = useItems()
 
-  const [filtreCategorie, setFiltreCategorie]   = useState('Tous')
-  const [recherche, setRecherche]               = useState('')
-  const [toasts, setToasts]                     = useState<{ id: number; msg: string }[]>([])
+  const [filtre, setFiltre] = useState('Tous')
+  const [recherche, setRecherche] = useState('')
+  const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([])
 
   const afficherToast = (msg: string) => {
     const id = Date.now()
@@ -33,128 +34,76 @@ export default function MonInventaire() {
 
   const utiliserItem = async (entry: InventaireEntry) => {
     if (!personnage) return
-    const listeModifs = itemModifs[entry.items.id] || []
+    const modifs = entry.items.item_modificateurs || []
     const updates: any = {}
     let utile = false
 
-    for (const mod of listeModifs) {
-      if (mod.type === 'stat') {
-        if (mod.id_stat) {
-          await personnageService.updateBaseStat(personnage.id, mod.id_stat, mod.valeur)
-          utile = true
-        }
-        continue
-      }
-      
-      const estMax      = mod.type.endsWith('_max')
-      const champActuel = estMax ? mod.type : `${mod.type}_actuel`
-      const champMax    = estMax ? mod.type : `${mod.type}_max`
-      
-      const actuel = Number((personnage as any)[champActuel] ?? 0)
-      const max    = Number((personnage as any)[champMax]    ?? actuel + mod.valeur)
-      const nouvelleValeur = estMax ? actuel + mod.valeur : Math.max(0, Math.min(max, actuel + mod.valeur))
-      
-      if (nouvelleValeur !== actuel) {
-        updates[champActuel] = nouvelleValeur
+    for (const mod of modifs) {
+      if (mod.type === 'stat' && mod.id_stat) {
+        await personnageService.updateBaseStat(personnage.id, mod.id_stat, mod.valeur)
         utile = true
+      } else {
+        const champ = mod.type.endsWith('_max') ? mod.type : `${mod.type}_actuel`
+        const maxChamp = mod.type.endsWith('_max') ? mod.type : `${mod.type}_max`
+        const actuel = Number((personnage as any)[champ] ?? 0)
+        const max = Number((personnage as any)[maxChamp] ?? actuel + mod.valeur)
+        const nouveau = mod.type.endsWith('_max') ? actuel + mod.valeur : Math.max(0, Math.min(max, actuel + mod.valeur))
+        if (nouveau !== actuel) { updates[champ] = nouveau; utile = true }
       }
     }
 
-    if (!utile) { afficherToast('⚠️ Déjà au maximum !'); return }
+    if (!utile) return afficherToast('⚠️ Aucun effet utile !')
 
     if (Object.keys(updates).length > 0) {
       await mettreAJourLocalement(updates)
-      if (pnjControle && pnjControle.id === personnage.id)
-        setPnjControle({ ...pnjControle, ...updates })
+      if (pnjControle?.id === personnage.id) setPnjControle({ ...pnjControle, ...updates })
     }
 
-    await consommerItemOptimiste(entry.id, entry.quantite)
+    await inventaireService.retirerItem(entry.id, 1)
     await rechargerPersonnage()
     await rechargerStats()
+    await chargerInventaire()
     afficherToast(`✨ ${entry.items.nom} utilisé !`)
   }
 
   const toggleEquiper = async (entry: InventaireEntry) => {
-    await toggleEquipementOptimiste(entry.id, !entry.equipe)
+    await inventaireService.toggleEquipement(entry.id, !entry.equipe)
+    await chargerInventaire()
+    await personnageService.recalculerStats(personnage!.id)
     await rechargerPersonnage()
+    await rechargerStats()
     afficherToast(entry.equipe ? `🔓 ${entry.items.nom} rangé` : `⚔️ ${entry.items.nom} équipé !`)
   }
 
-  const labelModif = (m: any) => formatLabelModif(m, stats)
-
-  // On retire le blocage visuel du chargement
-
-  if (!personnage) return (
-    <div className="flex items-center justify-center h-full font-bold" style={{ color: 'var(--text-secondary)' }}>
-      Aucun personnage sélectionné.
-    </div>
-  )
-
-  const inventaireFiltré = (inventaire as unknown as InventaireEntry[])
-    .filter(e => filtreCategorie === 'Tous' || e.items.categorie === filtreCategorie)
-    .filter(e => e.items.nom.toLowerCase().includes(recherche.toLowerCase()))
-  
-  const equipes    = inventaireFiltré.filter(e => e.equipe)
-  const nonEquipes = inventaireFiltré.filter(e => !e.equipe)
+  const itemsFiltrés = inventaire.filter(e => (filtre === 'Tous' || e.items.categorie === filtre) && e.items.nom.toLowerCase().includes(recherche.toLowerCase()))
 
   return (
-    <div className="flex flex-col h-full p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6 gap-4" style={{ borderBottom: '1px solid var(--border)' }}>
-        <h2 className="text-3xl md:text-4xl font-black tracking-tight" style={{ background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-          Sac Aventure
-        </h2>
+    <div className="flex flex-col h-full p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-white/5 gap-4">
+        <h2 className="text-3xl font-black uppercase italic text-main">🎒 Sac d'Aventure</h2>
+        <Input icon="🔍" placeholder="Rechercher un objet..." value={recherche} onChange={e => setRecherche(e.target.value)} className="md:max-w-xs" />
+      </div>
+
+      <div className="flex gap-2 mb-8 overflow-x-auto pb-2 custom-scrollbar">
+        {['Tous', ...CATEGORIES].map(cat => (
+          <Button key={cat} variant={filtre === cat ? 'primary' : 'secondary'} onClick={() => setFiltre(cat)} size="sm" className="whitespace-nowrap text-[10px]">
+            {cat !== 'Tous' && <span className="mr-1">{CATEGORIE_EMOJI[cat as CategorieItem]}</span>}{cat}
+          </Button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+        {itemsFiltrés.map(entry => (
+          <ItemCard key={entry.id} entry={entry} onUtiliser={utiliserItem} onEquiper={toggleEquiper} labelModif={m => formatLabelModif(m, stats)} modifs={entry.items.item_modificateurs || []} />
+        ))}
+        {itemsFiltrés.length === 0 && <div className="col-span-full py-20 text-center opacity-20 font-black uppercase italic">Le sac est vide...</div>}
       </div>
 
       <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-50 pointer-events-none">
         {toasts.map(t => (
-          <div key={t.id} className="px-4 py-2.5 rounded-2xl text-sm font-bold shadow-xl" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--color-light)', border: '1px solid color-mix(in srgb, var(--color-main) 40%, transparent)', boxShadow: '0 0 20px var(--color-glow)', animation: 'fadeSlideUp 0.3s ease-out' }}>
-            {t.msg}
-          </div>
+          <div key={t.id} className="px-6 py-3 rounded-2xl bg-card border border-main/30 text-main font-black shadow-2xl animate-in slide-in-from-right-full">{t.msg}</div>
         ))}
       </div>
-
-      <div className="flex flex-col gap-4 mb-8">
-        <Input icon="🔍" type="text" placeholder="Rechercher dans le sac..." value={recherche} onChange={e => setRecherche(e.target.value)} className="md:max-w-md" />
-        <div className="flex gap-2 flex-wrap">
-          {['Tous', ...CATEGORIES].map(cat => (
-            <Button key={cat} variant={filtreCategorie === cat ? 'primary' : 'secondary'} onClick={() => setFiltreCategorie(cat)} className="text-xs" size="sm">
-              {cat !== 'Tous' && <span className="mr-1">{CATEGORIE_EMOJI[cat as import('../../types').CategorieItem]}</span>}{cat}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {inventaire.length === 0 && (
-        <div className="flex flex-col items-center justify-center mt-20 opacity-40">
-          <span className="text-6xl mb-4">🕸️</span>
-          <p className="text-lg font-bold" style={{ color: 'var(--text-secondary)' }}>Le sac est totalement vide.</p>
-        </div>
-      )}
-
-      {equipes.length > 0 && (
-        <div className="mb-10">
-          <p className="text-xs uppercase font-black mb-4 tracking-widest flex items-center gap-2" style={{ color: 'var(--color-main)' }}>
-            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-main)' }} />
-            Équipement Actif
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {equipes.map(entry => (
-              <ItemCard key={entry.id} entry={entry} onUtiliser={utiliserItem} onEquiper={toggleEquiper} labelModif={labelModif} modifs={itemModifs[entry.items.id] ?? []} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {nonEquipes.length > 0 && (
-        <div>
-          {equipes.length > 0 && <p className="text-xs uppercase font-black mb-4 tracking-widest" style={{ color: 'var(--text-muted)' }}>📦 Reste du sac</p>}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {nonEquipes.map(entry => (
-              <ItemCard key={entry.id} entry={entry} onUtiliser={utiliserItem} onEquiper={toggleEquiper} labelModif={labelModif} modifs={itemModifs[entry.items.id] ?? []} />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

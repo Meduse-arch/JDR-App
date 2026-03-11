@@ -1,94 +1,31 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
-import { useStore } from '../Store/useStore'
 import { inventaireService } from '../services/inventaireService'
+import { InventaireEntry } from '../types'
 
-export type ItemInventaire = {
-  id: string
-  quantite: number
-  equipe: boolean
-  items: {
-    id: string
-    nom: string
-    description: string
-    categorie: string
-  }
-}
+export function useInventaire(personnageId: string | undefined) {
+  const [inventaire, setInventaire] = useState<InventaireEntry[]>([])
+  const [chargement, setChargement] = useState(false)
 
-export function useInventaire() {
-  const compte = useStore(s => s.compte)
-  const pnjControle = useStore(s => s.pnjControle)
-  
-  const [inventaire, setInventaire] = useState<ItemInventaire[]>([])
-  const [chargement, setChargement] = useState(true)
-
-  const chargerInventaire = useCallback(async () => {
+  const charger = useCallback(async () => {
+    if (!personnageId) return
     setChargement(true)
-    try {
-      let idPersonnage = pnjControle?.id
-
-      if (!idPersonnage) {
-        if (!compte) return
-        const { data: perso } = await supabase
-          .from('personnages')
-          .select('id')
-          .eq('lie_au_compte', compte.id)
-          .eq('type', 'Joueur')
-          .eq('is_template', false)
-          .single()
-        
-        if (!perso) return
-        idPersonnage = perso.id
-      }
-
-      const { data } = await supabase
-        .from('inventaire')
-        .select('id, quantite, equipe, items(id, nom, description, categorie)')
-        .eq('id_personnage', idPersonnage)
-
-      if (data) {
-        setInventaire(data as any)
-      }
-    } catch (error) {
-      console.error("Erreur lors du chargement de l'inventaire:", error)
-    } finally {
-      setChargement(false)
-    }
-  }, [compte, pnjControle])
+    const data = await inventaireService.getInventaire(personnageId)
+    setInventaire(data)
+    setChargement(false)
+  }, [personnageId])
 
   useEffect(() => {
-    chargerInventaire()
-  }, [chargerInventaire])
+    charger()
+    if (!personnageId) return
 
-  const toggleEquipementOptimiste = async (idInventaire: string, estEquipe: boolean) => {
-    setInventaire(prev => prev.map(item => 
-      item.id === idInventaire ? { ...item, equipe: estEquipe } : item
-    ))
-    const success = await inventaireService.toggleEquipement(idInventaire, estEquipe)
-    if (!success) {
-      chargerInventaire()
-    }
-  }
+    const channel = supabase
+      .channel(`inv-${personnageId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventaire', filter: `id_personnage=eq.${personnageId}` }, () => charger())
+      .subscribe()
 
-  const consommerItemOptimiste = async (idInventaire: string, quantiteActuelle: number) => {
-    if (quantiteActuelle <= 1) {
-      setInventaire(prev => prev.filter(item => item.id !== idInventaire))
-    } else {
-      setInventaire(prev => prev.map(item => 
-        item.id === idInventaire ? { ...item, quantite: quantiteActuelle - 1 } : item
-      ))
-    }
-    const success = await inventaireService.consommerItem(idInventaire, quantiteActuelle)
-    if (!success) {
-      chargerInventaire()
-    }
-  }
+    return () => { supabase.removeChannel(channel) }
+  }, [charger, personnageId])
 
-  return { 
-    inventaire, 
-    chargement, 
-    rechargerInventaire: chargerInventaire,
-    toggleEquipementOptimiste,
-    consommerItemOptimiste
-  }
+  return { inventaire, chargement, charger }
 }

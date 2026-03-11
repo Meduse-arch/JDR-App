@@ -13,7 +13,7 @@ import { Badge } from '../../../components/ui/Badge'
 type Props = { personnage: Personnage }
 
 export default function GererInventaire({ personnage }: Props) {
-  const { stats, itemModifs, items: itemsBibliotheque } = useItems()
+  const { stats, items: itemsBibliotheque } = useItems()
 
   const [inventaire,        setInventaire]        = useState<InventaireEntry[]>([])
   const [onglet,            setOnglet]            = useState<'inventaire' | 'ajouter'>('inventaire')
@@ -38,7 +38,7 @@ export default function GererInventaire({ personnage }: Props) {
 
   const ajouterItem = async () => {
     if (!itemSelectionne) return
-    const success = await inventaireService.addItem(personnage.id, itemSelectionne, quantiteAjout)
+    const success = await inventaireService.ajouterItem(personnage.id, itemSelectionne, quantiteAjout)
     if (success) {
       afficherMessage('✅ Item ajouté !')
       setItemSelectionne(''); setQuantiteAjout(1); chargerInventaire()
@@ -46,12 +46,12 @@ export default function GererInventaire({ personnage }: Props) {
   }
 
   const retirerItem = async (entry: InventaireEntry) => {
-    const success = await inventaireService.consommerItem(entry.id, entry.quantite)
+    const success = await inventaireService.retirerItem(entry.id, 1)
     if (success) chargerInventaire()
   }
 
   const supprimerItem = async (entryId: string) => {
-    const success = await inventaireService.jeterItem(entryId)
+    const success = await inventaireService.retirerItem(entryId, 99999)
     if (success) chargerInventaire()
   }
 
@@ -122,13 +122,18 @@ export default function GererInventaire({ personnage }: Props) {
                   )}
                   <p className="font-black text-sm mb-2" style={{ color: 'var(--color-main)' }}>x{entry.quantite}</p>
                   
-                  {itemModifs[entry.items.id]?.length > 0 && (
+                  {entry.items.item_modificateurs && entry.items.item_modificateurs.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {itemModifs[entry.items.id].map((m, i) => (
-                        <Badge key={i} variant="default">
+                      {entry.items.item_modificateurs.slice(0, 2).map((m: any, i: number) => (
+                        <Badge key={i} variant="default" className="text-[8px] truncate max-w-[80px]">
                           {formatLabelModif(m, stats)}
                         </Badge>
                       ))}
+                      {entry.items.item_modificateurs.length > 2 && (
+                        <Badge variant="ghost" className="text-[8px] opacity-40">
+                          +{entry.items.item_modificateurs.length - 2}...
+                        </Badge>
+                      )}
                     </div>
                   )}
                 </div>
@@ -178,9 +183,9 @@ export default function GererInventaire({ personnage }: Props) {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">{item.categorie}</span>
-                  {itemModifs[item.id]?.length > 0 && (
+                  {item.item_modificateurs && item.item_modificateurs.length > 0 && (
                     <div className="flex flex-wrap gap-1 ml-auto">
-                      {itemModifs[item.id].map((m, i) => (
+                      {item.item_modificateurs.map((m: any, i: number) => (
                         <Badge key={i} variant="default">
                           {formatLabelModif(m, stats)}
                         </Badge>

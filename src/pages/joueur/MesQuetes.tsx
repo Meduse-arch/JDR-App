@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { queteService, Quete } from '../../services/queteService'
+import { queteService } from '../../services/queteService'
+import { Quete } from '../../types'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
@@ -69,16 +70,19 @@ export default function MesQuetes() {
                 </button>
                 <h3 className="font-black text-lg uppercase leading-tight truncate">{q.titre}</h3>
               </div>
-              <Badge variant={q.statut === 'Terminée' ? 'success' : q.statut === 'Échouée' ? 'error' : 'default'}>{q.statut}</Badge>
             </div>
-            <p className="text-xs opacity-60 line-clamp-2 italic">"{q.description}"</p>
+            
             <div className="mt-auto pt-4 border-t border-white/5 flex flex-wrap gap-2">
-              {q.quete_recompenses?.map((r, i) => (
-                <span key={i} className={`text-[9px] font-black uppercase px-2 py-1 rounded-md border ${r.distribution === 'par_personne' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-main/10 text-main border-main/20'}`}>
+              {q.quete_recompenses?.slice(0, 2).map((r: any, i: number) => (
+                <span key={i} className="text-[9px] font-black uppercase px-2 py-1 rounded-md border bg-main/10 text-main border-main/20 truncate max-w-[140px]">
                   {r.type === 'Item' ? `🎁 ${r.items?.nom} (x${r.valeur})` : `✨ ${r.description}`}
-                  {r.distribution === 'par_personne' && ' / pers.'}
                 </span>
               ))}
+              {(q.quete_recompenses?.length || 0) > 2 && (
+                <span className="text-[9px] font-black uppercase px-2 py-1 rounded-md border bg-main/10 text-main border-main/20">
+                  +{q.quete_recompenses!.length - 2} autres...
+                </span>
+              )}
             </div>
           </Card>
         ))}
@@ -112,7 +116,7 @@ export default function MesQuetes() {
               <div className="flex flex-col gap-3">
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Récompenses promises :</p>
                 <div className="grid grid-cols-1 gap-2">
-                  {queteDetail.quete_recompenses?.map((r, i) => (
+                  {queteDetail.quete_recompenses?.map((r: any, i: number) => (
                     <div key={i} className={`p-4 rounded-2xl bg-white/5 border border-white/10 font-bold text-sm flex items-center justify-between`}>
                       <div className="flex items-center gap-3">
                         <span className="text-xl">{r.type === 'Item' ? '🎁' : '✨'}</span>
@@ -121,9 +125,6 @@ export default function MesQuetes() {
                           <p className="text-base">{r.type === 'Item' ? `${r.items?.nom} (Quantité: ${r.valeur})` : r.description}</p>
                         </div>
                       </div>
-                      <Badge variant={r.distribution === 'par_personne' ? 'default' : 'ghost'} className="text-[8px] uppercase">
-                        {r.distribution === 'par_personne' ? '👤 Pour toi' : '👥 À partager'}
-                      </Badge>
                     </div>
                   ))}
                 </div>

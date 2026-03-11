@@ -10,7 +10,7 @@ const THEMES: { id: ThemeId; nom: string; from: string; to: string }[] = [
 ]
 
 export default function Header() {
-  const { theme, setTheme, mode, setMode, deconnexion, compte, sessionActive, setSessionActive, setPageCourante } = useStore()
+  const { theme, setTheme, mode, setMode, deconnexion, compte, sessionActive, setSessionActive, setPageCourante, sidebarOuverte, setSidebarOuverte } = useStore()
 
   const [menuThemeOuvert, setMenuThemeOuvert] = useState(false)
   const themeRef = useRef<HTMLDivElement>(null)
@@ -27,9 +27,21 @@ export default function Header() {
   const themeActuel = THEMES.find(t => t.id === theme) ?? THEMES[0]
 
   return (
-    <header className="h-16 border-b border-theme flex items-center justify-between px-6 bg-surface backdrop-blur-xl shrink-0 z-50">
-      <div className="flex items-center gap-4">
-        <h1 className="text-xl font-black italic tracking-tighter cursor-pointer hover:scale-105 transition-transform" 
+    <header className="h-16 border-b border-theme flex items-center justify-between px-4 md:px-6 bg-surface backdrop-blur-xl shrink-0 z-50">
+      <div className="flex items-center gap-3 md:gap-4">
+        {sessionActive && (
+          <button 
+            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-[var(--color-light)]"
+            onClick={() => setSidebarOuverte(!sidebarOuverte)}
+          >
+            <div className="w-5 h-3.5 relative flex flex-col justify-between">
+              <span className={`w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-center ${sidebarOuverte ? 'translate-y-[6px] rotate-45' : ''}`} />
+              <span className={`w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-center ${sidebarOuverte ? 'opacity-0 scale-x-0' : 'opacity-100 scale-x-100'}`} />
+              <span className={`w-full h-[2px] bg-current rounded-full transition-all duration-300 origin-center ${sidebarOuverte ? '-translate-y-[6px] -rotate-45' : ''}`} />
+            </div>
+          </button>
+        )}
+        <h1 className="text-xl font-black italic tracking-tighter cursor-pointer hover:scale-105 transition-transform hidden sm:block" 
           style={{ color: 'var(--color-light)' }}
           onClick={() => setPageCourante('dashboard')}
         >

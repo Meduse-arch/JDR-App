@@ -18,9 +18,10 @@ export function useCompetences() {
   }, [chargerCompetences]);
 
   const supprimerCompetence = async (id: string) => {
+    setCompetences(prev => prev.filter(c => c.id !== id)); // Optimistic update
     const success = await competenceService.deleteCompetence(id);
-    if (success) {
-      setCompetences(prev => prev.filter(c => c.id !== id));
+    if (!success) {
+      chargerCompetences(); // Rollback in case of error
     }
     return success;
   };

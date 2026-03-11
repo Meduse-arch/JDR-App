@@ -43,7 +43,6 @@ export const itemsService = {
     itemData: { nom: string; description: string; categorie: CategorieItem },
     modificateurs: Partial<Modificateur>[]
   ): Promise<Item | null> => {
-    // 1. Création de l'item
     const { data: newItem, error: itemError } = await supabase
       .from('items')
       .insert({
@@ -59,21 +58,24 @@ export const itemsService = {
       return null;
     }
 
-    // 2. Création des modificateurs
     if (modificateurs.length > 0) {
-      const { error: modifError } = await supabase
-        .from('item_modificateurs')
-        .insert(
-          modificateurs.map(m => ({
-            id_item: newItem.id,
-            id_stat: m.id_stat || null,
-            type: m.type || (m.id_stat ? 'stat' : 'unknown'),
-            valeur: m.valeur,
-          }))
-        );
-      
-      if (modifError) {
-        alert(`Attention : L'item a été créé mais les bonus ont échoué.\nErreur : ${modifError.message}\n\nAs-tu ajouté la colonne 'type' à la table 'item_modificateurs' ?`);
+      const validModifs = modificateurs
+        .filter(m => m.id_stat || m.type)
+        .map(m => ({
+          id_item: newItem.id,
+          id_stat: m.id_stat || null,
+          type: m.id_stat ? 'stat' : m.type,
+          valeur: m.valeur || 0
+        }));
+
+      if (validModifs.length > 0) {
+        const { error: modifError } = await supabase
+          .from('item_modificateurs')
+          .insert(validModifs);
+        
+        if (modifError) {
+          alert(`Erreur bonus : ${modifError.message}`);
+        }
       }
     }
 

@@ -66,8 +66,8 @@ export function ItemCard({
 
       {modifs.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {modifs.map((m, i) => (
-            <span key={i} className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg"
+          {modifs.slice(0, 2).map((m, i) => (
+            <span key={i} className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg truncate max-w-[120px]"
               style={{
                 backgroundColor: 'color-mix(in srgb, var(--color-main) 15%, transparent)',
                 color: 'var(--color-light)',
@@ -76,6 +76,11 @@ export function ItemCard({
               {labelModif(m)}
             </span>
           ))}
+          {modifs.length > 2 && (
+            <span className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg bg-white/5 border border-white/10 opacity-50">
+              +{modifs.length - 2}...
+            </span>
+          )}
         </div>
       )}
 

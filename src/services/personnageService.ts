@@ -193,8 +193,10 @@ export const personnageService = {
     await supabase.from('personnage_stats').delete().eq('id_personnage', idPersonnage)
     await supabase.from('inventaire').delete().eq('id_personnage', idPersonnage)
     await supabase.from('personnage_competences').delete().eq('id_personnage', idPersonnage)
+    await supabase.from('personnage_quetes').delete().eq('id_personnage', idPersonnage)
     const { error } = await supabase.from('personnages').delete().eq('id', idPersonnage)
     
+    if (error) console.error("Erreur suppression personnage:", error)
     return !error
   }
 }

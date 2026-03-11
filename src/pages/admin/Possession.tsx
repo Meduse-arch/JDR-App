@@ -48,31 +48,35 @@ export default function Possession() {
 
 
   return (
-    <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar">
-      <div className="flex flex-col gap-6 mb-10 pb-8 border-b border-white/5">
+    <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-black uppercase italic tracking-tighter">🎭 Hub de Possession</h2>
-          <p className="text-sm opacity-50 text-main font-bold">Sélectionne l'entité que tu souhaites incarner</p>
+          <h2 className="text-2xl md:text-3xl font-black tracking-tight" style={{ background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            🎭 Hub de Possession
+          </h2>
+          <p className="text-sm opacity-60 mt-1">Sélectionne l'entité que tu souhaites incarner</p>
         </div>
-        
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40">🔍</span>
-            <input 
-              type="text" placeholder="Rechercher une cible..." value={recherche} onChange={e => setRecherche(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-2xl bg-surface border border-border outline-none focus:border-main transition-all font-bold"
-            />
-          </div>
-          <div className="flex gap-2 p-1 bg-surface border border-border rounded-xl">
-            {(['tout', 'joueur', 'pnj', 'monstre', 'modele'] as FiltreType[]).map(f => (
-              <button
-                key={f} onClick={() => setFiltreType(f)}
-                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${filtreType === f ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="relative flex-1">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40">🔍</span>
+          <input 
+            type="text" placeholder="Rechercher une cible..." value={recherche} onChange={e => setRecherche(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none transition-all font-bold"
+            style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+          />
+        </div>
+        <div className="flex gap-2 p-1 rounded-xl overflow-x-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+          {(['tout', 'joueur', 'pnj', 'monstre', 'modele'] as FiltreType[]).map(f => (
+            <button
+              key={f} onClick={() => setFiltreType(f)}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${filtreType === f ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+              style={{ backgroundColor: filtreType === f ? 'var(--color-main)' : 'transparent' }}
+            >
+              {f}
+            </button>
+          ))}
         </div>
       </div>
 

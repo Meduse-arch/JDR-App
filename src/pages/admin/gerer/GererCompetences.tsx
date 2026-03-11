@@ -25,35 +25,20 @@ export default function GererCompetences({ personnage }: Props) {
   }, [personnage])
 
   const chargerCompetences = async () => {
-    // Étape 1: Récupérer les liaisons
     const { data: liaisons } = await supabase
       .from('personnage_competences')
-      .select('*')
+      .select('id, id_personnage, id_competence, niveau, competences(*)')
       .eq('id_personnage', personnage.id)
 
-    if (liaisons && liaisons.length > 0) {
-      // Étape 2: Récupérer les données des compétences
-      const idsCompetences = liaisons.map(l => l.id_competences || l.id_competence || l.competence_id)
-      const { data: competencesData } = await supabase
-        .from('competences')
-        .select('*')
-        .in('id', idsCompetences)
-
-      if (competencesData) {
-        const formated = liaisons.map(liaison => {
-          const l_id = liaison.id_competences || liaison.id_competence || liaison.competence_id;
-          const compInfo = competencesData.find(c => c.id === l_id)
-          if (!compInfo) return null
-          return {
-            id: liaison.id,
-            id_personnage: liaison.id_personnage,
-            id_competence: l_id,
-            competence: compInfo
-          }
-        }).filter(item => item !== null)
-        
-        setCompetencesAcquises(formated as PersonnageCompetence[])
-      }
+    if (liaisons) {
+      const formated = liaisons.map((l: any) => ({
+        id: l.id,
+        id_personnage: l.id_personnage,
+        id_competence: l.id_competence,
+        niveau: l.niveau,
+        competence: l.competences
+      }))
+      setCompetencesAcquises(formated as PersonnageCompetence[])
     } else {
       setCompetencesAcquises([])
     }
