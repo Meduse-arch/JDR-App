@@ -195,9 +195,11 @@ export default function PNJ() {
                 <h3 className="font-bold text-lg leading-tight truncate">{pnj.nom}</h3>
                 {pnj.type === 'Boss' && <span className="text-[8px] font-black bg-[#ef4444] text-white px-1.5 py-0.5 rounded uppercase shadow-[0_0_10px_rgba(239,68,68,0.4)]">BOSS</span>}
               </div>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                HP : <span className={`font-black ${pnj.type === 'Boss' ? 'text-red-500' : 'text-[#ef4444]'}`}>{pnj.hp}</span> / {pnj.hp_max}
-              </p>
+              <div className="flex gap-3 text-[10px] mt-1 uppercase font-black opacity-60">
+                <span>HP : <span className={`font-black ${pnj.type === 'Boss' ? 'text-red-500' : 'text-[#ef4444]'}`}>{pnj.hp}</span> / {pnj.hp_max}</span>
+                <span>MP : <span className="text-blue-400">{pnj.mana}</span> / {pnj.mana_max}</span>
+                <span>SP : <span className="text-yellow-400">{pnj.stam}</span> / {pnj.stam_max}</span>
+              </div>
             </div>
             <div className="flex gap-2">
               <Button 

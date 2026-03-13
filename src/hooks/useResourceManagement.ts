@@ -36,10 +36,6 @@ export function useResourceManagement(
     const updates = { [champActuel]: nouveau } as Partial<Personnage>
     await mettreAJourLocalement(updates)
 
-    if (pnjControle && pnjControle.id === personnage.id) {
-      setPnjControle({ ...pnjControle, ...updates } as any)
-    }
-
     setDeltas(prev => ({ ...prev, [key]: '' }))
   }
 

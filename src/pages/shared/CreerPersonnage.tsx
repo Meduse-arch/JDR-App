@@ -18,6 +18,7 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
 
   const [nom, setNom]                     = useState('')
   const [stats, setStats]                 = useState<Stat[]>([])
+  const [statsMax, setStatsMax]           = useState<Stat[]>([])
   const [jets, setJets]                   = useState<StatJet[]>([])
   const [etape, setEtape]                 = useState<'nom' | 'stats'>('nom')
   const [rerollsRestants, setRerollsRestants] = useState(6)
@@ -29,8 +30,11 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
   useEffect(() => {
     supabase.from('stats').select('*').then(({ data }) => {
       if (data) {
-        const sorted = [...data].sort((a, b) => ORDRE_STATS.indexOf(a.nom) - ORDRE_STATS.indexOf(b.nom))
+        const STATS_CALCULEES = ['PV Max', 'Mana Max', 'Stamina Max', 'HP Max', 'hp_max', 'mana_max', 'stam_max']
+        const filtered = data.filter(s => !STATS_CALCULEES.includes(s.nom))
+        const sorted = filtered.sort((a, b) => ORDRE_STATS.indexOf(a.nom) - ORDRE_STATS.indexOf(b.nom))
         setStats(sorted)
+        setStatsMax(data.filter(s => STATS_CALCULEES.includes(s.nom)))
       }
     })
   }, [])
@@ -73,23 +77,23 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
 
   const [enCours, setEnCours] = useState(false)
 
+  const getVal = (n: string) => jets.find(j => j.stat.nom === n)?.valeur || 0
+  const con = getVal('Constitution'), int = getVal('Intelligence'), sag = getVal('Sagesse'), for_ = getVal('Force'), agi = getVal('Agilité')
+  const hp = con * 4, mana = Math.round(((int + sag) / 2) * 10), stam = Math.round(((for_ + agi + con) / 3) * 10)
+
   const confirmer = async () => {
     if (!sessionActive || enCours) return
     setEnCours(true)
     try {
-      const getVal = (n: string) => jets.find(j => j.stat.nom === n)?.valeur || 0
-      const con = getVal('Constitution'), int = getVal('Intelligence'), sag = getVal('Sagesse'), for_ = getVal('Force'), agi = getVal('Agilité')
-      const hp = con * 4, mana = Math.round(((int + sag) / 2) * 10), stam = Math.round(((for_ + agi + con) / 3) * 10)
-
       const { data: personnage, error } = await supabase
         .from('personnages')
         .insert({
           id_session: sessionActive.id,
           nom, type, is_template: isTemplate,
           lie_au_compte: (!isTemplate && type === 'Joueur') ? compte?.id : null,
-          hp_max: hp, hp: hp,
-          mana_max: mana, mana: mana,
-          stam_max: stam, stam: stam,
+          hp: hp,
+          mana: mana,
+          stam: stam,
         })
         .select().single()
 
@@ -100,6 +104,21 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
       }
 
       await supabase.from('personnage_stats').insert(jets.map(j => ({ id_personnage: personnage.id, id_stat: j.stat.id, valeur: j.valeur })))
+      
+      const maxStatsToInsert = []
+      const pvm = statsMax.find(s => s.nom === 'PV Max' || s.nom === 'HP Max' || s.nom === 'hp_max')
+      if (pvm) maxStatsToInsert.push({ id_personnage: personnage.id, id_stat: pvm.id, valeur: hp })
+      
+      const manam = statsMax.find(s => s.nom === 'Mana Max' || s.nom === 'mana_max')
+      if (manam) maxStatsToInsert.push({ id_personnage: personnage.id, id_stat: manam.id, valeur: mana })
+      
+      const stamm = statsMax.find(s => s.nom === 'Stamina Max' || s.nom === 'stam_max')
+      if (stamm) maxStatsToInsert.push({ id_personnage: personnage.id, id_stat: stamm.id, valeur: stam })
+      
+      if (maxStatsToInsert.length > 0) {
+        await supabase.from('personnage_stats').insert(maxStatsToInsert)
+      }
+
       if (!isTemplate && type === 'Joueur') {
         const { error: errSJ } = await supabase.from('session_joueurs').insert({ id_session: sessionActive.id, id_personnage: personnage.id })
         if (errSJ) console.warn("Notice: session_joueurs issue", errSJ)
@@ -173,6 +192,22 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
           </Card>
         ))}
       </div>
+
+      <div className="flex justify-center gap-4 mb-8 flex-wrap">
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-center flex-1 min-w-[100px] max-w-[150px]">
+          <p className="text-[10px] font-black uppercase opacity-50 text-red-400">PV Max</p>
+          <p className="text-2xl font-black text-red-400">{hp}</p>
+        </div>
+        <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-center flex-1 min-w-[100px] max-w-[150px]">
+          <p className="text-[10px] font-black uppercase opacity-50 text-blue-400">Mana Max</p>
+          <p className="text-2xl font-black text-blue-400">{mana}</p>
+        </div>
+        <div className="p-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 text-center flex-1 min-w-[100px] max-w-[150px]">
+          <p className="text-[10px] font-black uppercase opacity-50 text-yellow-400">Stam Max</p>
+          <p className="text-2xl font-black text-yellow-400">{stam}</p>
+        </div>
+      </div>
+
       <div className="flex justify-center pb-8 mt-auto">
         <Button size="lg" onClick={confirmer} disabled={enCours} className="px-10 py-4 text-lg rounded-2xl w-full sm:w-auto">
           {enCours ? 'Création en cours...' : 'Confirmer ✓'}

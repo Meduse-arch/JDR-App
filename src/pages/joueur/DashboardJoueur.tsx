@@ -29,10 +29,11 @@ export default function DashboardJoueur() {
         .channel('dashboard-joueur-' + personnage.id)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'quetes' }, () => chargerQuetes())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'personnage_quetes', filter: `id_personnage=eq.${personnage.id}` }, () => chargerQuetes())
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'personnages', filter: `id=eq.${personnage.id}` }, () => chargerPersonnage())
         .subscribe()
       return () => { supabase.removeChannel(channel) }
     }
-  }, [personnage])
+  }, [personnage?.id]) // changed to personnage?.id to avoid infinite re-render loop when chargerPersonnage updates the personnage object
 
   const chargerPersonnage = async () => {
     const { data } = await supabase

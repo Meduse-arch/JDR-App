@@ -2,36 +2,37 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../../supabase'
 import { useItems } from '../../../hooks/useItems'
 import { CATEGORIES, CATEGORIE_EMOJI } from '../../../utils/constants'
-import { formatLabelModif } from '../../../utils/formatters'
+import { formatLabelModif, formatLabelEffet } from '../../../utils/formatters'
 import { inventaireService } from '../../../services/inventaireService'
-import { Personnage, InventaireEntry } from '../../../types'
+import { Personnage, InventaireEntry, Item } from '../../../types'
 import { Card } from '../../../components/ui/Card'
-import { Input } from '../../../components/ui/Input'
 import { Button } from '../../../components/ui/Button'
 import { Badge } from '../../../components/ui/Badge'
+import { ConfirmButton } from '../../../components/ui/ConfirmButton'
+import { ConfirmationBar } from '../../../components/ui/ConfirmationBar'
 
 type Props = { personnage: Personnage }
 
-const RESSOURCES_MODIFS = [
-  { type: 'hp', label: 'PV Actuel' },
-  { type: 'mana', label: 'Mana Actuel' },
-  { type: 'stam', label: 'Stam Actuelle' }
-]
+interface PanierItem {
+  item: Item;
+  quantite: number;
+}
 
 export default function GererInventaire({ personnage }: Props) {
   const { stats, items: itemsBibliotheque } = useItems()
 
   const [inventaire,        setInventaire]        = useState<InventaireEntry[]>([])
   const [onglet,            setOnglet]            = useState<'inventaire' | 'ajouter'>('inventaire')
-  const [itemSelectionne,   setItemSelectionne]   = useState('')
-  const [quantiteAjout,     setQuantiteAjout]     = useState(1)
+  const [panier,            setPanier]            = useState<Map<string, PanierItem>>(new Map())
   const [filtreCategorie,   setFiltreCategorie]   = useState('Tous')
   const [recherche,         setRecherche]         = useState('')
   const [rechercheAjout,    setRechercheAjout]    = useState('')
   const [message,           setMessage]           = useState('')
+  const [sauvegardant,      setSauvegardant]      = useState(false)
 
   useEffect(() => {
     chargerInventaire()
+    setPanier(new Map())
   }, [personnage])
 
   const chargerInventaire = async () => {
@@ -40,18 +41,53 @@ export default function GererInventaire({ personnage }: Props) {
     if (data) setInventaire(data as any)
   }
 
-  const afficherMessage = (msg: string) => { setMessage(msg); setTimeout(() => setMessage(''), 2500) }
+  const afficherMessage = (msg: string) => { setMessage(msg); setTimeout(() => setMessage(''), 3000) }
 
-  const ajouterItem = async () => {
-    if (!itemSelectionne) return
-    const success = await inventaireService.ajouterItem(personnage.id, itemSelectionne, quantiteAjout)
-    if (success) {
-      afficherMessage('✅ Item ajouté !')
-      setItemSelectionne(''); setQuantiteAjout(1); chargerInventaire()
+  const togglePanier = (item: Item) => {
+    setPanier(prev => {
+      const next = new Map(prev)
+      if (next.has(item.id)) {
+        next.delete(item.id)
+      } else {
+        next.set(item.id, { item, quantite: 1 })
+      }
+      return next
+    })
+  }
+
+  const updateQuantitePanier = (id: string, delta: number) => {
+    setPanier(prev => {
+      const next = new Map(prev)
+      const entry = next.get(id)
+      if (entry) {
+        const nv = Math.max(1, entry.quantite + delta)
+        next.set(id, { ...entry, quantite: nv })
+      }
+      return next
+    })
+  }
+
+  const confirmerEnvoi = async () => {
+    if (panier.size === 0) return
+    setSauvegardant(true)
+    try {
+      let total = 0
+      for (const [id, entry] of panier.entries()) {
+        const ok = await inventaireService.ajouterItem(personnage.id, id, entry.quantite)
+        if (ok) total++
+      }
+      afficherMessage(`✅ ${total} objet(s) ajouté(s) à l'inventaire !`)
+      setPanier(new Map())
+      setOnglet('inventaire')
+      await chargerInventaire()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSauvegardant(false)
     }
   }
 
-  const retirerItem = async (entry: InventaireEntry) => {
+  const retirerUn = async (entry: InventaireEntry) => {
     const success = await inventaireService.retirerItem(entry.id, 1)
     if (success) chargerInventaire()
   }
@@ -69,168 +105,197 @@ export default function GererInventaire({ personnage }: Props) {
     .filter(i => i.nom.toLowerCase().includes(rechercheAjout.toLowerCase()))
 
   return (
-    <div className="flex flex-col gap-5" style={{ color: 'var(--text-primary)' }}>
-      {/* Onglets */}
-      <div className="flex gap-2 items-center flex-wrap">
-        <Button 
-          variant={onglet === 'inventaire' ? 'active' : 'secondary'} 
-          onClick={() => setOnglet('inventaire')}
-        >
-          🎒 Inventaire
-        </Button>
-        <Button 
-          variant={onglet === 'ajouter' ? 'active' : 'secondary'} 
-          onClick={() => setOnglet('ajouter')}
-        >
-          ➕ Ajouter
-        </Button>
-        {message && <span className="ml-auto text-sm font-bold" style={{ color: '#4ade80' }}>{message}</span>}
+    <div className="flex flex-col gap-6" style={{ color: 'var(--text-primary)' }}>
+      {/* Header Onglets */}
+      <div className="flex justify-between items-center bg-black/20 p-1.5 rounded-2xl border border-white/5">
+        <div className="flex gap-1 flex-1">
+          <button 
+            onClick={() => setOnglet('inventaire')}
+            className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${onglet === 'inventaire' ? 'bg-white/10 shadow-lg text-main' : 'opacity-40 hover:opacity-100'}`}
+          >
+            🎒 Inventaire ({inventaire.length})
+          </button>
+          <button 
+            onClick={() => setOnglet('ajouter')}
+            className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${onglet === 'ajouter' ? 'bg-white/10 shadow-lg text-main' : 'opacity-40 hover:opacity-100'}`}
+          >
+            ➕ Bibliothèque
+          </button>
+        </div>
+        {message && <span className="px-4 text-xs font-bold text-green-400 animate-pulse">{message}</span>}
       </div>
 
-      {/* Inventaire actuel */}
+      {/* Vue Inventaire */}
       {onglet === 'inventaire' && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Input 
-              icon="🔍"
-              type="text" placeholder="Rechercher..." value={recherche}
-              onChange={e => setRecherche(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {['Tous', ...CATEGORIES].map(cat => (
-              <Button 
-                key={cat} 
-                size="sm"
-                variant={filtreCategorie === cat ? 'active' : 'secondary'}
-                onClick={() => setFiltreCategorie(cat)}
-              >
-                {cat !== 'Tous' ? CATEGORIE_EMOJI[cat as import('../../../types').CategorieItem] + ' ' : ''}{cat}
-              </Button>
-            ))}
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40">🔍</span>
+              <input 
+                type="text" placeholder="Filtrer le sac..." value={recherche} onChange={e => setRecherche(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl outline-none transition-all font-bold text-sm bg-surface border border-border"
+              />
+            </div>
+            <div className="flex gap-1 p-1 rounded-xl bg-surface border border-border overflow-x-auto no-scrollbar">
+              {['Tous', ...CATEGORIES].map(cat => (
+                <button
+                  key={cat} onClick={() => setFiltreCategorie(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${filtreCategorie === cat ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                  style={{ backgroundColor: filtreCategorie === cat ? 'var(--color-main)' : 'transparent' }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {inventaireFiltré.length === 0 && (
-            <p className="text-sm text-center mt-4" style={{ color: 'var(--text-muted)' }}>Aucun item</p>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {inventaireFiltré.map(entry => (
-              <Card key={entry.id} className="flex-row justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="text-xl">{CATEGORIE_EMOJI[entry.items.categorie]}</span>
-                    <p className="font-bold truncate text-base">{entry.items.nom}</p>
-                    <Badge variant="ghost">{entry.items.categorie}</Badge>
-                  </div>
-                  {entry.items.description && (
-                    <p className="text-xs mb-2 opacity-60 line-clamp-2">{entry.items.description}</p>
-                  )}
-                  <p className="font-black text-sm mb-2" style={{ color: 'var(--color-main)' }}>x{entry.quantite}</p>
-                  
-                  {((entry.items.modificateurs && entry.items.modificateurs.length > 0) || (entry.items.effets_actifs && entry.items.effets_actifs.length > 0)) && (
-                    <div className="flex flex-wrap gap-1">
-                      {entry.items.modificateurs?.slice(0, 2).map((m: any, i: number) => (
-                        <Badge key={`m-${i}`} variant="default" className="text-[8px] truncate max-w-[80px]">
-                          {formatLabelModif({ id_stat: m.id_stat, valeur: m.valeur } as any, stats)}
-                        </Badge>
-                      ))}
-                      {entry.items.effets_actifs?.slice(0, 2).map((e: any, i: number) => (
-                        <Badge key={`e-${i}`} variant="default" className="text-[8px] truncate max-w-[80px] bg-blue-500/10 text-blue-400 border-blue-500/10">
-                          {e.valeur > 0 ? '+' : ''}{e.valeur} {RESSOURCES_MODIFS.find(r => r.type === e.cible_jauge)?.label}
-                        </Badge>
-                      ))}
-                      {((entry.items.modificateurs?.length || 0) + (entry.items.effets_actifs?.length || 0)) > 2 && (
-                        <Badge variant="ghost" className="text-[8px] opacity-40">
-                          +{((entry.items.modificateurs?.length || 0) + (entry.items.effets_actifs?.length || 0)) - 2}...
-                        </Badge>
-                      )}
-                    </div>
-                  )}
+              <Card key={entry.id} hoverEffect className={`flex flex-col gap-3 group relative transition-all overflow-hidden ${entry.equipe ? 'border-main/50 bg-main/5' : 'border-white/5 bg-black/20'}`}>
+                <div className="flex justify-between items-start">
+                  <Badge variant="outline" className="text-[8px] font-black uppercase tracking-tighter bg-white/5 border-white/10">
+                    {CATEGORIE_EMOJI[entry.items.categorie]} {entry.items.categorie}
+                  </Badge>
+                  <span className="font-black text-[10px] px-2 py-0.5 rounded-lg opacity-60 bg-black/40 border border-white/5">
+                    x{entry.quantite}
+                  </span>
                 </div>
-                <div className="flex flex-col gap-2 shrink-0 ml-3">
-                  <Button size="sm" variant="secondary" onClick={() => retirerItem(entry)}>
-                    −1
-                  </Button>
-                  <Button size="sm" variant="danger" onClick={() => supprimerItem(entry.id)}>
+
+                <h3 className="font-black text-sm uppercase text-white leading-tight truncate">
+                  {entry.items.nom}
+                </h3>
+
+                <div className="flex flex-wrap gap-1">
+                  {entry.items.modificateurs?.slice(0, 2).map((m: any, i: number) => (
+                    <Badge key={`m-${i}`} variant="default" className="text-[7px] py-0.5 px-1 font-black bg-main/10 text-main border-main/10 uppercase">
+                      {formatLabelModif({ id_stat: m.id_stat, valeur: m.valeur } as any, stats)}
+                    </Badge>
+                  ))}
+                  {entry.items.effets_actifs?.slice(0, 2).map((e: any, i: number) => (
+                    <Badge key={`e-${i}`} variant="default" className="text-[7px] py-0.5 px-1 font-black bg-blue-500/10 text-blue-400 border-blue-500/10 uppercase">
+                      {formatLabelEffet(e as any, stats)}
+                    </Badge>
+                  ))}
+                </div>
+
+                <div className="mt-auto pt-3 flex gap-2 border-t border-white/5">
+                  <button 
+                    onClick={() => retirerUn(entry)}
+                    className="flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+                  >
+                    Retirer 1
+                  </button>
+                  <ConfirmButton 
+                    variant="ghost" 
+                    size="sm" 
+                    onConfirm={() => supprimerItem(entry.id)}
+                    className="px-3 text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
+                  >
                     🗑️
-                  </Button>
+                  </ConfirmButton>
                 </div>
+
+                {entry.equipe && (
+                  <div className="absolute top-0 right-0 w-8 h-8 bg-main/20 flex items-center justify-center rounded-bl-2xl border-b border-l border-main/30">
+                    <span className="text-[10px]">⚔️</span>
+                  </div>
+                )}
               </Card>
             ))}
+            {inventaireFiltré.length === 0 && (
+              <div className="col-span-full py-10 text-center opacity-20 font-black uppercase text-xs italic">Aucun objet trouvé</div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Ajouter depuis bibliothèque */}
+      {/* Vue Ajouter (Panier) */}
       {onglet === 'ajouter' && (
-        <div className="flex flex-col gap-4">
-          <Input 
-            icon="🔍"
-            type="text" placeholder="Rechercher un item..." value={rechercheAjout}
-            onChange={e => setRechercheAjout(e.target.value)}
-          />
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative flex-1 w-full">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40">🔍</span>
+              <input 
+                type="text" placeholder="Rechercher dans la bibliothèque..." value={rechercheAjout} onChange={e => setRechercheAjout(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl outline-none transition-all font-bold text-sm bg-surface border border-border"
+              />
+            </div>
+            {panier.size > 0 && (
+              <div className="flex gap-2 animate-in zoom-in duration-300">
+                <Button variant="secondary" size="sm" onClick={() => setPanier(new Map())}>Vider</Button>
+                <Badge variant="default" className="bg-main text-white px-4 shrink-0">{panier.size} objet(s) prêt(s)</Badge>
+              </div>
+            )}
+          </div>
 
-          {bibliothequeFiltrée.length === 0 && (
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Aucun item trouvé. Crée des items depuis la page Items !
-            </p>
-          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-24">
+            {bibliothequeFiltrée.map(item => {
+              const selectionEntry = panier.get(item.id)
+              const isSelected = !!selectionEntry
+              
+              return (
+                <div 
+                  key={item.id} 
+                  onClick={() => togglePanier(item)}
+                  className={`cursor-pointer transition-all duration-300 relative ${isSelected ? 'scale-[0.98]' : 'hover:scale-[1.02]'}`}
+                >
+                  {isSelected && (
+                    <div className="absolute inset-0 rounded-[2rem] z-0 bg-main/20 blur-xl animate-pulse" />
+                  )}
+                  
+                  <Card 
+                    hoverEffect={!isSelected}
+                    className={`h-full relative z-10 border-2 transition-all duration-300 flex flex-col gap-2 ${isSelected ? 'border-main bg-main/5 shadow-lg shadow-main/10' : 'border-white/5 bg-black/20'}`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-2xl">{CATEGORIE_EMOJI[item.categorie]}</span>
+                        <div className="min-w-0">
+                          <h4 className={`font-black text-sm uppercase truncate ${isSelected ? 'text-main' : 'text-white'}`}>{item.nom}</h4>
+                          <p className="text-[9px] font-black uppercase opacity-40 leading-none">{item.categorie}</p>
+                        </div>
+                      </div>
+                      {isSelected && <span className="text-main font-bold text-lg">✓</span>}
+                    </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto custom-scrollbar pr-2">
-            {bibliothequeFiltrée.map(item => (
-              <button key={item.id} onClick={() => setItemSelectionne(item.id)}
-                className="p-3 rounded-2xl text-left transition-all border outline-none"
-                style={{
-                  backgroundColor: itemSelectionne === item.id
-                    ? 'color-mix(in srgb, var(--color-main) 15%, var(--bg-card))'
-                    : 'var(--bg-card)',
-                  borderColor: itemSelectionne === item.id ? 'var(--color-main)' : 'var(--border)',
-                  transform: itemSelectionne === item.id ? 'scale(0.98)' : 'scale(1)',
-                }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-lg">{CATEGORIE_EMOJI[item.categorie]}</span>
-                  <span className="font-bold text-sm truncate">{item.nom}</span>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">{item.categorie}</span>
-                  {((item.modificateurs && item.modificateurs.length > 0) || (item.effets_actifs && item.effets_actifs.length > 0)) && (
-                    <div className="flex flex-wrap gap-1 ml-auto">
-                      {item.modificateurs?.map((m: any, i: number) => (
-                        <Badge key={`m-${i}`} variant="default">
+                    <div className="flex flex-wrap gap-1">
+                      {item.modificateurs?.slice(0, 2).map((m: any, i: number) => (
+                        <Badge key={`m-${i}`} variant="default" className="text-[7px] py-0 px-1 opacity-70">
                           {formatLabelModif({ id_stat: m.id_stat, valeur: m.valeur } as any, stats)}
                         </Badge>
                       ))}
-                      {item.effets_actifs?.map((e: any, i: number) => (
-                        <Badge key={`e-${i}`} variant="default" className="bg-blue-500/10 text-blue-400 border-blue-500/10">
-                          {e.valeur > 0 ? '+' : ''}{e.valeur} {RESSOURCES_MODIFS.find(r => r.type === e.cible_jauge)?.label}
-                        </Badge>
-                      ))}
                     </div>
-                  )}
+
+                    {isSelected && (
+                      <div className="mt-auto pt-3 border-t border-main/20 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
+                        <span className="text-[8px] font-black uppercase opacity-40 text-center">Quantité à donner</span>
+                        <div className="flex items-center gap-2 bg-black/40 rounded-xl p-1 border border-main/20">
+                          <button 
+                            onClick={() => updateQuantitePanier(item.id, -1)}
+                            className="w-8 h-8 rounded-lg hover:bg-main/20 transition-all font-black text-lg text-main"
+                          >-</button>
+                          <span className="flex-1 text-center font-black text-lg text-main">{selectionEntry.quantite}</span>
+                          <button 
+                            onClick={() => updateQuantitePanier(item.id, 1)}
+                            className="w-8 h-8 rounded-lg hover:bg-main/20 transition-all font-black text-lg text-main"
+                          >+</button>
+                        </div>
+                      </div>
+                    )}
+                  </Card>
                 </div>
-              </button>
-            ))}
+              )
+            })}
           </div>
 
-          {itemSelectionne && (
-            <Card className="flex-row items-center gap-3 flex-wrap mt-2">
-              <label className="text-sm font-bold opacity-70">Quantité :</label>
-              <div className="flex items-center gap-3">
-                <Button size="sm" variant="secondary" onClick={() => setQuantiteAjout(q => Math.max(1, q - 1))}>
-                  −
-                </Button>
-                <span className="text-xl font-black w-8 text-center" style={{ color: 'var(--color-main)' }}>
-                  {quantiteAjout}
-                </span>
-                <Button size="sm" variant="secondary" onClick={() => setQuantiteAjout(q => q + 1)}>
-                  +
-                </Button>
-              </div>
-              <Button className="ml-auto flex-1 sm:flex-none" onClick={ajouterItem}>
-                Ajouter à l'inventaire
-              </Button>
-            </Card>
+          {panier.size > 0 && (
+            <ConfirmationBar 
+              label={`${panier.size} objet(s) prêt(s)`}
+              onConfirm={confirmerEnvoi}
+              onCancel={() => setPanier(new Map())}
+              confirmText={`Confirmer l'envoi (${panier.size})`}
+              loading={sauvegardant}
+            />
           )}
         </div>
       )}

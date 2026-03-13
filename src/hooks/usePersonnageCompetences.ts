@@ -48,6 +48,7 @@ export function usePersonnageCompetences() {
             id: liaison.id,
             id_personnage: liaison.id_personnage,
             id_competence: l_id,
+            is_active: liaison.is_active,
             competence: compInfo
           };
         }).filter(item => item !== null);

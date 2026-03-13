@@ -94,13 +94,33 @@ export default function Possession() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1 mt-auto">
-                <div className="flex justify-between text-[8px] font-black uppercase opacity-40">
-                  <span>Santé</span>
-                  <span>{p.hp} / {p.hp_max}</span>
+              <div className="flex flex-col gap-2 mt-auto">
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[8px] font-black uppercase opacity-40">
+                    <span>Santé</span>
+                    <span>{p.hp} / {p.hp_max}</span>
+                  </div>
+                  <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-red-500/60 transition-all duration-500" style={{ width: `${(p.hp / p.hp_max) * 100}%` }} />
+                  </div>
                 </div>
-                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-red-500/60 transition-all duration-500" style={{ width: `${(p.hp / p.hp_max) * 100}%` }} />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex justify-between text-[7px] font-black uppercase opacity-30">
+                      <span>Mana</span><span>{p.mana}/{p.mana_max}</span>
+                    </div>
+                    <div className="h-0.5 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500/60 transition-all duration-500" style={{ width: `${(p.mana / p.mana_max) * 100}%` }} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex justify-between text-[7px] font-black uppercase opacity-30">
+                      <span>Stam</span><span>{p.stam}/{p.stam_max}</span>
+                    </div>
+                    <div className="h-0.5 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-yellow-500/60 transition-all duration-500" style={{ width: `${(p.stam / p.stam_max) * 100}%` }} />
+                    </div>
+                  </div>
                 </div>
               </div>
 

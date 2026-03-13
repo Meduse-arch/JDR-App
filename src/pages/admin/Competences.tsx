@@ -8,9 +8,11 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
-import { ConfirmButton } from '../../components/ui/ConfirmButton'
 import { Stat, Modificateur, EffetActif, Element, Competence } from '../../types'
 import { formatLabelModif, formatLabelEffet } from '../../utils/formatters'
+import { CompetenceCard } from '../../components/competences/CompetenceCard'
+import { CompetenceDetailModal } from '../../components/competences/CompetenceDetailModal'
+import { filtrerCompetences } from '../../utils/competenceUtils'
 
 const JAUGES = [
   { value: 'hp', label: 'HP', color: '#ef4444' },
@@ -98,8 +100,6 @@ export default function Competences() {
       ...jetsDes.map(e => ({ ...e, est_cout: false, est_jet_de: true, cible_jauge: e.cible_jauge || 'hp' }))
     ].filter(e => !!e.cible_jauge)
 
-    console.log('Enregistrement compétence - Effets finaux:', finalEffets)
-
     let success = false
     if (idEdition) {
       success = await modifierCompetence(idEdition, { nom, description, type: typeComp }, finalModifs as any[], finalEffets as any[])
@@ -129,25 +129,33 @@ export default function Competences() {
     })
   }
 
-  const addEffet = (type: 'ressource' | 'cout' | 'dice') => {
-    if (type === 'dice') {
-      const nouveauJet = { cible_jauge: 'hp' as const, des_nb: 1, des_faces: 6, valeur: 0, est_cout: false, est_jet_de: true };
-      setJetsDes(prev => [...prev, nouveauJet]);
-    } else if (type === 'cout') {
-      const nouveauCout = { cible_jauge: 'hp' as const, valeur: 0, est_cout: true, est_jet_de: false };
-      setCouts(prev => [...prev, nouveauCout]);
+  const addEffet = (type?: string) => {
+    const defaultJauge = 'hp' as const;
+    const newEffet: Partial<EffetActif> = { 
+      cible_jauge: defaultJauge, 
+      valeur: type === 'dice' ? 0 : 10, 
+      des_nb: type === 'dice' ? 1 : null,
+      des_faces: type === 'dice' ? 6 : null,
+      des_stat_id: null,
+      est_cout: ongletActif === 'couts',
+      est_jet_de: ongletActif === 'dés'
+    }
+    
+    if (ongletActif === 'couts') {
+      setCouts(prev => [...prev, newEffet])
+    } else if (ongletActif === 'dés') {
+      setJetsDes(prev => [...prev, newEffet])
     } else {
-      const nouvelleRessource = { cible_jauge: 'hp' as const, valeur: 0, est_cout: false, est_jet_de: false };
-      setEffets(prev => [...prev, nouvelleRessource]);
+      setEffets(prev => [...prev, newEffet])
     }
   }
-  const removeEffet = (idx: number, type: 'ressource' | 'cout' | 'dice') => {
-    if (type === 'dice') setJetsDes(prev => prev.filter((_, i) => i !== idx))
-    else if (type === 'cout') setCouts(prev => prev.filter((_, i) => i !== idx))
+  const removeEffet = (idx: number, type: 'ressources' | 'couts' | 'dés') => {
+    if (type === 'dés') setJetsDes(prev => prev.filter((_, i) => i !== idx))
+    else if (type === 'couts') setCouts(prev => prev.filter((_, i) => i !== idx))
     else setEffets(prev => prev.filter((_, i) => i !== idx))
   }
-  const updateEffet = (idx: number, updates: Partial<EffetActif>, type: 'ressource' | 'cout' | 'dice') => {
-    const setter = type === 'dice' ? setJetsDes : (type === 'cout' ? setCouts : setEffets);
+  const updateEffet = (idx: number, updates: Partial<EffetActif>, type: 'ressources' | 'couts' | 'dés') => {
+    const setter = type === 'dés' ? setJetsDes : (type === 'couts' ? setCouts : setEffets);
     setter(prev => {
       const newList = [...prev];
       newList[idx] = { ...newList[idx], ...updates };
@@ -160,18 +168,7 @@ export default function Competences() {
     else setElementsChoisis([...elementsChoisis, idEl])
   }
 
-  const competencesFiltrees = competences
-    .filter(c => {
-      if (filtrePrincipal === 'Tous') return true;
-      if (filtrePrincipal === 'Actif') return c.type === 'active';
-      if (filtrePrincipal === 'Passif') {
-        if (filtreSecondaire === 'Tous') return c.type === 'passive_auto' || c.type === 'passive_toggle';
-        if (filtreSecondaire === 'Auto') return c.type === 'passive_auto';
-        if (filtreSecondaire === 'Toggle') return c.type === 'passive_toggle';
-      }
-      return true;
-    })
-    .filter(c => (c.nom || '').toLowerCase().includes(recherche.toLowerCase()))
+  const competencesFiltrees = filtrerCompetences(competences, recherche, filtrePrincipal, filtreSecondaire)
 
   return (
     <div className="flex flex-col h-full p-4 md:p-8 overflow-y-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
@@ -247,71 +244,36 @@ export default function Competences() {
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-              {/* ONGLET STATS */}
               {ongletActif === 'stats' && (
                 <div className="flex flex-col gap-4">
-                  <div className="text-[10px] opacity-50 uppercase font-black">Stats actives : {modifs.length}</div>
                   {modifs.map((m, idx) => (
                     <Card key={`m-${idx}`} className="p-4 bg-white/5 border-white/5 flex flex-col gap-4 relative group">
                       <button onClick={() => removeModif(idx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity">✕</button>
-                      
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black uppercase opacity-40 ml-1">Statistique</label>
-                          <Select value={m.id_stat} onChange={e => updateModif(idx, { id_stat: e.target.value })}>
-                            {stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                          </Select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black uppercase opacity-40 ml-1">Élément associé</label>
-                          <Select value={m.id_element || ''} onChange={e => updateModif(idx, { id_element: e.target.value || null })}>
-                            <option value="">Aucun</option>
-                            {elements.map(el => <option key={el.id} value={el.id}>{el.emoji} {el.nom}</option>)}
-                          </Select>
-                        </div>
+                        <Select label="Statistique" value={m.id_stat} onChange={e => updateModif(idx, { id_stat: e.target.value })}>
+                          {stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                        </Select>
+                        <Select label="Élément" value={m.id_element || ''} onChange={e => updateModif(idx, { id_element: e.target.value || null })}>
+                          <option value="">Aucun</option>
+                          {elements.map(el => <option key={el.id} value={el.id}>{el.emoji} {el.nom}</option>)}
+                        </Select>
                       </div>
-
                       <div className="flex flex-col gap-2">
                         <div className="flex gap-2 p-1 bg-black/20 rounded-lg">
                           {['fixe', 'pourcentage', 'roll_stat', 'roll_dice'].map(type => (
-                            <button key={type} onClick={() => {
-                              const updates: any = { type_calcul: type as any };
-                              if (type === 'roll_stat') {
-                                updates.des_stat_id = stats[0]?.id || null;
-                                updates.des_nb = null;
-                                updates.des_faces = null;
-                              } else if (type === 'roll_dice') {
-                                updates.des_nb = 1;
-                                updates.des_faces = 6;
-                                updates.des_stat_id = null;
-                              } else {
-                                updates.des_stat_id = null;
-                                updates.des_nb = null;
-                                updates.des_faces = null;
-                              }
-                              updateModif(idx, updates);
-                            }} className={`flex-1 py-1.5 rounded-md text-[8px] font-black uppercase transition-all ${m.type_calcul === type ? 'bg-main text-white' : 'opacity-40'}`}>
+                            <button key={type} onClick={() => updateModif(idx, { type_calcul: type as any, des_nb: type==='roll_dice'?1:null, des_faces: type==='roll_dice'?6:null, des_stat_id: type==='roll_stat'?stats[0]?.id:null })} className={`flex-1 py-1.5 rounded-md text-[8px] font-black uppercase transition-all ${m.type_calcul === type ? 'bg-main text-white' : 'opacity-40'}`}>
                               {type === 'fixe' ? 'Fixe' : type === 'pourcentage' ? '%' : type === 'roll_stat' ? 'Roll Stat' : 'XdX'}
                             </button>
                           ))}
                         </div>
-
                         <div className="grid grid-cols-3 gap-3 mt-1">
                           {m.type_calcul === 'fixe' || m.type_calcul === 'pourcentage' ? (
-                            <div className="col-span-full">
-                              <Input type="number" label={m.type_calcul === 'pourcentage' ? "Valeur (%)" : "Valeur"} value={m.valeur} onChange={e => updateModif(idx, { valeur: parseInt(e.target.value) || 0 })} />
-                            </div>
+                            <div className="col-span-full"><Input type="number" label={m.type_calcul === 'pourcentage' ? "Valeur (%)" : "Valeur"} value={m.valeur} onChange={e => updateModif(idx, { valeur: parseInt(e.target.value) || 0 })} /></div>
                           ) : m.type_calcul === 'roll_stat' ? (
-                            <div className="col-span-full flex flex-col gap-1">
-                              <label className="text-[9px] font-black uppercase opacity-40 ml-1">Dé basé sur</label>
-                              <Select value={m.des_stat_id || ''} onChange={e => updateModif(idx, { des_stat_id: e.target.value || null })}>
-                                <option value="">Choisir une stat...</option>
-                                {stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                              </Select>
-                            </div>
+                            <div className="col-span-full"><Select label="Basé sur" value={m.des_stat_id || ''} onChange={e => updateModif(idx, { des_stat_id: e.target.value || null })}>{stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</Select></div>
                           ) : (
                             <>
-                              <Input type="number" label="Nombre" value={m.des_nb || ''} onChange={e => updateModif(idx, { des_nb: parseInt(e.target.value) || 0 })} />
+                              <Input type="number" label="Nb" value={m.des_nb || ''} onChange={e => updateModif(idx, { des_nb: parseInt(e.target.value) || 0 })} />
                               <Input type="number" label="Faces" value={m.des_faces || ''} onChange={e => updateModif(idx, { des_faces: parseInt(e.target.value) || 0 })} />
                               <Input type="number" label="Bonus" value={m.valeur} onChange={e => updateModif(idx, { valeur: parseInt(e.target.value) || 0 })} />
                             </>
@@ -320,190 +282,65 @@ export default function Competences() {
                       </div>
                     </Card>
                   ))}
-                  <Button variant="ghost" className="w-full border-dashed border-white/10 opacity-40 hover:opacity-100" onClick={addModif}>+ Ajouter une stat</Button>
+                  <Button variant="ghost" className="border-dashed border-white/10 opacity-40 hover:opacity-100" onClick={addModif}>+ Ajouter une stat</Button>
                 </div>
               )}
 
-              {/* ONGLET RESSOURCES */}
-              {ongletActif === 'ressources' && (
+              {['ressources', 'couts', 'dés'].includes(ongletActif) && (
                 <div className="flex flex-col gap-4">
-                  <div className="text-[10px] opacity-50 uppercase font-black">Ressources : {effets.length}</div>
-                  {effets.map((e, idx) => {
-                    const mode = e.des_stat_id ? 'roll_stat' : (e.des_nb ? 'roll_dice' : (e.valeur?.toString()?.includes('%') ? 'pourcentage' : 'fixe'));
-                    return (
-                      <Card key={`e-${idx}`} className="p-4 bg-white/5 border-white/5 flex flex-col gap-4 relative group">
-                        <button onClick={() => removeEffet(idx, 'ressource')} className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity">✕</button>
-                        
+                  {(ongletActif === 'ressources' ? effets : (ongletActif === 'couts' ? couts : jetsDes)).map((e, idx) => (
+                    <Card key={`${ongletActif}-${idx}`} className="p-4 bg-white/5 border-white/5 flex flex-col gap-4 relative group">
+                      <button onClick={() => removeEffet(idx, ongletActif as any)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity">✕</button>
+                      
+                      {ongletActif !== 'dés' && (
                         <div className="flex flex-col gap-1">
                           <label className="text-[9px] font-black uppercase opacity-40 ml-1">Jauge cible</label>
                           <div className="flex gap-2">
                             {JAUGES.map(j => (
-                              <button key={j.value} onClick={() => updateEffet(idx, { cible_jauge: j.value as any }, 'ressource')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${e.cible_jauge === j.value ? 'bg-white/10' : 'opacity-20 grayscale'}`} style={{ borderColor: e.cible_jauge === j.value ? j.color : 'transparent', color: e.cible_jauge === j.value ? j.color : 'inherit' }}>
+                              <button key={j.value} onClick={() => updateEffet(idx, { cible_jauge: j.value as any }, ongletActif as any)} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${e.cible_jauge === j.value ? 'bg-white/10' : 'opacity-20 grayscale'}`} style={{ borderColor: e.cible_jauge === j.value ? j.color : 'transparent', color: e.cible_jauge === j.value ? j.color : 'inherit' }}>
                                 {j.label}
                               </button>
                             ))}
                           </div>
                         </div>
+                      )}
 
-                        <div className="flex flex-col gap-2">
-                          <div className="flex gap-2 p-1 bg-black/20 rounded-lg">
-                            {['fixe', 'roll_stat', 'roll_dice'].map(type => (
-                              <button key={type} onClick={() => {
-                                const updates: any = { des_nb: null, des_faces: null, des_stat_id: null };
-                                if (type === 'roll_stat') updates.des_stat_id = stats[0]?.id;
-                                if (type === 'roll_dice') { updates.des_nb = 1; updates.des_faces = 6; }
-                                updateEffet(idx, updates, 'ressource');
-                              }} className={`flex-1 py-1.5 rounded-md text-[8px] font-black uppercase transition-all ${mode === type ? 'bg-blue-500 text-white' : 'opacity-40'}`}>
-                                {type === 'fixe' ? 'Fixe' : type === 'roll_stat' ? 'Stat' : 'XdX'}
-                              </button>
-                            ))}
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-3 mt-1">
-                            {mode === 'fixe' ? (
-                              <div className="col-span-full">
-                                <Input type="number" label="Valeur" value={e.valeur} onChange={ev => updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, 'ressource')} />
-                              </div>
-                            ) : mode === 'roll_stat' ? (
-                              <div className="col-span-full flex flex-col gap-1">
-                                <label className="text-[9px] font-black uppercase opacity-40 ml-1">Dé basé sur</label>
-                                <Select value={e.des_stat_id || ''} onChange={ev => updateEffet(idx, { des_stat_id: ev.target.value || null }, 'ressource')}>
-                                  {stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                                </Select>
-                              </div>
-                            ) : (
-                              <>
-                                <Input type="number" label="Nombre" value={e.des_nb || ''} onChange={ev => updateEffet(idx, { des_nb: parseInt(ev.target.value) || 0 }, 'ressource')} />
-                                <Input type="number" label="Faces" value={e.des_faces || ''} onChange={ev => updateEffet(idx, { des_faces: parseInt(ev.target.value) || 0 }, 'ressource')} />
-                                <Input type="number" label="Bonus" value={e.valeur} onChange={ev => updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, 'ressource')} />
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                  <Button variant="ghost" className="w-full border-dashed border-white/10 opacity-40 hover:opacity-100" onClick={() => addEffet('ressource')}>+ Ajouter une ressource</Button>
-                </div>
-              )}
-
-              {/* ONGLET COUTS */}
-              {ongletActif === 'couts' && (
-                <div className="flex flex-col gap-4">
-                  <div className="text-[10px] opacity-50 uppercase font-black tracking-widest ml-1">Coûts configurés : {couts.length}</div>
-                  {couts.map((e, idx) => {
-                    const mode = e.des_stat_id ? 'roll_stat' : (e.des_nb ? 'roll_dice' : 'fixe');
-                    return (
-                      <Card key={`c-${idx}`} className="p-4 bg-white/5 border-white/5 flex flex-col gap-4 relative group">
-                        <button onClick={() => removeEffet(idx, 'cout')} className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity">✕</button>
-                        
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black uppercase opacity-40 ml-1">Jauge cible</label>
-                          <div className="flex gap-2">
-                            {JAUGES.map(j => (
-                              <button key={j.value} onClick={() => updateEffet(idx, { cible_jauge: j.value as any }, 'cout')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${e.cible_jauge === j.value ? 'bg-white/10' : 'opacity-20 grayscale'}`} style={{ borderColor: e.cible_jauge === j.value ? j.color : 'transparent', color: e.cible_jauge === j.value ? j.color : 'inherit' }}>
-                                {j.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                          <div className="flex gap-2 p-1 bg-black/20 rounded-lg">
-                            {['fixe', 'roll_stat', 'roll_dice'].map(type => (
-                              <button key={type} onClick={() => {
-                                const updates: any = { des_nb: null, des_faces: null, des_stat_id: null };
-                                if (type === 'roll_stat') updates.des_stat_id = stats[0]?.id;
-                                if (type === 'roll_dice') { updates.des_nb = 1; updates.des_faces = 6; }
-                                updateEffet(idx, updates, 'cout');
-                              }} className={`flex-1 py-1.5 rounded-md text-[8px] font-black uppercase transition-all ${mode === type ? 'bg-red-500 text-white' : 'opacity-40'}`}>
-                                {type === 'fixe' ? 'Fixe' : type === 'roll_stat' ? 'Stat' : 'XdX'}
-                              </button>
-                            ))}
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-3 mt-1">
-                            {mode === 'fixe' ? (
-                              <div className="col-span-full">
-                                <Input type="number" label="Perte (Nb positif)" value={Math.abs(e.valeur || 0)} onChange={ev => updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, 'cout')} />
-                              </div>
-                            ) : mode === 'roll_stat' ? (
-                              <div className="col-span-full flex flex-col gap-1">
-                                <label className="text-[9px] font-black uppercase opacity-40 ml-1">Dé basé sur</label>
-                                <Select value={e.des_stat_id || ''} onChange={ev => updateEffet(idx, { des_stat_id: ev.target.value || null }, 'cout')}>
-                                  {stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                                </Select>
-                              </div>
-                            ) : (
-                              <>
-                                <Input type="number" label="Nombre" value={e.des_nb || ''} onChange={ev => updateEffet(idx, { des_nb: parseInt(ev.target.value) || 0 }, 'cout')} />
-                                <Input type="number" label="Faces" value={e.valeur} onChange={ev => updateEffet(idx, { des_faces: parseInt(ev.target.value) || 0 }, 'cout')} />
-                                <Input type="number" label="Bonus" value={e.valeur} onChange={ev => updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, 'cout')} />
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                  <Button variant="ghost" className="w-full border-dashed border-white/10 opacity-40 hover:opacity-100" onClick={() => addEffet('cout')}>+ Ajouter un coût</Button>
-                </div>
-              )}
-
-              {/* ONGLET DÉS */}
-              {ongletActif === 'dés' && (
-                <div className="flex flex-col gap-4">
-                  <div className="text-[10px] opacity-50 uppercase font-black tracking-widest ml-1">Jets de dés : {jetsDes.length}</div>
-                  {jetsDes.map((e, idx) => {
-                    const mode = e.des_stat_id ? 'roll_stat' : 'roll_dice';
-                    return (
-                      <Card key={`d-${idx}`} className="p-4 bg-white/5 border-white/5 flex flex-col gap-4 relative group">
-                        <button onClick={() => removeEffet(idx, 'dice')} className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity">✕</button>
-
-                        <div className="flex flex-col gap-2">
-                          <div className="flex gap-2 p-1 bg-black/20 rounded-lg">
-                            <button onClick={() => updateEffet(idx, { des_stat_id: null, des_nb: 1, des_faces: 6 }, 'dice')} className={`flex-1 py-1.5 rounded-md text-[8px] font-black uppercase transition-all ${mode === 'roll_dice' ? 'bg-purple-500 text-white' : 'opacity-40'}`}>
-                              🎲 XdX
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2 p-1 bg-black/20 rounded-lg">
+                          {['fixe', 'roll_stat', 'roll_dice'].map(type => (
+                            <button key={type} onClick={() => updateEffet(idx, { des_nb: type==='roll_dice'?1:null, des_faces: type==='roll_dice'?6:null, des_stat_id: type==='roll_stat'?stats[0]?.id:null }, ongletActif as any)} className={`flex-1 py-1.5 rounded-md text-[8px] font-black uppercase transition-all ${(!e.des_nb && !e.des_stat_id && type === 'fixe') || (e.des_stat_id && type === 'roll_stat') || (e.des_nb && type === 'roll_dice') ? 'bg-main text-white' : 'opacity-40'}`}>
+                              {type === 'fixe' ? 'Fixe' : type === 'roll_stat' ? 'Stat' : 'XdX'}
                             </button>
-                            <button onClick={() => updateEffet(idx, { des_stat_id: stats[0]?.id, des_nb: 1, des_faces: null }, 'dice')} className={`flex-1 py-1.5 rounded-md text-[8px] font-black uppercase transition-all ${mode === 'roll_stat' ? 'bg-purple-500 text-white' : 'opacity-40'}`}>
-                              📊 Stat
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-3 mt-1">
-                            {mode === 'roll_stat' ? (
-                              <div className="col-span-full flex flex-col gap-1">
-                                <label className="text-[9px] font-black uppercase opacity-40 ml-1">Dé basé sur</label>
-                                <Select value={e.des_stat_id || ''} onChange={ev => updateEffet(idx, { des_stat_id: ev.target.value || null }, 'dice')}>
-                                  {stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                                </Select>
-                              </div>
-                            ) : (
-                              <>
-                                <Input type="number" label="Nombre" value={e.des_nb || ''} onChange={ev => updateEffet(idx, { des_nb: parseInt(ev.target.value) || 0 }, 'dice')} />
-                                <Input type="number" label="Faces" value={e.des_faces || ''} onChange={ev => updateEffet(idx, { des_faces: parseInt(ev.target.value) || 0 }, 'dice')} />
-                                <Input type="number" label="Bonus" value={e.valeur} onChange={ev => updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, 'dice')} />
-                              </>
-                            )}
-                          </div>
+                          ))}
                         </div>
-                      </Card>
-                    );
-                  })}
-                  <Button variant="ghost" className="w-full border-dashed border-white/10 opacity-40 hover:opacity-100" onClick={() => addEffet('dice')}>+ Ajouter un jet de dé</Button>
+                        <div className="grid grid-cols-3 gap-3">
+                          {!e.des_nb && !e.des_stat_id ? (
+                            <div className="col-span-full"><Input type="number" label={ongletActif === 'couts' ? "Perte" : "Valeur"} value={Math.abs(e.valeur || 0)} onChange={ev => updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, ongletActif as any)} /></div>
+                          ) : e.des_stat_id ? (
+                            <div className="col-span-full"><Select label="Basé sur" value={e.des_stat_id || ''} onChange={ev => updateEffet(idx, { des_stat_id: ev.target.value || null }, ongletActif as any)}>{stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</Select></div>
+                          ) : (
+                            <>
+                              <Input type="number" label="Nb" value={e.des_nb || ''} onChange={ev => updateEffet(idx, { des_nb: parseInt(ev.target.value) || 0 }, ongletActif as any)} />
+                              <Input type="number" label="Faces" value={e.des_faces || ''} onChange={ev => updateEffet(idx, { des_faces: parseInt(ev.target.value) || 0 }, ongletActif as any)} />
+                              <Input type="number" label="Bonus" value={e.valeur} onChange={ev => updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, ongletActif as any)} />
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                  <Button variant="ghost" className="border-dashed border-white/10 opacity-40 hover:opacity-100" onClick={() => addEffet(ongletActif as any)}>+ Ajouter</Button>
                 </div>
               )}
 
               {/* RÉCAPITULATIF GLOBAL (DEBUG) */}
               {(effets.length > 0 || couts.length > 0 || jetsDes.length > 0 || modifs.length > 0) && (
-                <div className="mt-8 pt-8 border-t border-white/10 bg-white/5 rounded-2xl p-4">
-                  <p className="text-[10px] font-black uppercase opacity-20 mb-4 tracking-widest text-center">Récapitulatif des effets (Debug)</p>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {modifs.map((m, i) => <Badge key={`debug-m-${i}`} variant="default">{formatLabelModif(m as any, stats)}</Badge>)}
-                    {effets.map((e, i) => <Badge key={`debug-e-${i}`} variant="success">{formatLabelEffet(e as any, stats)}</Badge>)}
-                    {couts.map((e, i) => <Badge key={`debug-c-${i}`} variant="error">{formatLabelEffet(e as any, stats)}</Badge>)}
-                    {jetsDes.map((e, i) => <Badge key={`debug-d-${i}`} variant="warning">{formatLabelEffet(e as any, stats)}</Badge>)}
-                  </div>
+                <div className="mt-8 pt-8 border-t border-white/10 bg-white/5 rounded-2xl p-4 flex flex-wrap gap-2 justify-center">
+                  <p className="w-full text-[10px] font-black uppercase opacity-20 mb-2 tracking-widest text-center">Debug Recap</p>
+                  {modifs.map((m, i) => <Badge key={`dm-${i}`} variant="default">{formatLabelModif(m as any, stats)}</Badge>)}
+                  {effets.map((e, i) => <Badge key={`de-${i}`} variant="success">{formatLabelEffet(e as any, stats)}</Badge>)}
+                  {couts.map((e, i) => <Badge key={`dc-${i}`} variant="error">{formatLabelEffet(e as any, stats)}</Badge>)}
+                  {jetsDes.map((e, i) => <Badge key={`dd-${i}`} variant="warning">{formatLabelEffet(e as any, stats)}</Badge>)}
                 </div>
               )}
             </div>
@@ -514,35 +351,18 @@ export default function Competences() {
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40">🔍</span>
-              <input 
-                type="text" placeholder="Rechercher une compétence..." value={recherche} onChange={e => setRecherche(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none transition-all font-bold"
-                style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-              />
+              <input type="text" placeholder="Rechercher..." value={recherche} onChange={e => setRecherche(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none font-bold bg-surface border border-border" />
             </div>
-            
             <div className="flex flex-col gap-2 shrink-0">
               <div className="flex gap-2 p-1 rounded-xl bg-surface border border-border">
-                {['Tous', 'Actif', 'Passif'].map(type => (
-                  <button
-                    key={type} onClick={() => { setFiltrePrincipal(type); setFiltreSecondaire('Tous'); }}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${filtrePrincipal === type ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
-                    style={{ backgroundColor: filtrePrincipal === type ? 'var(--color-main)' : 'transparent' }}
-                  >
-                    {type}
-                  </button>
+                {['Tous', 'Actif', 'Passif'].map(t => (
+                  <button key={t} onClick={() => { setFiltrePrincipal(t); setFiltreSecondaire('Tous'); }} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${filtrePrincipal === t ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`} style={{ backgroundColor: filtrePrincipal === t ? 'var(--color-main)' : 'transparent' }}>{t}</button>
                 ))}
               </div>
-              
               {filtrePrincipal === 'Passif' && (
-                <div className="flex gap-2 p-1 rounded-xl bg-surface border border-border animate-in slide-in-from-top-2">
-                  {['Tous', 'Auto', 'Toggle'].map(type => (
-                    <button
-                      key={type} onClick={() => setFiltreSecondaire(type)}
-                      className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${filtreSecondaire === type ? 'bg-main/20 text-main border border-main/30' : 'opacity-40 hover:opacity-100 border border-transparent'}`}
-                    >
-                      {type}
-                    </button>
+                <div className="flex gap-2 p-1 rounded-xl bg-surface border border-border">
+                  {['Tous', 'Auto', 'Toggle'].map(t => (
+                    <button key={t} onClick={() => setFiltreSecondaire(t)} className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${filtreSecondaire === t ? 'bg-main/20 text-main border border-main/30' : 'opacity-40 hover:opacity-100 border border-transparent'}`}>{t}</button>
                   ))}
                 </div>
               )}
@@ -551,89 +371,14 @@ export default function Competences() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
             {competencesFiltrees.map(comp => (
-              <Card key={comp.id} hoverEffect className="group flex flex-col h-full p-5 relative overflow-hidden" onClick={() => setCompetenceDetail(comp)}>
-                {/* Overlay pour le clic sur le détail */}
-                <div className="absolute inset-0 z-0 cursor-pointer" />
-                
-                <div className="relative z-10 flex justify-between items-start mb-3">
-                  <h3 className="font-bold leading-tight text-lg truncate pr-2 text-white">{comp.nom}</h3>
-                  <Badge variant="ghost" className="shrink-0 text-[10px] uppercase">
-                    {comp.type === 'active' ? 'Active' : comp.type === 'passive_auto' ? 'Auto' : 'Toggle'}
-                  </Badge>
-                </div>
-
-                <p className="relative z-10 text-xs opacity-60 line-clamp-2 mb-4 italic">"{comp.description}"</p>
-
-                <div className="relative z-10 mt-auto flex flex-col gap-3">
-                  <div className="flex flex-wrap gap-1">
-                    {comp.modificateurs?.slice(0, 2).map((m, i) => (
-                      <Badge key={`m-${i}`} variant="default" className="text-[8px] py-0.5 px-1.5 font-black bg-main/10 text-main border-main/10 uppercase truncate max-w-full">
-                        {formatLabelModif(m, stats)}
-                      </Badge>
-                    ))}
-                    {comp.effets_actifs?.slice(0, 2).map((e, i) => (
-                      <Badge key={`e-${i}`} variant={e.est_jet_de ? 'warning' : e.est_cout ? 'error' : 'success'} className="text-[8px] py-0.5 px-1.5 font-black uppercase truncate max-w-full">
-                        {formatLabelEffet(e, stats)}
-                      </Badge>
-                    ))}
-                    {(!comp.modificateurs || comp.modificateurs.length === 0) && (!comp.effets_actifs || comp.effets_actifs.length === 0) && (
-                      <span className="text-[8px] opacity-20 italic">Aucun effet</span>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2 relative z-20">
-                    <Button size="sm" variant="secondary" className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest" onClick={(e) => { e.stopPropagation(); handleEditer(comp); }}>
-                      ✏️ Modifier
-                    </Button>
-                    <ConfirmButton variant="ghost" size="sm" onConfirm={() => supprimerCompetence(comp.id)} className="text-red-400 hover:bg-red-500/10 py-2 px-3">
-                      🗑️
-                    </ConfirmButton>
-                  </div>
-                </div>
-              </Card>
+              <CompetenceCard key={comp.id} competence={comp} stats={stats} isAdmin onClick={setCompetenceDetail} onEdit={handleEditer} onDelete={supprimerCompetence} />
             ))}
           </div>
         </div>
       )}
 
-      {/* MODAL DETAIL */}
       {competenceDetail && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[100] p-4" onClick={() => setCompetenceDetail(null)}>
-          <Card className="max-w-xl w-full p-8 gap-6 shadow-2xl border-main/30 animate-in zoom-in duration-200 relative overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-main" />
-            <div className="flex justify-between border-b border-white/5 pb-4">
-              <div>
-                <Badge className="mb-2 uppercase text-[10px]" variant="outline">
-                  {competenceDetail.type === 'active' ? 'Active' : competenceDetail.type === 'passive_auto' ? 'Passif (Auto)' : 'Passif (Toggle)'}
-                </Badge>
-                <h3 className="text-2xl font-black uppercase tracking-tighter text-white">{competenceDetail.nom}</h3>
-              </div>
-              <button className="text-2xl opacity-20 hover:opacity-100 transition-opacity" onClick={() => setCompetenceDetail(null)}>✕</button>
-            </div>
-            <p className="text-sm opacity-80 whitespace-pre-wrap italic bg-white/5 p-4 rounded-xl border border-white/5">"{competenceDetail.description}"</p>
-            
-            <div className="flex flex-col gap-4">
-              <p className="text-[10px] font-black uppercase opacity-40 tracking-widest">Effets & Coûts :</p>
-              <div className="flex flex-wrap gap-2">
-                {competenceDetail.modificateurs?.map((m, i) => (
-                  <Badge key={i} variant="default" className="text-xs py-1 px-2 font-black bg-main/10 text-main border-main/20 uppercase">
-                    {formatLabelModif(m, stats)}
-                  </Badge>
-                ))}
-                {competenceDetail.effets_actifs?.map((e, i) => (
-                  <Badge key={i} variant={e.est_jet_de ? 'warning' : e.est_cout ? 'error' : 'success'} className="text-xs py-1 px-2 font-black uppercase">
-                    {formatLabelEffet(e, stats)}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="secondary" onClick={() => { handleEditer(competenceDetail); setCompetenceDetail(null); }}>✏️ Modifier</Button>
-              <ConfirmButton onConfirm={() => { supprimerCompetence(competenceDetail.id); setCompetenceDetail(null); }}>🗑️ Supprimer</ConfirmButton>
-            </div>
-          </Card>
-        </div>
+        <CompetenceDetailModal competence={competenceDetail} stats={stats} isAdmin onClose={() => setCompetenceDetail(null)} onEdit={handleEditer} />
       )}
     </div>
   )

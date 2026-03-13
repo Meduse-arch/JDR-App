@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { usePersonnageCompetences } from '../../hooks/usePersonnageCompetences'
-import { Card } from '../../components/ui/Card'
-import { Badge } from '../../components/ui/Badge'
-import { Button } from '../../components/ui/Button'
 import { useItems } from '../../hooks/useItems'
-import { formatLabelModif, formatLabelEffet } from '../../utils/formatters'
+import { useStats } from '../../hooks/useStats'
 import { useCompetenceUsage } from '../../hooks/useCompetenceUsage'
+import { CompetenceCard } from '../../components/competences/CompetenceCard'
+import { CompetenceDetailModal } from '../../components/competences/CompetenceDetailModal'
+import { filtrerCompetences } from '../../utils/competenceUtils'
 
 export default function MesCompetences() {
   const { personnage, mettreAJourLocalement } = usePersonnage()
-  const { competencesAcquises } = usePersonnageCompetences()
-  const { utiliserCompetence, toasts } = useCompetenceUsage(personnage, mettreAJourLocalement)
-  const { stats } = useItems() // For modif formatting
+  const { competencesAcquises, chargerCompetencesAcquises } = usePersonnageCompetences()
+  const { utiliserCompetence, toggleCompetence, toasts } = useCompetenceUsage(personnage, mettreAJourLocalement)
+  const { stats } = useItems()
+  const { rechargerStats } = useStats()
 
   const [recherche, setRecherche] = useState('')
   const [filtrePrincipal, setFiltrePrincipal] = useState('Tous')
@@ -26,19 +27,28 @@ export default function MesCompetences() {
     </div>
   )
 
-  const competencesFiltrees = competencesAcquises
-    .filter(c => {
-      const type = c.competence.type;
-      if (filtrePrincipal === 'Tous') return true;
-      if (filtrePrincipal === 'Actif') return type === 'active';
-      if (filtrePrincipal === 'Passif') {
-        if (filtreSecondaire === 'Tous') return type === 'passive_auto' || type === 'passive_toggle';
-        if (filtreSecondaire === 'Auto') return type === 'passive_auto';
-        if (filtreSecondaire === 'Toggle') return type === 'passive_toggle';
+  const competencesFiltrees = filtrerCompetences(competencesAcquises, recherche, filtrePrincipal, filtreSecondaire)
+
+  const handleUtiliser = async (comp: any) => {
+    try {
+      setCompetenceDetail(null)
+      await utiliserCompetence(comp)
+    } catch (err) {
+      console.error('Erreur utiliserCompetence:', err)
+    }
+  }
+
+  const handleToggle = async (comp: any) => {
+    try {
+      const liaison = competencesAcquises.find(c => c.id_competence === comp.id)
+      if (liaison) {
+        await toggleCompetence(liaison, rechargerStats)
+        await chargerCompetencesAcquises(true)
       }
-      return true;
-    })
-    .filter(c => c.competence.nom.toLowerCase().includes(recherche.toLowerCase()))
+    } catch (err) {
+      console.error('Erreur toggleCompetence:', err)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar"
@@ -46,11 +56,7 @@ export default function MesCompetences() {
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6 gap-4"
         style={{ borderBottom: '1px solid var(--border)' }}>
-        <h2 className="text-3xl md:text-4xl font-black tracking-tight"
-          style={{
-            background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>
+        <h2 className="text-3xl md:text-4xl font-black tracking-tight gradient-title">
           Mes Compétences
         </h2>
       </div>
@@ -103,54 +109,17 @@ export default function MesCompetences() {
 
       {competencesFiltrees.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
-          {competencesFiltrees.map(liaison => {
-            const comp = liaison.competence
-            return (
-              <Card key={liaison.id} hoverEffect className="group flex flex-col h-full p-5 relative overflow-hidden">
-                {/* Overlay pour le clic sur le détail */}
-                <div className="absolute inset-0 z-0 cursor-pointer" onClick={() => setCompetenceDetail(comp)} />
-                
-                <div className="relative z-10 flex justify-between items-start mb-3">
-                  <h3 className="font-bold leading-tight text-lg truncate pr-2 text-white">{comp.nom}</h3>
-                  <Badge variant="ghost" className="shrink-0 text-[10px] uppercase">
-                    {comp.type === 'active' ? 'Active' : comp.type === 'passive_auto' ? 'Auto' : 'Toggle'}
-                  </Badge>
-                </div>
-
-                <p className="relative z-10 text-xs opacity-60 line-clamp-2 mb-4 italic">"{comp.description}"</p>
-
-                <div className="relative z-10 mt-auto flex flex-col gap-3">
-                  <div className="flex flex-wrap gap-1">
-                    {comp.modificateurs?.slice(0, 2).map((m: any, i: number) => (
-                      <Badge key={`m-${i}`} variant="default" className="text-[8px] py-0.5 px-1.5 font-black bg-main/10 text-main border-main/10 uppercase truncate max-w-full">
-                        {formatLabelModif(m as any, stats)}
-                      </Badge>
-                    ))}
-                    {comp.effets_actifs?.slice(0, 2).map((e: any, i: number) => (
-                      <Badge 
-                        key={`e-${i}`} 
-                        variant={e.est_jet_de ? 'warning' : e.est_cout ? 'error' : 'success'} 
-                        className="text-[8px] py-0.5 px-1.5 font-black uppercase truncate max-w-full"
-                      >
-                        {formatLabelEffet(e, stats)}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  {comp.type === 'active' && (
-                    <Button size="sm" className="w-full relative z-20 py-2 text-[10px] font-black uppercase tracking-widest" onClick={(e) => { e.stopPropagation(); utiliserCompetence(comp); }}>
-                      ⚡ Utiliser
-                    </Button>
-                  )}
-                  {comp.type === 'passive_toggle' && (
-                    <Button size="sm" variant="secondary" className="w-full relative z-20 py-2 text-[10px] font-black uppercase tracking-widest" onClick={(e) => e.stopPropagation()}>
-                      🔄 Basculer
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            )
-          })}
+          {competencesFiltrees.map(liaison => (
+            <CompetenceCard 
+              key={liaison.id} 
+              competence={liaison.competence} 
+              stats={stats} 
+              isActive={liaison.is_active}
+              onClick={setCompetenceDetail}
+              onUse={handleUtiliser}
+              onToggle={handleToggle}
+            />
+          ))}
         </div>
       )}
       
@@ -160,57 +129,19 @@ export default function MesCompetences() {
 
       {/* DETAIL MODAL */}
       {competenceDetail && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[100] p-4 cursor-pointer" onClick={() => setCompetenceDetail(null)}>
-          <Card className="max-w-xl w-full p-8 gap-6 shadow-2xl border-main/30 animate-in zoom-in duration-200 relative overflow-hidden cursor-default" onClick={e => e.stopPropagation()}>
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-main" />
-            
-            <div className="flex justify-between border-b border-white/5 pb-4">
-              <div>
-                <Badge className="mb-2 uppercase text-[10px]" variant="outline">{competenceDetail.type}</Badge>
-                <h3 className="text-2xl font-black uppercase tracking-tighter text-white">{competenceDetail.nom}</h3>
-              </div>
-              <button className="text-2xl opacity-20 hover:opacity-100 transition-opacity" onClick={() => setCompetenceDetail(null)}>✕</button>
-            </div>
-            
-            <div className="flex flex-col gap-6">
-              <p className="text-sm opacity-80 whitespace-pre-wrap italic leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
-                "{competenceDetail.description}"
-              </p>
-
-              {((competenceDetail.modificateurs && competenceDetail.modificateurs.length > 0) || (competenceDetail.effets_actifs && competenceDetail.effets_actifs.length > 0)) && (
-                <div className="flex flex-col gap-3">
-                  <p className="text-[10px] font-black uppercase opacity-40 tracking-widest">Statistiques & Effets :</p>
-                  <div className="flex flex-wrap gap-2">
-                    {competenceDetail.modificateurs?.map((m: any, i: number) => (
-                      <Badge key={`m-${i}`} variant="default" className="text-xs py-1 px-2 font-black bg-main/10 text-main border-main/20 uppercase">
-                        {formatLabelModif(m as any, stats)}
-                      </Badge>
-                    ))}
-                    {competenceDetail.effets_actifs?.map((e: any, i: number) => (
-                      <Badge key={`e-${i}`} variant={e.est_jet_de ? 'warning' : e.est_cout ? 'error' : 'success'} className="text-xs py-1 px-2 font-black uppercase">
-                        {formatLabelEffet(e, stats)}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                {competenceDetail.type === 'active' && (
-                  <Button className="flex-1" onClick={() => utiliserCompetence(competenceDetail)}>⚡ Utiliser la compétence</Button>
-                )}
-                {competenceDetail.type === 'passive_toggle' && (
-                  <Button className="flex-1" variant="secondary">🔄 Activer / Désactiver</Button>
-                )}
-              </div>
-            </div>
-          </Card>
-        </div>
+        <CompetenceDetailModal 
+          competence={competenceDetail}
+          stats={stats}
+          isActive={competencesAcquises.find(c => c.id_competence === competenceDetail.id)?.is_active}
+          onClose={() => setCompetenceDetail(null)}
+          onUse={handleUtiliser}
+          onToggle={handleToggle}
+        />
       )}
 
       <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-50 pointer-events-none">
-        {toasts.map((t, idx) => (
-          <div key={idx} className="px-6 py-3 rounded-2xl bg-card border border-main/30 text-main font-black shadow-2xl animate-in slide-in-from-right-full">{t}</div>
+        {toasts.map((t: any) => (
+          <div key={t.id} className="px-6 py-3 rounded-2xl bg-card border border-main/30 text-main font-black shadow-2xl animate-in slide-in-from-right-full">{t.msg}</div>
         ))}
       </div>
 

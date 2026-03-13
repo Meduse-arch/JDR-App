@@ -165,16 +165,34 @@ export default function DashboardAdmin() {
                       </p>
                       <button onClick={() => { setPnjControle(p); setPageCourante('mon-personnage') }} className="text-[8px] font-black opacity-20 hover:opacity-100 hover:text-main uppercase transition-colors">Gérer</button>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex justify-between text-[8px] font-black opacity-40 uppercase">
-                        <span>HP</span>
-                        <span>{p.hp}/{p.hp_max}</span>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex justify-between text-[8px] font-black opacity-40 uppercase">
+                          <span>HP</span><span>{p.hp}/{p.hp_max}</span>
+                        </div>
+                        <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">  
+                          <div className="h-full bg-red-500/60 transition-all duration-300" style={{ width: `${(p.hp / p.hp_max) * 100}%` }} />
+                        </div>
                       </div>
-                      <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-500/60 transition-all duration-300" style={{ width: `${(p.hp / p.hp_max) * 100}%` }} />
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-[7px] font-black opacity-30 uppercase">
+                            <span>MP</span><span>{p.mana}/{p.mana_max}</span>
+                          </div>
+                          <div className="h-0.5 w-full bg-white/10 rounded-full overflow-hidden">  
+                            <div className="h-full bg-blue-500/60 transition-all duration-300" style={{ width: `${(p.mana / p.mana_max) * 100}%` }} />
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-[7px] font-black opacity-30 uppercase">
+                            <span>SP</span><span>{p.stam}/{p.stam_max}</span>
+                          </div>
+                          <div className="h-0.5 w-full bg-white/10 rounded-full overflow-hidden">  
+                            <div className="h-full bg-yellow-500/60 transition-all duration-300" style={{ width: `${(p.stam / p.stam_max) * 100}%` }} />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </Card>
+                    </div>                  </Card>
                 ))
               })()}
             </div>

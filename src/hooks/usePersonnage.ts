@@ -6,6 +6,7 @@ import { personnageService } from '../services/personnageService'
 export function usePersonnage() {
   const compte = useStore(s => s.compte)
   const pnjControle = useStore(s => s.pnjControle)
+  const setPnjControle = useStore(s => s.setPnjControle)
   const sessionActive = useStore(s => s.sessionActive)
   
   const [personnage, setPersonnage] = useState<Personnage | null>(null)
@@ -42,7 +43,7 @@ export function usePersonnage() {
     } finally {
       setChargement(false)
     }
-  }, [compte, pnjControle, sessionActive])
+  }, [compte, pnjControle?.id, sessionActive])
 
   useEffect(() => {
     chargerPersonnage()
@@ -50,11 +51,34 @@ export function usePersonnage() {
 
   const mettreAJourLocalement = async (updates: Partial<Personnage>) => {
     if (!personnage) return
-    setPersonnage(prev => prev ? { ...prev, ...updates } : null)
-    
-    const success = await personnageService.updatePersonnage(personnage.id, updates)
-    if (!success) {
-      chargerPersonnage()
+
+    // Pour la BDD, on ne veut envoyer que les champs qui existent dans 'personnages'
+    const dbUpdates = { ...updates };
+    delete dbUpdates.hp_max;
+    delete dbUpdates.mana_max;
+    delete dbUpdates.stam_max;
+
+    if (Object.keys(dbUpdates).length > 0) {
+      const success = await personnageService.updatePersonnage(personnage.id, dbUpdates)
+      if (!success) {
+        console.error("Erreur lors de la mise à jour BDD via mettreAJourLocalement")
+      }
+    }
+
+    // On recharge TOUJOURS depuis la vue pour avoir les max à jour et les données consistantes
+    const { data: updatedPerso } = await supabase
+      .from('v_personnages')
+      .select('*')
+      .eq('id', personnage.id)
+      .single()
+
+    if (updatedPerso) {
+      setPersonnage(updatedPerso as Personnage)
+      if (pnjControle && pnjControle.id === personnage.id) {
+        setPnjControle(updatedPerso as Personnage)
+      }
+    } else {
+      chargerPersonnage() // fallback
     }
   }
 

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../supabase'
 import { personnageService } from '../../../services/personnageService'
-import { type Personnage } from '../../../store/useStore'
+import { useStore, type Personnage } from '../../../store/useStore'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
+import { ConfirmationBar } from '../../../components/ui/ConfirmationBar'
 
-type Props = { personnage: Personnage }
+type Props = { personnage: Personnage; onRecharger?: () => void }
 
-export default function GererStats({ personnage }: Props) {
+export default function GererStats({ personnage, onRecharger }: Props) {
   const [stats, setStats] = useState<any[]>([])
   const [tempStats, setTempStats] = useState<Record<string, number>>({})
   const [deltas, setDeltas] = useState<Record<string, string>>({})
@@ -24,7 +25,10 @@ export default function GererStats({ personnage }: Props) {
       .eq('id_personnage', personnage.id)
     
     if (data) {
-      const s = data.map((d: any) => ({ id_stat: d.id_stat, nom: d.stats.nom, valeur: d.valeur }))
+      const STATS_SYSTEME = ['PV Max', 'Mana Max', 'Stamina Max', 'HP Max', 'hp_max', 'mana_max', 'stam_max']
+      const s = data
+        .filter((d: any) => !STATS_SYSTEME.includes(d.stats.nom))
+        .map((d: any) => ({ id_stat: d.id_stat, nom: d.stats.nom, valeur: d.valeur }))
       setStats(s)
       const initialTemp: Record<string, number> = {}
       const initialDeltas: Record<string, string> = {}
@@ -47,30 +51,100 @@ export default function GererStats({ personnage }: Props) {
   const previewMana = Math.round(((int + sag) / 2) * 10)
   const previewStam = Math.round(((for_ + agi + con) / 3) * 10)
 
-  const hasChanges = stats.some(s => tempStats[s.nom] !== s.valeur)
+  const hasChanges = stats.some(s => {
+    const d = parseInt(deltas[s.nom]) || 0
+    return d !== 0 || tempStats[s.nom] !== s.valeur
+  })
 
-  const appliquerDelta = (nom: string) => {
-    const val = parseInt(deltas[nom])
-    if (isNaN(val)) return
-    setTempStats(prev => ({ ...prev, [nom]: Math.max(0, prev[nom] + val) }))
-    setDeltas(prev => ({ ...prev, [nom]: '' }))
+  const adjustDelta = (nom: string, amount: number) => {
+    setDeltas(prev => {
+      const current = parseInt(prev[nom]) || 0
+      const next = current + amount
+      return { ...prev, [nom]: next === 0 ? '' : (next > 0 ? `+${next}` : `${next}`) }
+    })
   }
 
-  const modifierUnitaire = (nom: string, amount: number) => {
-    setTempStats(prev => ({ ...prev, [nom]: Math.max(0, prev[nom] + amount) }))
+  const handleDeltaChange = (nom: string, val: string) => {
+    if (/^[+-]?\d*$/.test(val)) {
+      setDeltas(prev => ({ ...prev, [nom]: val }))
+    }
   }
+
+  const pnjControle = useStore(s => s.pnjControle)
+  const setPnjControle = useStore(s => s.setPnjControle)
 
   const enregistrer = async () => {
     setSauvegardant(true)
+    console.log('Stats à sauvegarder:', JSON.stringify(stats))
     try {
       for (const s of stats) {
-        const nv = tempStats[s.nom]
-        if (nv !== s.valeur) {
-          await supabase.from('personnage_stats').update({ valeur: nv }).eq('id_personnage', personnage.id).eq('id_stat', s.id_stat)
+        const d = parseInt(deltas[s.nom]) || 0
+        const nv = (tempStats[s.nom] ?? s.valeur) + d
+        console.log('UPSERT stat:', s.nom, 'id_stat:', s.id_stat, 'nouvelle valeur:', nv)
+        const { error } = await supabase
+          .from('personnage_stats')
+          .upsert(
+            { id_personnage: personnage.id, id_stat: s.id_stat, valeur: nv },
+            { onConflict: 'id_personnage,id_stat' }
+          )
+        if (error) console.error('ERREUR upsert stat:', s.nom, error)
+      }
+
+      // Recalcul obligatoire des max après chaque save
+      const statsFinales: Record<string, number> = { ...tempStats }
+      stats.forEach(s => {
+        const d = parseInt(deltas[s.nom]) || 0
+        statsFinales[s.nom] = (tempStats[s.nom] ?? s.valeur) + d
+      })
+
+      const con_ = statsFinales['Constitution'] || 0
+      const int_ = statsFinales['Intelligence'] || 0
+      const sag_ = statsFinales['Sagesse'] || 0
+      const for_ = statsFinales['Force'] || 0
+      const agi_ = statsFinales['Agilité'] || 0
+
+      const nouveauxMax = [
+        { nom: 'PV Max',       valeur: con_ * 4 },
+        { nom: 'Mana Max',     valeur: Math.round(((int_ + sag_) / 2) * 10) },
+        { nom: 'Stamina Max',  valeur: Math.round(((for_ + agi_ + con_) / 3) * 10) }
+      ]
+
+      for (const m of nouveauxMax) {
+        const { data: statRow } = await supabase
+          .from('stats')
+          .select('id')
+          .eq('nom', m.nom)
+          .single()
+        
+        if (statRow) {
+          await supabase
+            .from('personnage_stats')
+            .upsert(
+              { id_personnage: personnage.id, id_stat: statRow.id, valeur: m.valeur },
+              { onConflict: 'id_personnage,id_stat' }
+            )
         }
       }
+      
+      console.log('Stats sauvegardées, recalcul des jauges (clamp)...')
       await personnageService.recalculerStats(personnage.id)
+
+      console.log('Rechargement des stats dans UI...')
       await chargerStats()
+      
+      // Recharger le personnage depuis la vue pour avoir les max à jour dans le store parent
+      const { data } = await supabase
+        .from('v_personnages')
+        .select('*')
+        .eq('id', personnage.id)
+        .single()
+
+      if (data) {
+        if (pnjControle && pnjControle.id === personnage.id) {
+          setPnjControle(data as Personnage)
+        }
+        onRecharger?.()
+      }
     } catch (e) {
       console.error(e)
     } finally {
@@ -86,7 +160,7 @@ export default function GererStats({ personnage }: Props) {
           { label: 'Mana Max', val: previewMana, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
           { label: 'Stam Max', val: previewStam, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' }
         ].map(r => (
-          <div key={r.label} className={`p-4 rounded-2xl ${r.bg} border ${r.border} text-center`}>
+          <div key={r.label} className={`p-4 rounded-2xl ${r.bg} border ${r.border} text-center transition-all duration-500`}>
             <p className={`text-[10px] font-black uppercase opacity-50 ${r.color}`}>{r.label}</p>
             <p className="text-2xl font-black">{r.val}</p>
           </div>
@@ -94,50 +168,60 @@ export default function GererStats({ personnage }: Props) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {stats.map(s => (
-          <Card key={s.id_stat} className="p-5 flex-col gap-4">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-black uppercase tracking-widest opacity-40">{s.nom}</span>
-              <span className={`text-3xl font-black ${tempStats[s.nom] !== s.valeur ? 'text-main animate-pulse' : ''}`}>
-                {tempStats[s.nom]}
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <button onClick={() => modifierUnitaire(s.nom, -1)} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 font-bold text-lg">-</button>
-              
-              <div className="flex-1 flex bg-black/20 rounded-xl border border-white/5 overflow-hidden focus-within:border-main/50 transition-colors">
-                <input 
-                  type="text"
-                  placeholder="± valeur..."
-                  value={deltas[s.nom]}
-                  onChange={e => setDeltas({...deltas, [s.nom]: e.target.value})}
-                  className="w-full bg-transparent px-3 py-2 text-center text-xs font-bold outline-none"
-                  onKeyDown={e => e.key === 'Enter' && appliquerDelta(s.nom)}
-                />
-                <button 
-                  onClick={() => appliquerDelta(s.nom)}
-                  className="px-3 bg-white/5 hover:bg-main hover:text-white transition-colors text-[10px] font-black"
-                >
-                  OK
-                </button>
-              </div>
+        {stats.map(s => {
+          const dVal = parseInt(deltas[s.nom]) || 0
+          const finalVal = tempStats[s.nom] + dVal
+          const isChanged = finalVal !== s.valeur
 
-              <button onClick={() => modifierUnitaire(s.nom, 1)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-main font-bold text-lg text-main hover:text-white">+</button>
-            </div>
-          </Card>
-        ))}
+          return (
+            <Card key={s.id_stat} className="p-5 flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-black uppercase tracking-widest opacity-40">{s.nom}</span>
+                <div className="flex flex-col items-end">
+                  <span className={`text-3xl font-black ${isChanged ? 'text-main animate-pulse' : ''}`}>
+                    {finalVal}
+                  </span>
+                  {dVal !== 0 && (
+                    <span className={`text-xs font-bold ${dVal > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      ({dVal > 0 ? '+' : ''}{dVal})
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => adjustDelta(s.nom, -1)} 
+                  className="w-12 h-12 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 font-bold text-xl transition-all active:scale-90"
+                >-</button>
+                
+                <div className="flex-1 bg-black/40 rounded-xl border border-white/5 focus-within:border-main/50 transition-all overflow-hidden h-12 flex items-center justify-center">
+                  <input 
+                    type="text"
+                    placeholder="0"
+                    value={deltas[s.nom]}
+                    onChange={e => handleDeltaChange(s.nom, e.target.value)}
+                    className={`w-full bg-transparent text-center font-black text-lg outline-none placeholder:opacity-10 ${dVal > 0 ? 'text-green-400' : dVal < 0 ? 'text-red-400' : 'text-white'}`}
+                  />
+                </div>
+
+                <button 
+                  onClick={() => adjustDelta(s.nom, 1)} 
+                  className="w-12 h-12 flex items-center justify-center rounded-xl bg-white/10 hover:bg-main font-bold text-xl text-main hover:text-white transition-all active:scale-90"
+                >+</button>
+              </div>
+            </Card>
+          )
+        })}
       </div>
 
       {hasChanges && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-50">
-          <div className="bg-surface/90 backdrop-blur-xl border border-main/30 p-4 rounded-3xl flex gap-4 shadow-2xl shadow-main/20 animate-in slide-in-from-bottom-8">
-            <Button variant="secondary" className="flex-1" onClick={() => chargerStats()}>Annuler</Button>
-            <Button className="flex-2" onClick={enregistrer} disabled={sauvegardant}>
-              {sauvegardant ? 'Magie en cours...' : 'Sauvegarder ✓'}
-            </Button>
-          </div>
-        </div>
+        <ConfirmationBar 
+          onConfirm={enregistrer}
+          onCancel={chargerStats}
+          confirmText="Sauvegarder les statistiques"
+          loading={sauvegardant}
+        />
       )}
     </div>
   )

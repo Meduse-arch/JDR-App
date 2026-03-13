@@ -53,9 +53,9 @@ export const bestiaireService = {
             type: typeFinal,
             is_template: false,
             template_id: template.id,
-            hp_max: template.hp_max, hp: template.hp_max,
-            mana_max: template.mana_max, mana: template.mana_max,
-            stam_max: template.stam_max, stam: template.stam_max,
+            hp: template.hp_max,
+            mana: template.mana_max,
+            stam: template.stam_max,
           })
           .select().single()
 

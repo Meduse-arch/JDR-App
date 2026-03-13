@@ -83,9 +83,11 @@ export default function Joueurs() {
                   <h3 className="font-bold text-lg leading-tight truncate">{perso.nom}</h3>
                   {estMJ && <Badge variant="outline" className="text-[9px] border-main text-main font-black">CO-MJ</Badge>}
                 </div>
-                <p className="text-xs mt-1 opacity-50 uppercase font-black tracking-widest">
-                  HP : <span className="text-red-400">{perso.hp}</span> / {perso.hp_max}
-                </p>
+                <div className="flex gap-3 text-xs mt-1 opacity-50 uppercase font-black tracking-widest">
+                  <span>HP : <span className="text-red-400">{perso.hp}</span> / {perso.hp_max}</span>
+                  <span>MP : <span className="text-blue-400">{perso.mana}</span> / {perso.mana_max}</span>
+                  <span>SP : <span className="text-yellow-400">{perso.stam}</span> / {perso.stam_max}</span>
+                </div>
               </div>
 
               <div className="flex gap-2">
