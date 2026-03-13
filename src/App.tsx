@@ -21,9 +21,11 @@ import MesQuetes from './pages/joueur/MesQuetes'
 import LancerDes from './pages/shared/LancerDes'
 import GererMj from './pages/admin/GererMj'
 import Possession from './pages/admin/Possession'
+import Elements from './pages/admin/Elements'
+import DiceRollModal from './components/DiceRollModal'
 
 export default function App() {
-  const { compte, sessionActive, pageCourante, roleEffectif, theme, mode, setPageCourante, sidebarOuverte, pnjControle } = useStore()
+  const { compte, sessionActive, pageCourante, roleEffectif, theme, mode, setPageCourante } = useStore()
 
   if (!compte) {
     if (pageCourante === 'inscription') {
@@ -56,6 +58,7 @@ export default function App() {
       case 'joueurs':        return <Joueurs />
       case 'bestiaire':      return <Bestiaire />
       case 'items':          return <Items />
+      case 'elements':       return <Elements />
       case 'competences':    return <Competences />
       case 'quetes':         return <GererQuetes />
       case 'gerer':          return <Possession />
@@ -76,6 +79,7 @@ export default function App() {
           </div>
         </main>
       </div>
+      <DiceRollModal />
     </div>
   )
 }

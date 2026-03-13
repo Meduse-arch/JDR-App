@@ -36,7 +36,7 @@ export default function DashboardAdmin() {
 
   const chargerDonnees = async () => {
     if (!sessionActive) return
-    const { data: persos } = await supabase.from('personnages').select('*').eq('id_session', sessionActive.id).eq('is_template', false)
+    const { data: persos } = await supabase.from('v_personnages').select('*').eq('id_session', sessionActive.id).eq('is_template', false)
     if (persos) {
       setJoueurs(persos.filter(p => p.type === 'Joueur'))
       setPnjs(persos.filter(p => p.type === 'PNJ'))
@@ -46,7 +46,7 @@ export default function DashboardAdmin() {
     const [itemsRes, compRes, tmplRes, queteRes] = await Promise.all([
       supabase.from('items').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id),
       supabase.from('competences').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id),
-      supabase.from('personnages').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id).eq('is_template', true),
+      supabase.from('v_personnages').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id).eq('is_template', true),
       supabase.from('quetes').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id)
     ])
     setStats({ items: itemsRes.count || 0, competences: compRes.count || 0, templates: tmplRes.count || 0, quetes: queteRes.count || 0 })
@@ -109,10 +109,10 @@ export default function DashboardAdmin() {
                     <span className="text-[8px] font-black opacity-0 group-hover:opacity-40 transition-opacity uppercase">Fiche →</span>
                   </div>
                   <div className="grid grid-cols-1 gap-2">
-                    <ResourceBar current={j.hp_actuel} max={j.hp_max} color="#ef4444" label="PV" />
+                    <ResourceBar current={j.hp} max={j.hp_max} color="#ef4444" label="PV" />
                     <div className="grid grid-cols-2 gap-3">
-                      <ResourceBar current={j.mana_actuel} max={j.mana_max} color="#3b82f6" label="Mana" />
-                      <ResourceBar current={j.stam_actuel} max={j.stam_max} color="#eab308" label="Stam" />
+                      <ResourceBar current={j.mana} max={j.mana_max} color="#3b82f6" label="Mana" />
+                      <ResourceBar current={j.stam} max={j.stam_max} color="#eab308" label="Stam" />
                     </div>
                   </div>
                 </button>
@@ -168,10 +168,10 @@ export default function DashboardAdmin() {
                     <div className="flex flex-col gap-1">
                       <div className="flex justify-between text-[8px] font-black opacity-40 uppercase">
                         <span>HP</span>
-                        <span>{p.hp_actuel}/{p.hp_max}</span>
+                        <span>{p.hp}/{p.hp_max}</span>
                       </div>
                       <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-500/60 transition-all duration-300" style={{ width: `${(p.hp_actuel / p.hp_max) * 100}%` }} />
+                        <div className="h-full bg-red-500/60 transition-all duration-300" style={{ width: `${(p.hp / p.hp_max) * 100}%` }} />
                       </div>
                     </div>
                   </Card>

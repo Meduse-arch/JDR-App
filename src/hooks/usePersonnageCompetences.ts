@@ -31,11 +31,11 @@ export function usePersonnageCompetences() {
     }
 
     if (liaisons && liaisons.length > 0) {
-      // Étape 2 : Récupérer les données des compétences associées
+      // Étape 2 : Récupérer les données des compétences associées avec effets et modifs
       const idsCompetences = liaisons.map(l => l.id_competences || l.id_competence || l.competence_id);
       const { data: competencesData } = await supabase
         .from('competences')
-        .select('*')
+        .select('*, effets_actifs(*), modificateurs(*)')
         .in('id', idsCompetences);
 
       if (competencesData) {

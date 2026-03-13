@@ -137,10 +137,10 @@ export default function Bestiaire() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-lg leading-tight truncate">{m.nom}</h3>
                   <div className="flex flex-col gap-1 mt-1">
-                    <p className="text-xs sm:text-sm">HP : <span className="text-red-400 font-bold">{m.hp_actuel}/{m.hp_max}</span></p>
+                    <p className="text-xs sm:text-sm">HP : <span className="text-red-400 font-bold">{m.hp}/{m.hp_max}</span></p>
                     <div className="flex gap-3 text-[10px] font-bold opacity-50">
-                       <span>💧 {m.mana_actuel}/{m.mana_max}</span>
-                       <span>⚡ {m.stam_actuel}/{m.stam_max}</span>
+                       <span>💧 {m.mana}/{m.mana_max}</span>
+                       <span>⚡ {m.stam}/{m.stam_max}</span>
                     </div>
                   </div>
                 </div>

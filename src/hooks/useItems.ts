@@ -31,7 +31,7 @@ export function useItems() {
     const channel = supabase
       .channel('items-lib-' + sessionActive?.id)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => charger())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'item_modificateurs' }, () => charger())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'modificateurs' }, () => charger())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -44,5 +44,11 @@ export function useItems() {
     return success
   }
 
-  return { items, stats, chargement, charger, supprimerItem };
+  const modifierItem = async (id: string, data: any, modifs: any[], effets: any[]) => {
+    const success = await itemsService.updateItem(id, data, modifs, effets)
+    if (success) await charger()
+    return success
+  }
+
+  return { items, stats, chargement, charger, supprimerItem, modifierItem };
 }

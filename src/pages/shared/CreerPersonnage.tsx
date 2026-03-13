@@ -87,9 +87,9 @@ export default function CreerPersonnage({ type, isTemplate = false, retour }: Pr
           id_session: sessionActive.id,
           nom, type, is_template: isTemplate,
           lie_au_compte: (!isTemplate && type === 'Joueur') ? compte?.id : null,
-          hp_max: hp, hp_actuel: hp,
-          mana_max: mana, mana_actuel: mana,
-          stam_max: stam, stam_actuel: stam,
+          hp_max: hp, hp: hp,
+          mana_max: mana, mana: mana,
+          stam_max: stam, stam: stam,
         })
         .select().single()
 

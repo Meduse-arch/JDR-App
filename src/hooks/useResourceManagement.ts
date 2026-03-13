@@ -27,8 +27,8 @@ export function useResourceManagement(
     const delta = parseInt(deltas[key])
     if (isNaN(delta) || delta === 0) return
 
-    const champActuel = `${key}_actuel` as keyof Personnage
-    const champMax    = `${key}_max`    as keyof Personnage
+    const champActuel = key as keyof Personnage
+    const champMax    = `${key}_max` as keyof Personnage
     const actuel = personnage[champActuel] as number
     const max    = personnage[champMax]    as number
     const nouveau = Math.max(0, Math.min(max, actuel + delta))

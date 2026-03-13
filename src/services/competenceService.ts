@@ -5,24 +5,99 @@ export const competenceService = {
   /**
    * Récupère toutes les compétences de la base de données
    */
-  getCompetences: async (): Promise<Competence[]> => {
+  getCompetences: async (idSession: string): Promise<Competence[]> => {
+    console.log('competenceService.getCompetences appelé avec idSession:', idSession);
     const { data, error } = await supabase
       .from('competences')
-      .select('*')
+      .select('*, modificateurs(*, stats:id_stat(nom), elements(nom, emoji, couleur)), effets_actifs(*)')
+      .eq('id_session', idSession)
       .order('nom');
-    
+
     if (error) {
       console.error("Erreur récupération compétences:", error);
       return [];
     }
+    console.log('getCompetences résultat:', data?.length, 'compétences trouvées');
     return data || [];
   },
 
   /**
-   * Crée une nouvelle compétence
+   * Met à jour une compétence existante
+   */
+  updateCompetence: async (
+    idCompetence: string,
+    competenceData: { nom: string; description: string; type: string },
+    modificateurs: Partial<any>[] = [],
+    effetsActifs: Partial<any>[] = []
+  ): Promise<boolean> => {
+    const { error: compError } = await supabase
+      .from('competences')
+      .update(competenceData)
+      .eq('id', idCompetence);
+
+    if (compError) {
+      console.error("Erreur update compétence:", compError);
+      return false;
+    }
+
+    // Suppression et réinsertion des modifs/effets (plus simple)
+    await supabase.from('modificateurs').delete().eq('id_competence', idCompetence);
+    await supabase.from('effets_actifs').delete().eq('id_competence', idCompetence);
+
+    if (modificateurs.length > 0) {
+      const validModifs = modificateurs
+        .filter(m => m.id_stat)
+        .map(m => ({
+          id_competence: idCompetence,
+          id_stat: m.id_stat,
+          valeur: m.valeur || 0,
+          type_calcul: m.type_calcul || 'fixe',
+          id_element: m.id_element || null,
+          id_item: null,
+          id_personnage: null,
+          des_stat_id: m.des_stat_id || null,
+          des_nb: m.des_nb || null,
+          des_faces: m.des_faces || null,
+          nom_affiche: m.nom_affiche || null
+        }));
+      const { error: mError } = await supabase.from('modificateurs').insert(validModifs);
+      if (mError) console.error("Erreur insertion modificateurs:", mError);
+    }
+
+    if (effetsActifs.length > 0) {
+      const validEffets = effetsActifs
+        .filter(e => e.cible_jauge)
+        .map(e => ({
+          id_competence: idCompetence,
+          cible_jauge: (['hp', 'mana', 'stam'].includes(e.cible_jauge) ? e.cible_jauge : 'hp') as 'hp' | 'mana' | 'stam',
+          valeur: e.valeur || 0,
+          des_nb: e.des_nb || null,
+          des_faces: e.des_faces || null,
+          des_stat_id: e.des_stat_id || null,
+          est_cout: e.est_cout || false,
+          est_jet_de: e.est_jet_de || false
+        }));
+      const { error: eError } = await supabase.from('effets_actifs').insert(validEffets);
+      if (eError) {
+        console.error("Erreur insertion effets:", eError);
+        // Fallback si la colonne dice pose problème
+        if (validEffets.some(ve => ve.cible_jauge === 'dice')) {
+           const fallbackEffets = validEffets.map(ve => ({ ...ve, cible_jauge: ve.cible_jauge === 'dice' ? 'hp' : ve.cible_jauge }));
+           await supabase.from('effets_actifs').insert(fallbackEffets);
+        }
+      }
+    }
+
+    return true;
+  },
+
+  /**
+   * Crée une nouvelle compétence avec modificateurs et effets_actifs
    */
   createCompetence: async (
-    competenceData: { nom: string; description: string; type: string }
+    competenceData: { nom: string; description: string; type: string, id_session: string },
+    modificateurs: Partial<any>[] = [],
+    effetsActifs: Partial<any>[] = []
   ): Promise<Competence | null> => {
     const { data: newComp, error } = await supabase
       .from('competences')
@@ -34,10 +109,59 @@ export const competenceService = {
       console.error("Erreur création compétence:", error);
       return null;
     }
-    return newComp;
-  },
 
-  /**
+    if (modificateurs.length > 0) {
+      const validModifs = modificateurs
+        .filter(m => m.id_stat)
+        .map(m => ({
+          id_competence: newComp.id,
+          id_stat: m.id_stat,
+          valeur: m.valeur || 0,
+          type_calcul: m.type_calcul || 'fixe',
+          id_element: m.id_element || null,
+          id_item: null,
+          id_personnage: null,
+          des_stat_id: m.des_stat_id || null,
+          des_nb: m.des_nb || null,
+          des_faces: m.des_faces || null,
+          nom_affiche: m.nom_affiche || null
+        }));
+
+      if (validModifs.length > 0) {
+        const { error: mError } = await supabase.from('modificateurs').insert(validModifs);
+        if (mError) console.error("Erreur insertion modificateurs (création):", mError);
+      }
+    }
+
+    if (effetsActifs.length > 0) {
+      const validEffets = effetsActifs
+        .filter(e => e.cible_jauge)
+        .map(e => ({
+          id_competence: newComp.id,
+          cible_jauge: (['hp', 'mana', 'stam'].includes(e.cible_jauge) ? e.cible_jauge : 'hp') as 'hp' | 'mana' | 'stam',
+          valeur: e.valeur || 0,
+          des_nb: e.des_nb || null,
+          des_faces: e.des_faces || null,
+          des_stat_id: e.des_stat_id || null,
+          est_cout: e.est_cout || false,
+          est_jet_de: e.est_jet_de || false
+        }));
+
+      if (validEffets.length > 0) {
+        const { error: eError } = await supabase.from('effets_actifs').insert(validEffets);
+        if (eError) console.error("Erreur insertion effets (création):", eError);
+      }
+    }
+
+    // Refresh to get full data with relations
+    const { data: fullComp } = await supabase
+      .from('competences')
+      .select('*, modificateurs(*, stats:id_stat(nom), elements(nom, emoji, couleur)), effets_actifs(*)')
+      .eq('id', newComp.id)
+      .single();
+
+    return fullComp || newComp;
+  },  /**
    * Supprime une compétence
    */
   deleteCompetence: async (idCompetence: string): Promise<boolean> => {

@@ -27,7 +27,7 @@ export default function Gerer() {
 
   const chargerPersonnages = async () => {
     const { data } = await supabase
-      .from('personnages')
+      .from('v_personnages')
       .select('*')
       .eq('id_session', sessionActive?.id)
       .order('nom')

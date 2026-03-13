@@ -24,7 +24,7 @@ export default function Joueurs() {
 
     // 1. Charger les joueurs
     const { data: persos } = await supabase
-      .from('personnages')
+      .from('v_personnages')
       .select('*')
       .eq('id_session', sessionActive.id)
       .eq('type', 'Joueur')
@@ -84,7 +84,7 @@ export default function Joueurs() {
                   {estMJ && <Badge variant="outline" className="text-[9px] border-main text-main font-black">CO-MJ</Badge>}
                 </div>
                 <p className="text-xs mt-1 opacity-50 uppercase font-black tracking-widest">
-                  HP : <span className="text-red-400">{perso.hp_actuel}</span> / {perso.hp_max}
+                  HP : <span className="text-red-400">{perso.hp}</span> / {perso.hp_max}
                 </p>
               </div>
 

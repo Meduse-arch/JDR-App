@@ -16,7 +16,7 @@ export function usePersonnage() {
     try {
       if (pnjControle) {
         const { data } = await supabase
-          .from('personnages')
+          .from('v_personnages')
           .select('*')
           .eq('id', pnjControle.id)
           .single()
@@ -25,7 +25,7 @@ export function usePersonnage() {
       } else {
         if (!compte || !sessionActive) return
         const { data, error } = await supabase
-          .from('personnages')
+          .from('v_personnages')
           .select('*')
           .eq('id_session', sessionActive.id)
           .eq('lie_au_compte', compte.id)

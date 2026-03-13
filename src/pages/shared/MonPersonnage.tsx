@@ -57,7 +57,7 @@ export default function MonPersonnage() {
 
   const ressources = (Object.keys(CONFIG_RESSOURCES) as RessourceKey[]).map(key => ({
     ...CONFIG_RESSOURCES[key],
-    actuel: personnage[`${key}_actuel` as keyof typeof personnage] as number,
+    actuel: personnage[key as keyof typeof personnage] as number,
     max: personnage[`${key}_max` as keyof typeof personnage] as number,
     rKey: key
   }))

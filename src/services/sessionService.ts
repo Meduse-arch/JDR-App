@@ -29,7 +29,7 @@ export const sessionService = {
    */
   getSessionCharacters: async (sessionId: string) => {
     const { data: persos, error } = await supabase
-      .from('personnages')
+      .from('v_personnages')
       .select('*')
       .eq('id_session', sessionId)
 

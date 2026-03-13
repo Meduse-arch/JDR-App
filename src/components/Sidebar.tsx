@@ -26,6 +26,7 @@ export default function Sidebar() {
     { id: 'bestiaire',    label: 'Bestiaire',       icon: '🐉' },
     { id: 'items',        label: 'Objets',          icon: '🎒' },
     { id: 'competences',  label: 'Compétences',     icon: '✨' },
+    { id: 'elements',     label: 'Éléments',        icon: '⚛️' },
     { id: 'quetes',       label: 'Quêtes',          icon: '📜' },
     { id: 'lancer-des',   label: 'Lancer des dés',  icon: '🎲' },
     { id: 'gerer',        label: 'Possession',      icon: '🎭' },

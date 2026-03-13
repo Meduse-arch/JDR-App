@@ -8,7 +8,7 @@ export const inventaireService = {
   getInventaire: async (personnageId: string): Promise<InventaireEntry[]> => {
     const { data } = await supabase
       .from('inventaire')
-      .select('*, items(*, item_modificateurs(*))')
+      .select('*, items(*, modificateurs(*, stats:id_stat(nom), elements(*)), effets_actifs(*))')
       .eq('id_personnage', personnageId)
     return (data || []) as unknown as InventaireEntry[]
   },

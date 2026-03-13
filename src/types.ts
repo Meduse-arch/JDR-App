@@ -2,6 +2,29 @@ export { type Personnage, type PersonnageType, type Session, type Compte } from 
 
 export type CategorieItem = 'Arme' | 'Armure' | 'Bijou' | 'Consommable' | 'Artéfact' | 'Divers';
 
+export interface Element {
+  id: string;
+  id_session: string;
+  nom: string;
+  description: string;
+  couleur: string;
+  emoji: string;
+}
+
+export interface EffetActif {
+  id: string;
+  id_item?: string | null;
+  id_competence?: string | null;
+  cible_jauge: 'hp' | 'mana' | 'stam';
+  valeur: number;
+  des_nb?: number | null;
+  des_faces?: number | null;
+  des_stat_id?: string | null;
+  est_cout?: boolean;
+  est_jet_de?: boolean;
+  stats?: Stat;
+}
+
 export interface Item {
   id: string;
   id_session: string;
@@ -9,7 +32,8 @@ export interface Item {
   description: string;
   categorie: CategorieItem;
   cree_par?: string;
-  item_modificateurs?: Modificateur[];
+  modificateurs?: Modificateur[];
+  effets_actifs?: EffetActif[];
 }
 
 export interface Stat {
@@ -20,18 +44,31 @@ export interface Stat {
 
 export interface Modificateur {
   id: string;
-  id_item: string;
-  type: string;
-  id_stat?: string | null;
+  id_stat: string;
   valeur: number;
+  type_calcul: 'fixe' | 'pourcentage' | 'roll_stat' | 'roll_dice';
+  id_item?: string | null;
+  id_competence?: string | null;
+  id_personnage?: string | null;
+  id_element?: string | null;
+  des_stat_id?: string | null;
+  des_nb?: number | null;
+  des_faces?: number | null;
+  nom_affiche?: string | null;
+  stats?: Stat; // Pour récupérer le nom de la stat via une jointure Supabase
+  elements?: Element;
 }
+
+export type TypeCompetence = 'active' | 'passive_auto' | 'passive_toggle';
 
 export interface Competence {
   id: string;
   id_session: string;
   nom: string;
   description: string;
-  type: string;
+  type: TypeCompetence;
+  modificateurs?: Modificateur[];
+  effets_actifs?: EffetActif[];
 }
 
 export interface PersonnageCompetence {
@@ -39,6 +76,7 @@ export interface PersonnageCompetence {
   id_personnage: string;
   id_competence: string;
   niveau?: number;
+  is_active?: boolean;
   competence: Competence;
 }
 

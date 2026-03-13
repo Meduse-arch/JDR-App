@@ -1,26 +1,33 @@
 import { useState } from 'react'
+import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
 import { useInventaire } from '../../hooks/useInventaire'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { useItems } from '../../hooks/useItems'
 import { useStats } from '../../hooks/useStats'
 import { CATEGORIES, CATEGORIE_EMOJI } from '../../utils/constants'
-import { formatLabelModif } from '../../utils/formatters'
+import { formatLabelModif, formatLabelEffet } from '../../utils/formatters'
 import { ItemCard } from '../../components/ItemCard'
 import { InventaireEntry, CategorieItem } from '../../types'
 import { Card } from '../../components/ui/Card'
-import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { inventaireService } from '../../services/inventaireService'
-import { personnageService } from '../../services/personnageService'
+import { rollDice, rollStatDice } from '../../utils/rollDice'
+
+const RESSOURCES_MODIFS = [
+  { type: 'hp', label: 'PV Actuel' },
+  { type: 'mana', label: 'Mana Actuel' },
+  { type: 'stam', label: 'Stam Actuelle' }
+]
 
 export default function MonInventaire() {
   const pnjControle = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
+  const setDiceResult = useStore(s => s.setDiceResult)
 
   const { personnage, rechargerPersonnage, mettreAJourLocalement } = usePersonnage()
-  const { inventaire, charger: chargerInventaire } = useInventaire(personnage?.id)
+  const { inventaire, charger: chargerInventaire, setInventaire } = useInventaire(personnage?.id)
   const { stats } = useItems()
   const { rechargerStats } = useStats()
 
@@ -35,27 +42,76 @@ export default function MonInventaire() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 2500)
   }
 
-  const utiliserItem = async (entry: InventaireEntry) => {
-    if (!personnage) return
-    const modifs = entry.items.item_modificateurs || []
+  const appliquerEffets = async (effets: any[]) => {
+    if (!personnage) return {}
     const updates: any = {}
-    let utile = false
+    
+    // Couleurs par jauge
+    const colors: Record<string, string> = { hp: '#ef4444', mana: '#3b82f6', stam: '#eab308' }
+    const labels: Record<string, string> = { hp: 'PV', mana: 'Mana', stam: 'Stamina' }
 
-    for (const mod of modifs) {
-      if (mod.type === 'stat' && mod.id_stat) {
-        await personnageService.updateBaseStat(personnage.id, mod.id_stat, mod.valeur)
-        utile = true
-      } else {
-        const champ = mod.type.endsWith('_max') ? mod.type : `${mod.type}_actuel`
-        const maxChamp = mod.type.endsWith('_max') ? mod.type : `${mod.type}_max`
-        const actuel = Number((personnage as any)[champ] ?? 0)
-        const max = Number((personnage as any)[maxChamp] ?? actuel + mod.valeur)
-        const nouveau = mod.type.endsWith('_max') ? actuel + mod.valeur : Math.max(0, Math.min(max, actuel + mod.valeur))
-        if (nouveau !== actuel) { updates[champ] = nouveau; utile = true }
+    // 1. Vérifier si le personnage peut payer les coûts fixes
+    for (const effet of effets) {
+      if (!effet.est_cout) continue;
+      const jauge = effet.cible_jauge?.toLowerCase();
+      if (!jauge || !labels[jauge]) continue;
+
+      let coutValue = Math.abs(effet.valeur || 0);
+      
+      if (!effet.des_nb && !effet.des_stat_id) {
+        const actuel = (personnage as any)[jauge] ?? 0;
+        if (actuel < coutValue) {
+          afficherToast(`❌ Pas assez de ${labels[jauge]} ! (${actuel}/${coutValue})`);
+          return null; // On retourne null pour signaler l'échec de la validation
+        }
       }
     }
 
-    if (!utile) return afficherToast('⚠️ Aucun effet utile !')
+    const diceResults: any[] = [];
+
+    for (const effet of effets) {
+      let finalValue = effet.valeur || 0
+      const isCout = effet.valeur < 0 || effet.est_cout === true;
+
+      // LOGIQUE DE DÉS
+      if (effet.des_nb || effet.des_stat_id) {
+        let rollRes;
+        if (effet.des_stat_id) {
+          const { data: sP } = await supabase.from('personnage_stats').select('valeur, stats(nom)').eq('id_personnage', personnage.id).eq('id_stat', effet.des_stat_id).single()
+          rollRes = rollStatDice(sP?.valeur || 10, effet.valeur, sP?.stats?.nom || 'Stat')
+        } else {
+          rollRes = rollDice(effet.des_nb, effet.des_faces || 6, effet.valeur)
+        }
+        finalValue = rollRes.total
+        diceResults.push({ ...rollRes, label: `Effet sur ${labels[effet.cible_jauge] || 'Action'}`, color: colors[effet.cible_jauge] || '#ffffff', bonus: 0 })
+      }
+
+      if (isCout) {
+        finalValue = -Math.abs(finalValue);
+      }
+
+      if (effet.est_jet_de) continue;
+
+      const champ = effet.cible_jauge
+      if (labels[champ]) {
+        const maxChamp = `${champ}_max`
+        const actuel = Number(updates[champ] ?? (personnage as any)[champ] ?? 0)
+        const max = Number((personnage as any)[maxChamp] ?? actuel + finalValue)
+        updates[champ] = Math.max(0, Math.min(max, actuel + finalValue))
+      }
+    }
+
+    if (diceResults.length > 0) {
+      setDiceResult(null);
+      setTimeout(() => setDiceResult(diceResults), 10);
+    }
+    return updates
+  }
+
+  const utiliserItem = async (entry: InventaireEntry) => {
+    if (!personnage) return
+    const effets = entry.items.effets_actifs || []
+    const updates = await appliquerEffets(effets)
 
     if (Object.keys(updates).length > 0) {
       await mettreAJourLocalement(updates)
@@ -74,33 +130,104 @@ export default function MonInventaire() {
   }
 
   const toggleEquiper = async (entry: InventaireEntry) => {
+    if (!personnage) return
     const nouveauStatut = !entry.equipe
+
+    // 1. Mise à jour optimiste immédiate pour l'UI
+    setInventaire(prev => prev.map(e => e.id === entry.id ? {...e, equipe: nouveauStatut} : e))
+    if (itemDetail?.id === entry.id) setItemDetail({ ...entry, equipe: nouveauStatut })
+
+    // 3. Équiper/déséquiper en BDD
     await inventaireService.toggleEquipement(entry.id, nouveauStatut)
-    if (itemDetail?.id === entry.id) {
-      setItemDetail({ ...entry, equipe: nouveauStatut })
+
+    // 4. Récupérer les nouveaux max depuis v_personnages (après équipement)
+    const { data: updatedPerso } = await supabase
+      .from('v_personnages')
+      .select('hp_max, mana_max, stam_max')
+      .eq('id', personnage.id)
+      .single()
+
+    if (!updatedPerso) return
+
+    let base_stats = {
+      hp: personnage.hp || 0,
+      mana: personnage.mana || 0,
+      stam: personnage.stam || 0
     }
-    await chargerInventaire()
-    await personnageService.recalculerStats(personnage!.id)
-    await rechargerPersonnage()
+
+    if (nouveauStatut) {
+      // Appliquer les effets immédiats (potions passives, buffs à l'équipement)
+      const effets = (entry.items as any).effets_actifs || []
+      const bonus_equip = await appliquerEffets(effets)
+      if (bonus_equip.hp) base_stats.hp = bonus_equip.hp
+      if (bonus_equip.mana) base_stats.mana = bonus_equip.mana
+      if (bonus_equip.stam) base_stats.stam = bonus_equip.stam
+    }
+
+    // 6. Clamp au nouveau max dans tous les cas (équipement ET déséquipement)
+    const final_hp = Math.max(0, Math.min(updatedPerso.hp_max, base_stats.hp))
+    const final_mana = Math.max(0, Math.min(updatedPerso.mana_max, base_stats.mana))
+    const final_stam = Math.max(0, Math.min(updatedPerso.stam_max, base_stats.stam))
+
+    // 7. Sauvegarder les jauges clampées en BDD
+    await supabase.from('personnages').update({
+      hp: final_hp,
+      mana: final_mana,
+      stam: final_stam
+    }).eq('id', personnage.id)
+
+    // 8. Mettre à jour le state local immédiatement (UI fluide sans rechargement)
+    const fullUpdates = {
+      hp: final_hp,
+      mana: final_mana,
+      stam: final_stam,
+      hp_max: updatedPerso.hp_max,
+      mana_max: updatedPerso.mana_max,
+      stam_max: updatedPerso.stam_max
+    }
+    await mettreAJourLocalement(fullUpdates)
+    if (pnjControle?.id === personnage.id) setPnjControle({ ...pnjControle, ...fullUpdates } as any)
+
     await rechargerStats()
-    afficherToast(entry.equipe ? `🔓 ${entry.items.nom} rangé` : `⚔️ ${entry.items.nom} équipé !`)
+    afficherToast(nouveauStatut ? `⚔️ ${entry.items.nom} équipé !` : `🔓 ${entry.items.nom} rangé`)
   }
 
   const itemsFiltrés = inventaire.filter(e => (filtre === 'Tous' || e.items.categorie === filtre) && e.items.nom.toLowerCase().includes(recherche.toLowerCase()))
 
   return (
-    <div className="flex flex-col h-full p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-white/5 gap-4">
-        <h2 className="text-3xl font-black uppercase italic text-main">🎒 Sac d'Aventure</h2>
-        <Input icon="🔍" placeholder="Rechercher un objet..." value={recherche} onChange={e => setRecherche(e.target.value)} className="md:max-w-xs" />
+    <div className="flex flex-col h-full p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6 gap-4"
+        style={{ borderBottom: '1px solid var(--border)' }}>
+        <h2 className="text-3xl md:text-4xl font-black tracking-tight"
+          style={{
+            background: 'linear-gradient(135deg, var(--color-light), var(--color-accent2))',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          }}>
+          🎒 Sac d'Aventure
+        </h2>
       </div>
 
-      <div className="flex gap-2 mb-8 overflow-x-auto pb-2 custom-scrollbar">
-        {['Tous', ...CATEGORIES].map(cat => (
-          <Button key={cat} variant={filtre === cat ? 'primary' : 'secondary'} onClick={() => setFiltre(cat)} size="sm" className="whitespace-nowrap text-[10px]">
-            {cat !== 'Tous' && <span className="mr-1">{CATEGORIE_EMOJI[cat as CategorieItem]}</span>}{cat}
-          </Button>
-        ))}
+      <div className="flex flex-col xl:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40">🔍</span>
+          <input 
+            type="text" placeholder="Rechercher un objet..." value={recherche} onChange={e => setRecherche(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none transition-all font-bold"
+            style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+          />
+        </div>
+        <div className="flex gap-2 p-1 rounded-xl overflow-x-auto custom-scrollbar shrink-0" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+          {['Tous', ...CATEGORIES].map(cat => (
+            <button
+              key={cat} onClick={() => setFiltre(cat)}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap flex items-center gap-1 ${filtre === cat ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+              style={{ backgroundColor: filtre === cat ? 'var(--color-main)' : 'transparent' }}
+            >
+              {cat !== 'Tous' && <span className="text-xs">{CATEGORIE_EMOJI[cat as CategorieItem]}</span>}
+              {cat}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
@@ -112,7 +239,8 @@ export default function MonInventaire() {
             onEquiper={toggleEquiper} 
             onClick={setItemDetail}
             labelModif={m => formatLabelModif(m, stats)} 
-            modifs={entry.items.item_modificateurs || []} 
+            labelEffet={e => formatLabelEffet(e, stats)}
+            modifs={entry.items.modificateurs || []}
           />
         ))}
         {itemsFiltrés.length === 0 && <div className="col-span-full py-20 text-center opacity-20 font-black uppercase italic">Le sac est vide...</div>}
@@ -148,12 +276,17 @@ export default function MonInventaire() {
               <div className="flex flex-col gap-3">
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Propriétés & Effets :</p>
                 <div className="flex flex-wrap gap-2">
-                  {itemDetail.items.item_modificateurs?.map((m, i) => (
-                    <span key={i} className="px-3 py-1.5 rounded-xl bg-main/10 border border-main/20 text-main font-bold text-xs">
-                      {formatLabelModif(m, stats)}
+                  {itemDetail.items.modificateurs?.map((m, i) => (
+                    <span key={`m-${i}`} className="px-3 py-1.5 rounded-xl bg-main/10 border border-main/20 text-main font-bold text-xs">
+                      {formatLabelModif(m as any, stats)}
                     </span>
                   ))}
-                  {(!itemDetail.items.item_modificateurs || itemDetail.items.item_modificateurs.length === 0) && (
+                  {itemDetail.items.effets_actifs?.map((e, i) => (
+                    <span key={`e-${i}`} className="px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold text-xs">
+                      {formatLabelEffet(e as any, stats)}
+                    </span>
+                  ))}
+                  {((!itemDetail.items.modificateurs || itemDetail.items.modificateurs.length === 0) && (!itemDetail.items.effets_actifs || itemDetail.items.effets_actifs.length === 0)) && (
                     <p className="text-xs opacity-30 italic">Aucun effet particulier.</p>
                   )}
                 </div>

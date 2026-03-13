@@ -12,6 +12,12 @@ import { Badge } from '../../../components/ui/Badge'
 
 type Props = { personnage: Personnage }
 
+const RESSOURCES_MODIFS = [
+  { type: 'hp', label: 'PV Actuel' },
+  { type: 'mana', label: 'Mana Actuel' },
+  { type: 'stam', label: 'Stam Actuelle' }
+]
+
 export default function GererInventaire({ personnage }: Props) {
   const { stats, items: itemsBibliotheque } = useItems()
 
@@ -30,7 +36,7 @@ export default function GererInventaire({ personnage }: Props) {
 
   const chargerInventaire = async () => {
     const { data } = await supabase
-      .from('inventaire').select('id, quantite, equipe, items(id, nom, description, categorie)').eq('id_personnage', personnage.id)
+      .from('inventaire').select('id, quantite, equipe, items(*, modificateurs(*), effets_actifs(*))').eq('id_personnage', personnage.id)
     if (data) setInventaire(data as any)
   }
 
@@ -122,16 +128,21 @@ export default function GererInventaire({ personnage }: Props) {
                   )}
                   <p className="font-black text-sm mb-2" style={{ color: 'var(--color-main)' }}>x{entry.quantite}</p>
                   
-                  {entry.items.item_modificateurs && entry.items.item_modificateurs.length > 0 && (
+                  {((entry.items.modificateurs && entry.items.modificateurs.length > 0) || (entry.items.effets_actifs && entry.items.effets_actifs.length > 0)) && (
                     <div className="flex flex-wrap gap-1">
-                      {entry.items.item_modificateurs.slice(0, 2).map((m: any, i: number) => (
-                        <Badge key={i} variant="default" className="text-[8px] truncate max-w-[80px]">
-                          {formatLabelModif(m, stats)}
+                      {entry.items.modificateurs?.slice(0, 2).map((m: any, i: number) => (
+                        <Badge key={`m-${i}`} variant="default" className="text-[8px] truncate max-w-[80px]">
+                          {formatLabelModif({ id_stat: m.id_stat, valeur: m.valeur } as any, stats)}
                         </Badge>
                       ))}
-                      {entry.items.item_modificateurs.length > 2 && (
+                      {entry.items.effets_actifs?.slice(0, 2).map((e: any, i: number) => (
+                        <Badge key={`e-${i}`} variant="default" className="text-[8px] truncate max-w-[80px] bg-blue-500/10 text-blue-400 border-blue-500/10">
+                          {e.valeur > 0 ? '+' : ''}{e.valeur} {RESSOURCES_MODIFS.find(r => r.type === e.cible_jauge)?.label}
+                        </Badge>
+                      ))}
+                      {((entry.items.modificateurs?.length || 0) + (entry.items.effets_actifs?.length || 0)) > 2 && (
                         <Badge variant="ghost" className="text-[8px] opacity-40">
-                          +{entry.items.item_modificateurs.length - 2}...
+                          +{((entry.items.modificateurs?.length || 0) + (entry.items.effets_actifs?.length || 0)) - 2}...
                         </Badge>
                       )}
                     </div>
@@ -183,11 +194,16 @@ export default function GererInventaire({ personnage }: Props) {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">{item.categorie}</span>
-                  {item.item_modificateurs && item.item_modificateurs.length > 0 && (
+                  {((item.modificateurs && item.modificateurs.length > 0) || (item.effets_actifs && item.effets_actifs.length > 0)) && (
                     <div className="flex flex-wrap gap-1 ml-auto">
-                      {item.item_modificateurs.map((m: any, i: number) => (
-                        <Badge key={i} variant="default">
-                          {formatLabelModif(m, stats)}
+                      {item.modificateurs?.map((m: any, i: number) => (
+                        <Badge key={`m-${i}`} variant="default">
+                          {formatLabelModif({ id_stat: m.id_stat, valeur: m.valeur } as any, stats)}
+                        </Badge>
+                      ))}
+                      {item.effets_actifs?.map((e: any, i: number) => (
+                        <Badge key={`e-${i}`} variant="default" className="bg-blue-500/10 text-blue-400 border-blue-500/10">
+                          {e.valeur > 0 ? '+' : ''}{e.valeur} {RESSOURCES_MODIFS.find(r => r.type === e.cible_jauge)?.label}
                         </Badge>
                       ))}
                     </div>

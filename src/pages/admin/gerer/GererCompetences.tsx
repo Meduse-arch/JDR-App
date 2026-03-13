@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../supabase'
+import { useStore } from '../../../store/useStore'
 import { useCompetences } from '../../../hooks/useCompetences'
 import { competenceService } from '../../../services/competenceService'
 import { Personnage, PersonnageCompetence } from '../../../types'
@@ -11,7 +12,11 @@ import { Input } from '../../../components/ui/Input'
 type Props = { personnage: Personnage }
 
 export default function GererCompetences({ personnage }: Props) {
+  const sessionActive = useStore(s => s.sessionActive)
   const { competences: toutesCompetences } = useCompetences()
+
+  console.log('GererCompetences: personnage=', personnage?.nom, 'sessionActive=', sessionActive?.id);
+  console.log('GererCompetences: toutesCompetences count=', toutesCompetences?.length);
 
   const [competencesAcquises, setCompetencesAcquises] = useState<PersonnageCompetence[]>([])
   const [onglet,            setOnglet]            = useState<'liste' | 'ajouter'>('liste')
@@ -25,22 +30,34 @@ export default function GererCompetences({ personnage }: Props) {
   }, [personnage])
 
   const chargerCompetences = async () => {
-    const { data: liaisons } = await supabase
+    if (!personnage?.id) return;
+    
+    const { data: liaisons, error } = await supabase
       .from('personnage_competences')
-      .select('id, id_personnage, id_competence, niveau, competences(*)')
+      .select('id, id_personnage, id_competence, niveau, competences(*, modificateurs(*, stats:id_stat(nom), elements(*)), effets_actifs(*))')
       .eq('id_personnage', personnage.id)
 
+    if (error) {
+      console.error("Erreur chargement compétences personnage:", error);
+      return;
+    }
+
     if (liaisons) {
-      const formated = liaisons.map((l: any) => ({
-        id: l.id,
-        id_personnage: l.id_personnage,
-        id_competence: l.id_competence,
-        niveau: l.niveau,
-        competence: l.competences
-      }))
-      setCompetencesAcquises(formated as PersonnageCompetence[])
+      console.log('Raw liaisons data:', liaisons);
+      const formated = (liaisons as any[]).map(l => {
+        // Supabase peut renvoyer soit un objet, soit un tableau à un seul élément pour la jointure
+        const compData = Array.isArray(l.competences) ? l.competences[0] : l.competences;
+        return {
+          id: l.id,
+          id_personnage: l.id_personnage,
+          id_competence: l.id_competence,
+          niveau: l.niveau,
+          competence: compData
+        };
+      });
+      setCompetencesAcquises(formated.filter(f => !!f.competence) as PersonnageCompetence[]);
     } else {
-      setCompetencesAcquises([])
+      setCompetencesAcquises([]);
     }
   }
 
@@ -52,35 +69,50 @@ export default function GererCompetences({ personnage }: Props) {
     if (success) {
       afficherMessage('✅ Compétence apprise !')
       setCompSelectionnee('')
-      chargerCompetences()
+      await chargerCompetences()
     }
   }
 
+  const [filtrePrincipal, setFiltrePrincipal] = useState('Tous')
+  const [filtreSecondaire, setFiltreSecondaire] = useState('Tous')
+
   const oublierCompetence = async (idPersonnage: string, idCompetence: string) => {
     const success = await competenceService.oublierCompetence(idPersonnage, idCompetence)
-    if (success) chargerCompetences()
+    if (success) await chargerCompetences()
   }
 
   const competencesFiltrees = competencesAcquises
-    .filter(c => c.competence.nom.toLowerCase().includes(recherche.toLowerCase()))
-  
+    .filter(c => {
+      if (!c.competence) return false;
+      const type = c.competence.type;
+      if (filtrePrincipal === 'Tous') return true;
+      if (filtrePrincipal === 'Actif') return type === 'active';
+      if (filtrePrincipal === 'Passif') {
+        if (filtreSecondaire === 'Tous') return type === 'passive_auto' || type === 'passive_toggle';
+        if (filtreSecondaire === 'Auto') return type === 'passive_auto';
+        if (filtreSecondaire === 'Toggle') return type === 'passive_toggle';
+      }
+      return true;
+    })
+    .filter(c => (c.competence?.nom || '').toLowerCase().includes(recherche.toLowerCase()))
+
   // Compétences disponibles (non acquises)
-  const competencesDisponibles = toutesCompetences
-    .filter(tc => !competencesAcquises.some(ca => ca.competence.id === tc.id))
-    .filter(tc => tc.nom.toLowerCase().includes(rechercheAjout.toLowerCase()))
+  const competencesDisponibles = (toutesCompetences || [])
+    .filter(tc => !competencesAcquises.some(ca => ca.id_competence === tc.id))
+    .filter(tc => (tc.nom || '').toLowerCase().includes(rechercheAjout.toLowerCase()))
 
   return (
     <div className="flex flex-col gap-5" style={{ color: 'var(--text-primary)' }}>
       {/* Onglets */}
       <div className="flex gap-2 items-center flex-wrap">
-        <Button 
-          variant={onglet === 'liste' ? 'active' : 'secondary'} 
+        <Button
+          variant={onglet === 'liste' ? 'active' : 'secondary'}
           onClick={() => setOnglet('liste')}
         >
           📖 Compétences
         </Button>
-        <Button 
-          variant={onglet === 'ajouter' ? 'active' : 'secondary'} 
+        <Button
+          variant={onglet === 'ajouter' ? 'active' : 'secondary'}
           onClick={() => setOnglet('ajouter')}
         >
           ➕ Ajouter
@@ -91,12 +123,41 @@ export default function GererCompetences({ personnage }: Props) {
       {/* Compétences acquises */}
       {onglet === 'liste' && (
         <div className="flex flex-col gap-4">
-          <Input 
-            icon="🔍"
-            type="text" placeholder="Rechercher..." value={recherche}
-            onChange={e => setRecherche(e.target.value)}
-          />
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Input
+                icon="🔍"
+                type="text" placeholder="Rechercher..." value={recherche}
+                onChange={e => setRecherche(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2 shrink-0">
+              <div className="flex gap-2 p-1 rounded-xl overflow-x-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+                {['Tous', 'Actif', 'Passif'].map(type => (
+                  <button
+                    key={type} onClick={() => { setFiltrePrincipal(type); setFiltreSecondaire('Tous'); }}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${filtrePrincipal === type ? 'bg-main text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                    style={{ backgroundColor: filtrePrincipal === type ? 'var(--color-main)' : 'transparent' }}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
 
+              {filtrePrincipal === 'Passif' && (
+                <div className="flex gap-2 p-1 rounded-xl overflow-x-auto custom-scrollbar" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+                  {['Tous', 'Auto', 'Toggle'].map(type => (
+                    <button
+                      key={type} onClick={() => setFiltreSecondaire(type)}
+                      className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${filtreSecondaire === type ? 'bg-main/20 text-main border border-main/30' : 'opacity-40 hover:opacity-100 border border-transparent'}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           {competencesAcquises.length === 0 && (
             <p className="text-sm text-center mt-4" style={{ color: 'var(--text-muted)' }}>
               Aucune compétence possédée.

@@ -27,5 +27,5 @@ export function useInventaire(personnageId: string | undefined) {
     return () => { supabase.removeChannel(channel) }
   }, [charger, personnageId])
 
-  return { inventaire, chargement, charger }
+  return { inventaire, chargement, charger, setInventaire }
 }

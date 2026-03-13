@@ -29,7 +29,7 @@ export function useStats() {
       if (!idPersonnage) {
         if (!compte || !sessionActive) return
         const { data: persos, error } = await supabase
-          .from('personnages')
+          .from('v_personnages')
           .select('id')
           .eq('id_session', sessionActive.id)
           .eq('lie_au_compte', compte.id)
@@ -53,40 +53,91 @@ export function useStats() {
         .select(`
           equipe,
           items (
-            item_modificateurs (
+            modificateurs (
               id_stat,
               valeur,
-              type
+              type_calcul
             )
           )
         `)
         .eq('id_personnage', idPersonnage)
         .eq('equipe', true)
 
+      // 3. Récupérer les bonus des compétences passives
+      const { data: compAcquises } = await supabase
+        .from('personnage_competences')
+        .select(`
+          is_active,
+          competences (
+            type,
+            modificateurs (
+              id_stat,
+              valeur,
+              type_calcul
+            )
+          )
+        `)
+        .eq('id_personnage', idPersonnage)
+
       if (baseStats) {
-        // Calcul des bonus par stat ID
-        const bonusMap: Record<string, number> = {}
-        equipement?.forEach(entry => {
-          (entry.items as any)?.item_modificateurs?.forEach((m: any) => {
-            if (m.id_stat) {
-              bonusMap[m.id_stat] = (bonusMap[m.id_stat] || 0) + (m.valeur || 0)
+        // 4. Calculer les bonus
+        const bonusFixes: Record<string, number> = {}
+        const bonusPct: Record<string, number> = {}
+        
+        // Helper pour accumuler les bonus
+        const accumulerBonus = (modificateurs: any[]) => {
+          modificateurs?.forEach((m: any) => {
+            if (!m.id_stat) return
+            if (m.type_calcul === 'pourcentage') {
+              bonusPct[m.id_stat] = (bonusPct[m.id_stat] || 0) + (m.valeur || 0)
+            } else {
+              bonusFixes[m.id_stat] = (bonusFixes[m.id_stat] || 0) + (m.valeur || 0)
             }
           })
+        }
+
+        // Accumuler depuis l'équipement
+        equipement?.forEach(entry => accumulerBonus((entry.items as any)?.modificateurs))
+
+        // Accumuler depuis les compétences passives
+        compAcquises?.forEach(entry => {
+          const c = entry.competences as any
+          if (!c) return
+          const estApplicable = c.type === 'passive_auto' || (c.type === 'passive_toggle' && entry.is_active)
+          if (estApplicable) accumulerBonus(c.modificateurs)
         })
 
-        const formatted = baseStats.map((d: any) => {
-          const bonus = bonusMap[d.id_stat] || 0
+        // Filtrer les stats système
+        const statsCibles = baseStats.filter((d: any) => 
+          !['PV Max', 'Mana Max', 'Stamina Max'].includes(d.stats.nom)
+        )
+
+        const formatted = statsCibles.map((d: any) => {
+          const fixe = bonusFixes[d.id_stat] || 0
+          const pct = bonusPct[d.id_stat] || 0
+          
+          // Formule : (Base + Fixe) * (1 + % / 100)
+          const basePlusFixe = d.valeur + fixe
+          const valeurFinale = Math.round(basePlusFixe * (1 + pct / 100))
+          
           return {
             id: d.stats.id,
             nom: d.stats.nom,
             description: d.stats.description,
             base: d.valeur,
-            bonus: bonus,
-            valeur: d.valeur + bonus // Valeur finale affichée
+            bonus: valeurFinale - d.valeur, // Le bonus total (fixe + %)
+            valeur: valeurFinale
           }
         })
 
-        const sorted = formatted.sort((a, b) => ORDRE_STATS.indexOf(a.nom) - ORDRE_STATS.indexOf(b.nom))
+        const sorted = formatted.sort((a, b) => {
+          const idxA = ORDRE_STATS.indexOf(a.nom)
+          const idxB = ORDRE_STATS.indexOf(b.nom)
+          if (idxA === -1 && idxB === -1) return a.nom.localeCompare(b.nom)
+          if (idxA === -1) return 1
+          if (idxB === -1) return -1
+          return idxA - idxB
+        })
         setStats(sorted)
       }
     } catch (error) {

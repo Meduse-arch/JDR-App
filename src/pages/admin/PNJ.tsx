@@ -42,7 +42,7 @@ export default function PNJ() {
   const chargerTemplates = async () => {
     if (!sessionActive) return
     const { data } = await supabase
-      .from('personnages')
+      .from('v_personnages')
       .select('*')
       .eq('id_session', sessionActive.id)
       .eq('is_template', true)
@@ -196,7 +196,7 @@ export default function PNJ() {
                 {pnj.type === 'Boss' && <span className="text-[8px] font-black bg-[#ef4444] text-white px-1.5 py-0.5 rounded uppercase shadow-[0_0_10px_rgba(239,68,68,0.4)]">BOSS</span>}
               </div>
               <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                HP : <span className={`font-black ${pnj.type === 'Boss' ? 'text-red-500' : 'text-[#ef4444]'}`}>{pnj.hp_actuel}</span> / {pnj.hp_max}
+                HP : <span className={`font-black ${pnj.type === 'Boss' ? 'text-red-500' : 'text-[#ef4444]'}`}>{pnj.hp}</span> / {pnj.hp_max}
               </p>
             </div>
             <div className="flex gap-2">

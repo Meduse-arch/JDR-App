@@ -21,7 +21,7 @@ export default function Possession() {
 
   const chargerPersonnages = async () => {
     const { data } = await supabase
-      .from('personnages')
+      .from('v_personnages')
       .select('*')
       .eq('id_session', sessionActive?.id)
       .order('nom')
@@ -97,10 +97,10 @@ export default function Possession() {
               <div className="flex flex-col gap-1 mt-auto">
                 <div className="flex justify-between text-[8px] font-black uppercase opacity-40">
                   <span>Santé</span>
-                  <span>{p.hp_actuel} / {p.hp_max}</span>
+                  <span>{p.hp} / {p.hp_max}</span>
                 </div>
                 <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-red-500/60 transition-all duration-500" style={{ width: `${(p.hp_actuel / p.hp_max) * 100}%` }} />
+                  <div className="h-full bg-red-500/60 transition-all duration-500" style={{ width: `${(p.hp / p.hp_max) * 100}%` }} />
                 </div>
               </div>
 

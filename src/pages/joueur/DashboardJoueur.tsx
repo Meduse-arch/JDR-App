@@ -36,7 +36,7 @@ export default function DashboardJoueur() {
 
   const chargerPersonnage = async () => {
     const { data } = await supabase
-      .from('personnages').select('*')
+      .from('v_personnages').select('*')
       .eq('id_session', sessionActive?.id)
       .eq('lie_au_compte', compte?.id)
       .eq('type', 'Joueur')
@@ -89,9 +89,9 @@ export default function DashboardJoueur() {
           <Card className="bg-gradient-to-br from-red-500/10 to-transparent">
             <h3 className="font-black uppercase tracking-widest text-[10px] opacity-50 mb-6 flex items-center gap-2">❤️ État Vital</h3>
             <div className="flex flex-col gap-6">
-              {[{ k: 'hp', current: personnage.hp_actuel, max: personnage.hp_max, ...CONFIG_RESSOURCES.hp },
-                { k: 'mana', current: personnage.mana_actuel, max: personnage.mana_max, ...CONFIG_RESSOURCES.mana },
-                { k: 'stam', current: personnage.stam_actuel, max: personnage.stam_max, ...CONFIG_RESSOURCES.stam }
+              {[{ k: 'hp', current: personnage.hp, max: personnage.hp_max, ...CONFIG_RESSOURCES.hp },
+                { k: 'mana', current: personnage.mana, max: personnage.mana_max, ...CONFIG_RESSOURCES.mana },
+                { k: 'stam', current: personnage.stam, max: personnage.stam_max, ...CONFIG_RESSOURCES.stam }
               ].map(res => (
                 <div key={res.k} className="flex flex-col gap-2">
                   <div className="flex justify-between items-end"><span className="text-[10px] font-bold uppercase opacity-60">{res.label}</span><span className="text-sm font-black">{res.current}/{res.max}</span></div>

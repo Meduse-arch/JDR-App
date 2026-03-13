@@ -16,11 +16,11 @@ export type Personnage = {
   is_template: boolean
   template_id?: string | null
   lie_au_compte?: string | null
-  hp_actuel: number
+  hp: number
   hp_max: number
-  mana_actuel: number
+  mana: number
   mana_max: number
-  stam_actuel: number
+  stam: number
   stam_max: number
   created_at?: string
 }
@@ -34,6 +34,7 @@ interface JdrState {
   theme: ThemeId
   mode: ModeId
   sidebarOuverte: boolean
+  diceResult: ({ rolls: number[], total: number, bonus: number, diceString: string, label: string, color: string })[] | null
   setCompte: (c: Compte | null) => void
   setSessionActive: (s: Session | null) => void
   setRoleEffectif: (r: RoleId | null) => void
@@ -42,6 +43,7 @@ interface JdrState {
   setTheme: (t: ThemeId) => void
   setMode: (m: ModeId) => void
   setSidebarOuverte: (o: boolean) => void
+  setDiceResult: (res: ({ rolls: number[], total: number, bonus: number, diceString: string, label: string, color: string })[] | null) => void
   deconnexion: () => void
 }
 
@@ -54,6 +56,7 @@ export const useStore = create<JdrState>((set) => ({
   theme: (localStorage.getItem('jdr-theme') as ThemeId) || 'theme-violet',
   mode: (localStorage.getItem('jdr-mode') as ModeId) || 'mode-dark',
   sidebarOuverte: true,
+  diceResult: null,
   setCompte: (compte) => {
     if (compte) localStorage.setItem('jdr-compte', JSON.stringify(compte))
     else localStorage.removeItem('jdr-compte')
@@ -84,6 +87,7 @@ export const useStore = create<JdrState>((set) => ({
   setTheme: (theme) => { localStorage.setItem('jdr-theme', theme); set({ theme }) },
   setMode: (mode) => { localStorage.setItem('jdr-mode', mode); set({ mode }) },
   setSidebarOuverte: (o) => set({ sidebarOuverte: o }),
+  setDiceResult: (diceResult) => set({ diceResult }),
   deconnexion: () => {
     localStorage.clear()
     set({ compte: null, sessionActive: null, roleEffectif: null, pageCourante: 'sessions', pnjControle: null })

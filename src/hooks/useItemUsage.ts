@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react'
+import { supabase } from '../supabase'
 import { useStore } from '../store/useStore'
+import { rollDice, rollStatDice } from '../utils/rollDice'
 
 export function useItemUsage(
   personnage: any, 
@@ -9,6 +11,7 @@ export function useItemUsage(
   const [toasts, setToasts] = useState<string[]>([])
   const pnjControle = useStore(s => s.pnjControle)
   const setPnjControle = useStore(s => s.setPnjControle)
+  const setDiceResult = useStore(s => s.setDiceResult)
 
   const afficherToast = (msg: string) => {
     setToasts(prev => [...prev, msg])
@@ -19,22 +22,61 @@ export function useItemUsage(
     if (!personnage) return
 
     const { items } = entry
-    const modifs = items.item_modificateurs || []
+    const effets = items.effets_actifs || []
     
     // 1. Calculer les bonus immédiats
     const updates: any = {}
     
-    modifs.forEach((m: any) => {
-      if (m.type === 'hp') {
-        updates.hp_actuel = Math.min(personnage.hp_max, (updates.hp_actuel ?? personnage.hp_actuel) + m.valeur)
+    // Couleurs par jauge
+    const colors: Record<string, string> = { hp: '#ef4444', mana: '#3b82f6', stam: '#eab308' }
+    const labels: Record<string, string> = { hp: 'Soin / Dégâts PV', mana: 'Restauration Mana', stam: 'Restauration Stamina' }
+
+    const diceResults: any[] = [];
+
+    for (const e of effets) {
+      let finalValue = e.valeur || 0
+      const isCout = e.valeur < 0 || e.est_cout === true;
+      
+      // LOGIQUE DE DÉS
+      if (e.des_nb || e.des_stat_id) {
+        let rollRes;
+        
+        if (e.des_stat_id) {
+          // Dé sur stat
+          const { data: statsPerso } = await supabase.from('personnage_stats').select('valeur, stats(nom)').eq('id_personnage', personnage.id).eq('id_stat', e.des_stat_id).single()
+          rollRes = rollStatDice(statsPerso?.valeur || 10, e.valeur, statsPerso?.stats?.nom || 'Stat')
+        } else {
+          // Dé fixe
+          rollRes = rollDice(e.des_nb, e.des_faces || 6, e.valeur)
+        }
+
+        finalValue = rollRes.total
+        diceResults.push({ ...rollRes, label: labels[e.cible_jauge] || 'Effet', color: colors[e.cible_jauge] || '#ffffff', bonus: 0 })
       }
-      if (m.type === 'mana') {
-        updates.mana_actuel = Math.min(personnage.mana_max, (updates.mana_actuel ?? personnage.mana_actuel) + m.valeur)
+
+      // S'assurer que les coûts sont soustraits
+      if (isCout) {
+        finalValue = -Math.abs(finalValue);
       }
-      if (m.type === 'stam') {
-        updates.stam_actuel = Math.min(personnage.stam_max, (updates.stam_actuel ?? personnage.stam_actuel) + m.valeur)
+
+      // Si c'est un jet de dé pur (est_jet_de), on ne modifie PAS les jauges du personnage
+      if (e.est_jet_de) continue;
+
+      if (e.cible_jauge === 'hp') {
+        updates.hp = Math.max(0, Math.min(personnage.hp_max, (updates.hp ?? personnage.hp) + finalValue))
       }
-    })
+      if (e.cible_jauge === 'mana') {
+        updates.mana = Math.max(0, Math.min(personnage.mana_max, (updates.mana ?? personnage.mana) + finalValue))
+      }
+      if (e.cible_jauge === 'stam') {
+        updates.stam = Math.max(0, Math.min(personnage.stam_max, (updates.stam ?? personnage.stam) + finalValue))
+      }
+    }
+
+    if (diceResults.length > 0) {
+      setDiceResult(null);
+      setTimeout(() => setDiceResult(diceResults), 10);
+    }
 
     // 2. Appliquer les changements (si soin par exemple)
     if (Object.keys(updates).length > 0) {
@@ -48,7 +90,7 @@ export function useItemUsage(
     await consommerItemOptimiste(entry.id, 1)
     
     afficherToast(`Utilisation de ${items.nom}`)
-  }, [personnage, mettreAJourLocalement, consommerItemOptimiste, pnjControle, setPnjControle])
+  }, [personnage, mettreAJourLocalement, consommerItemOptimiste, pnjControle, setPnjControle, setDiceResult])
 
   return { toasts, utiliserItem }
 }

@@ -7,7 +7,7 @@ export const bestiaireService = {
    */
   getTemplates: async (sessionId: string, type: PersonnageType) => {
     const { data } = await supabase
-      .from('personnages')
+      .from('v_personnages')
       .select('*')
       .eq('id_session', sessionId)
       .eq('is_template', true)
@@ -20,7 +20,7 @@ export const bestiaireService = {
    */
   getInstances: async (sessionId: string, type: PersonnageType | PersonnageType[]) => {
     const query = supabase
-      .from('personnages')
+      .from('v_personnages')
       .select('*')
       .eq('id_session', sessionId)
       .eq('is_template', false)
@@ -53,9 +53,9 @@ export const bestiaireService = {
             type: typeFinal,
             is_template: false,
             template_id: template.id,
-            hp_max: template.hp_max, hp_actuel: template.hp_max,
-            mana_max: template.mana_max, mana_actuel: template.mana_max,
-            stam_max: template.stam_max, stam_actuel: template.stam_max,
+            hp_max: template.hp_max, hp: template.hp_max,
+            mana_max: template.mana_max, mana: template.mana_max,
+            stam_max: template.stam_max, stam: template.stam_max,
           })
           .select().single()
 
