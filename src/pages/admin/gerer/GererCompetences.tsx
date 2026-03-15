@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../supabase'
-import { useStore } from '../../../store/useStore'
 import { useCompetences } from '../../../hooks/useCompetences'
 import { competenceService } from '../../../services/competenceService'
-import { Personnage, PersonnageCompetence, Competence } from '../../../types'
+import { Personnage, PersonnageCompetence } from '../../../types'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
 import { Badge } from '../../../components/ui/Badge'
-import { Input } from '../../../components/ui/Input'
-import { CompetenceCard } from '../../../components/competences/CompetenceCard'
 import { ConfirmationBar } from '../../../components/ui/ConfirmationBar'
 
 type Props = { personnage: Personnage }

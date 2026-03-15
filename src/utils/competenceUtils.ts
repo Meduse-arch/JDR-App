@@ -1,4 +1,4 @@
-import { EffetActif, Competence } from '../types'
+import { EffetActif } from '../types'
 
 /**
  * Vérifie si un personnage a assez de ressources pour payer les coûts d'une compétence ou d'un item.

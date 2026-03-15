@@ -3,7 +3,6 @@ import { supabase } from '../../../supabase'
 import { personnageService } from '../../../services/personnageService'
 import { useStore, type Personnage } from '../../../store/useStore'
 import { Card } from '../../../components/ui/Card'
-import { Button } from '../../../components/ui/Button'
 import { ConfirmationBar } from '../../../components/ui/ConfirmationBar'
 
 type Props = { personnage: Personnage; onRecharger?: () => void }

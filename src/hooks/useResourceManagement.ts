@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore, type Personnage } from '../store/useStore'
+import { type Personnage } from '../store/useStore'
 
 export type RessourceKey = 'hp' | 'mana' | 'stam'
 
@@ -8,8 +8,6 @@ export function useResourceManagement(
   mettreAJourLocalement: (updates: Partial<Personnage>) => Promise<void>
 ) {
   const [deltas, setDeltas] = useState<Record<RessourceKey, string>>({ hp: '', mana: '', stam: '' })
-  const pnjControle = useStore(s => s.pnjControle)
-  const setPnjControle = useStore(s => s.setPnjControle)
 
   const updateDelta = (key: RessourceKey, value: string) => {
     setDeltas(prev => ({ ...prev, [key]: value }))

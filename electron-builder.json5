@@ -11,8 +11,8 @@
     "dist-electron"
   ],
   "win": {
-    "sign": false,
-    "forceCodeSigning": false,
+    "sign": null,
+    "verifyUpdateCodeSignature": false,
     "target": "nsis"
   },
   "nsis": {

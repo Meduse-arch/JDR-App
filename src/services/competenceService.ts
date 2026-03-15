@@ -69,7 +69,7 @@ export const competenceService = {
         .filter(e => e.cible_jauge)
         .map(e => ({
           id_competence: idCompetence,
-          cible_jauge: (['hp', 'mana', 'stam'].includes(e.cible_jauge) ? e.cible_jauge : 'hp') as 'hp' | 'mana' | 'stam',
+          cible_jauge: (['hp', 'mana', 'stam', 'dice', 'hp_max', 'mana_max', 'stam_max'].includes(e.cible_jauge) ? e.cible_jauge : 'hp') as 'hp' | 'mana' | 'stam' | 'dice' | 'hp_max' | 'mana_max' | 'stam_max',
           valeur: e.valeur || 0,
           des_nb: e.des_nb || null,
           des_faces: e.des_faces || null,
@@ -138,7 +138,7 @@ export const competenceService = {
         .filter(e => e.cible_jauge)
         .map(e => ({
           id_competence: newComp.id,
-          cible_jauge: (['hp', 'mana', 'stam'].includes(e.cible_jauge) ? e.cible_jauge : 'hp') as 'hp' | 'mana' | 'stam',
+          cible_jauge: (['hp', 'mana', 'stam', 'dice', 'hp_max', 'mana_max', 'stam_max'].includes(e.cible_jauge) ? e.cible_jauge : 'hp') as 'hp' | 'mana' | 'stam' | 'dice' | 'hp_max' | 'mana_max' | 'stam_max',
           valeur: e.valeur || 0,
           des_nb: e.des_nb || null,
           des_faces: e.des_faces || null,

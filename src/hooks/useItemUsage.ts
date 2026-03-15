@@ -24,8 +24,8 @@ export function useItemUsage(
     const updates: any = {}
     
     // Couleurs par jauge
-    const colors: Record<string, string> = { hp: '#ef4444', mana: '#3b82f6', stam: '#eab308' }
-    const labels: Record<string, string> = { hp: 'Soin / Dégâts PV', mana: 'Restauration Mana', stam: 'Restauration Stamina' }
+    const colors: Record<string, string> = { hp: '#ef4444', mana: '#3b82f6', stam: '#eab308', hp_max: '#dc2626', mana_max: '#2563eb', stam_max: '#ca8a04' }
+    const labels: Record<string, string> = { hp: 'Soin / Dégâts PV', mana: 'Restauration Mana', stam: 'Restauration Stamina', hp_max: 'PV Max', mana_max: 'Mana Max', stam_max: 'Stamina Max' }
 
     const diceResults: any[] = [];
 
@@ -40,7 +40,8 @@ export function useItemUsage(
         if (e.des_stat_id) {
           // Dé sur stat
           const { data: statsPerso } = await supabase.from('personnage_stats').select('valeur, stats(nom)').eq('id_personnage', personnage.id).eq('id_stat', e.des_stat_id).single()
-          rollRes = rollStatDice(statsPerso?.valeur || 10, e.valeur, statsPerso?.stats?.nom || 'Stat')
+          const statsData: any = statsPerso?.stats;
+          rollRes = rollStatDice(statsPerso?.valeur || 10, e.valeur, (Array.isArray(statsData) ? statsData[0]?.nom : statsData?.nom) || 'Stat')
         } else {
           // Dé fixe
           rollRes = rollDice(e.des_nb, e.des_faces || 6, e.valeur)
@@ -66,6 +67,15 @@ export function useItemUsage(
       }
       if (e.cible_jauge === 'stam') {
         updates.stam = Math.max(0, Math.min(personnage.stam_max, (updates.stam ?? personnage.stam) + finalValue))
+      }
+      if (e.cible_jauge === 'hp_max') {
+        updates.hp_max = Math.max(0, (updates.hp_max ?? personnage.hp_max) + finalValue)
+      }
+      if (e.cible_jauge === 'mana_max') {
+        updates.mana_max = Math.max(0, (updates.mana_max ?? personnage.mana_max) + finalValue)
+      }
+      if (e.cible_jauge === 'stam_max') {
+        updates.stam_max = Math.max(0, (updates.stam_max ?? personnage.stam_max) + finalValue)
       }
     }
 

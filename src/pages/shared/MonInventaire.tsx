@@ -37,8 +37,8 @@ export default function MonInventaire() {
     const updates: any = {}
     
     // Couleurs par jauge
-    const colors: Record<string, string> = { hp: '#ef4444', mana: '#3b82f6', stam: '#eab308' }
-    const labels: Record<string, string> = { hp: 'PV', mana: 'Mana', stam: 'Stamina' }
+    const colors: Record<string, string> = { hp: '#ef4444', mana: '#3b82f6', stam: '#eab308', hp_max: '#dc2626', mana_max: '#2563eb', stam_max: '#ca8a04' }
+    const labels: Record<string, string> = { hp: 'PV', mana: 'Mana', stam: 'Stamina', hp_max: 'PV Max', mana_max: 'Mana Max', stam_max: 'Stamina Max' }
 
     // 1. Vérifier si le personnage peut payer les coûts fixes
     const erreurCout = verifierCoutsFixes(effets, personnage, labels, sourceNom);
@@ -58,7 +58,8 @@ export default function MonInventaire() {
         let rollRes;
         if (effet.des_stat_id) {
           const { data: sP } = await supabase.from('personnage_stats').select('valeur, stats(nom)').eq('id_personnage', personnage.id).eq('id_stat', effet.des_stat_id).single()
-          rollRes = rollStatDice(sP?.valeur || 10, effet.valeur, sP?.stats?.nom || 'Stat')
+          const statsData: any = sP?.stats;
+          rollRes = rollStatDice(sP?.valeur || 10, effet.valeur, (Array.isArray(statsData) ? statsData[0]?.nom : statsData?.nom) || 'Stat')
         } else {
           rollRes = rollDice(effet.des_nb, effet.des_faces || 6, effet.valeur)
         }
@@ -74,10 +75,14 @@ export default function MonInventaire() {
 
       const champ = effet.cible_jauge
       if (labels[champ]) {
-        const maxChamp = `${champ}_max`
         const actuel = Number(updates[champ] ?? (personnage as any)[champ] ?? 0)
-        const max = Number((personnage as any)[maxChamp] ?? actuel + finalValue)
-        updates[champ] = Math.max(0, Math.min(max, actuel + finalValue))
+        if (champ.includes('_max')) {
+          updates[champ] = Math.max(0, actuel + finalValue)
+        } else {
+          const maxChamp = `${champ}_max`
+          const max = Number((personnage as any)[maxChamp] ?? actuel + finalValue)
+          updates[champ] = Math.max(0, Math.min(max, actuel + finalValue))
+        }
       }
     }
 

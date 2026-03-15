@@ -17,7 +17,10 @@ import { filtrerCompetences } from '../../utils/competenceUtils'
 const JAUGES = [
   { value: 'hp', label: 'HP', color: '#ef4444' },
   { value: 'mana', label: 'Mana', color: '#3b82f6' },
-  { value: 'stam', label: 'Stamina', color: '#eab308' }
+  { value: 'stam', label: 'Stamina', color: '#eab308' },
+  { value: 'hp_max', label: 'HP Max', color: '#dc2626' },
+  { value: 'mana_max', label: 'Mana Max', color: '#2563eb' },
+  { value: 'stam_max', label: 'Stam Max', color: '#ca8a04' }
 ]
 
 export default function Competences() {
@@ -133,9 +136,9 @@ export default function Competences() {
     const defaultJauge = 'hp' as const;
     const newEffet: Partial<EffetActif> = { 
       cible_jauge: defaultJauge, 
-      valeur: type === 'dice' ? 0 : 10, 
-      des_nb: type === 'dice' ? 1 : null,
-      des_faces: type === 'dice' ? 6 : null,
+      valeur: type === 'dice' || ongletActif === 'dés' ? 0 : 10, 
+      des_nb: type === 'dice' || ongletActif === 'dés' ? 1 : null,
+      des_faces: type === 'dice' || ongletActif === 'dés' ? 6 : null,
       des_stat_id: null,
       est_cout: ongletActif === 'couts',
       est_jet_de: ongletActif === 'dés'
@@ -250,13 +253,19 @@ export default function Competences() {
                     <Card key={`m-${idx}`} className="p-4 bg-white/5 border-white/5 flex flex-col gap-4 relative group">
                       <button onClick={() => removeModif(idx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity">✕</button>
                       <div className="grid grid-cols-2 gap-4">
-                        <Select label="Statistique" value={m.id_stat} onChange={e => updateModif(idx, { id_stat: e.target.value })}>
-                          {stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                        </Select>
-                        <Select label="Élément" value={m.id_element || ''} onChange={e => updateModif(idx, { id_element: e.target.value || null })}>
-                          <option value="">Aucun</option>
-                          {elements.map(el => <option key={el.id} value={el.id}>{el.emoji} {el.nom}</option>)}
-                        </Select>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-black uppercase opacity-40 ml-1">Statistique</label>
+                          <Select value={m.id_stat} onChange={e => updateModif(idx, { id_stat: e.target.value })}>
+                            {stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                          </Select>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-black uppercase opacity-40 ml-1">Élément</label>
+                          <Select value={m.id_element || ''} onChange={e => updateModif(idx, { id_element: e.target.value || null })}>
+                            <option value="">Aucun</option>
+                            {elements.map(el => <option key={el.id} value={el.id}>{el.emoji} {el.nom}</option>)}
+                          </Select>
+                        </div>
                       </div>
                       <div className="flex flex-col gap-2">
                         <div className="flex gap-2 p-1 bg-black/20 rounded-lg">
@@ -270,7 +279,10 @@ export default function Competences() {
                           {m.type_calcul === 'fixe' || m.type_calcul === 'pourcentage' ? (
                             <div className="col-span-full"><Input type="number" label={m.type_calcul === 'pourcentage' ? "Valeur (%)" : "Valeur"} value={m.valeur} onChange={e => updateModif(idx, { valeur: parseInt(e.target.value) || 0 })} /></div>
                           ) : m.type_calcul === 'roll_stat' ? (
-                            <div className="col-span-full"><Select label="Basé sur" value={m.des_stat_id || ''} onChange={e => updateModif(idx, { des_stat_id: e.target.value || null })}>{stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</Select></div>
+                            <div className="col-span-full">
+                              <label className="text-[10px] font-black uppercase opacity-40 ml-1">Basé sur</label>
+                              <Select value={m.des_stat_id || ''} onChange={e => updateModif(idx, { des_stat_id: e.target.value || null })}>{stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</Select>
+                            </div>
                           ) : (
                             <>
                               <Input type="number" label="Nb" value={m.des_nb || ''} onChange={e => updateModif(idx, { des_nb: parseInt(e.target.value) || 0 })} />
@@ -317,7 +329,10 @@ export default function Competences() {
                           {!e.des_nb && !e.des_stat_id ? (
                             <div className="col-span-full"><Input type="number" label={ongletActif === 'couts' ? "Perte" : "Valeur"} value={Math.abs(e.valeur || 0)} onChange={ev => updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, ongletActif as any)} /></div>
                           ) : e.des_stat_id ? (
-                            <div className="col-span-full"><Select label="Basé sur" value={e.des_stat_id || ''} onChange={ev => updateEffet(idx, { des_stat_id: ev.target.value || null }, ongletActif as any)}>{stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</Select></div>
+                            <div className="col-span-full">
+                              <label className="text-[10px] font-black uppercase opacity-40 ml-1">Basé sur</label>
+                              <Select value={e.des_stat_id || ''} onChange={ev => updateEffet(idx, { des_stat_id: ev.target.value || null }, ongletActif as any)}>{stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</Select>
+                            </div>
                           ) : (
                             <>
                               <Input type="number" label="Nb" value={e.des_nb || ''} onChange={ev => updateEffet(idx, { des_nb: parseInt(ev.target.value) || 0 }, ongletActif as any)} />

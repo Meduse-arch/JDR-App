@@ -15,7 +15,7 @@ export interface EffetActif {
   id: string;
   id_item?: string | null;
   id_competence?: string | null;
-  cible_jauge: 'hp' | 'mana' | 'stam';
+  cible_jauge: 'hp' | 'mana' | 'stam' | 'dice' | 'hp_max' | 'mana_max' | 'stam_max';
   valeur: number;
   des_nb?: number | null;
   des_faces?: number | null;
