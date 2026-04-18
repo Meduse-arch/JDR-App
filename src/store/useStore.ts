@@ -1,0 +1,139 @@
+import { create } from 'zustand'
+import { broadcastService } from '../services/broadcastService'
+
+export type RoleId = 'admin' | 'mj' | 'joueur'
+export type ThemeId = 'theme-violet' | 'theme-default'
+export type ModeId = 'mode-dark' | 'mode-light'
+
+export type Compte = { id: string; pseudo: string; role: RoleId }
+export type Session = { id: string; nom: string; description: string; cree_par: string; created_at?: string; parametres?: any }
+export type PersonnageType = 'Joueur' | 'PNJ' | 'Monstre' | 'Boss'
+
+export type Personnage = {
+  id: string
+  id_session: string
+  nom: string
+  type: PersonnageType
+  is_template: boolean
+  template_id?: string | null
+  lie_au_compte?: string | null
+  hp: number
+  hp_max: number
+  mana: number
+  mana_max: number
+  stam: number
+  stam_max: number
+  created_at?: string
+  image_url?: string | null   // ← image de profil du personnage (colonne personnages.image_url)
+  couleur?: string | null
+}
+
+export type DiceResult = { rolls: number[], total: number, bonus: number, diceString: string, label: string, color: string, secret?: boolean }
+
+interface JdrState {
+  compte: Compte | null
+  sessionActive: Session | null
+  roleEffectif: RoleId | null
+  pageCourante: string
+  pnjControle: Personnage | null
+  personnageJoueur: Personnage | null
+  theme: ThemeId
+  mode: ModeId
+  diceResult: DiceResult[] | null
+  diceSharingEnabled: boolean
+  buffRolls: Record<string, number>
+  enteringSession: { id: string, nom: string } | null
+  setCompte: (c: Compte | null) => void
+  setSessionActive: (s: Session | null) => void
+  setRoleEffectif: (r: RoleId | null) => void
+  setPageCourante: (p: string) => void
+  setPnjControle: (pnj: Personnage | null) => void
+  setPersonnageJoueur: (pj: Personnage | null) => void
+  setMode: (m: ModeId) => void
+  setDiceResult: (diceResult: DiceResult[] | null, broadcast?: boolean) => void
+  setDiceSharingEnabled: (enabled: boolean) => void
+  setBuffRoll: (key: string, val: number) => void
+  setEnteringSession: (s: { id: string, nom: string } | null) => void
+  deconnexion: () => void
+}
+
+export const useStore = create<JdrState>((set, get) => ({
+  compte: JSON.parse(localStorage.getItem('sigil-compte') || 'null'),
+  sessionActive: null,
+  roleEffectif: null,
+  pageCourante: 'sessions',
+  pnjControle: JSON.parse(localStorage.getItem('sigil-pnj-controle') || 'null'),
+  personnageJoueur: JSON.parse(localStorage.getItem('sigil-personnage-joueur') || 'null'),
+  theme: (localStorage.getItem('sigil-theme') as ThemeId) || 'theme-violet',
+  mode: (localStorage.getItem('sigil-mode') as ModeId) || 'mode-dark',
+  diceResult: null,
+  diceSharingEnabled: false,
+  buffRolls: {},
+  enteringSession: null,
+  setCompte: (compte) => {
+    if (compte) localStorage.setItem('sigil-compte', JSON.stringify(compte))
+    else localStorage.removeItem('sigil-compte')
+    set({ compte })
+  },
+  setSessionActive: (session) => {
+    if (!session) {
+      localStorage.removeItem('sigil-pnj-controle')
+      localStorage.removeItem('sigil-personnage-joueur')
+      sessionStorage.removeItem('sigil-selection-visitee')
+    }
+    const savedPnj = JSON.parse(localStorage.getItem('sigil-pnj-controle') || 'null')
+    const savedPj = JSON.parse(localStorage.getItem('sigil-personnage-joueur') || 'null')
+    const pnjControle = (session && savedPnj?.id_session === session.id) ? savedPnj : null
+    const personnageJoueur = (session && savedPj?.id_session === session.id) ? savedPj : null
+    if (!pnjControle) localStorage.removeItem('sigil-pnj-controle')
+    if (!personnageJoueur) localStorage.removeItem('sigil-personnage-joueur')
+    set({ sessionActive: session, pnjControle, personnageJoueur })
+  },
+  setRoleEffectif: (role) => {
+    if (!role) localStorage.removeItem('sigil-role-effectif')
+    set({ roleEffectif: role })
+  },
+  setPageCourante: (page) => { set({ pageCourante: page }) },
+  setPnjControle: (pnj) => {
+    if (pnj) localStorage.setItem('sigil-pnj-controle', JSON.stringify(pnj))
+    else localStorage.removeItem('sigil-pnj-controle')
+    set({ pnjControle: pnj })
+  },
+  setPersonnageJoueur: (pj) => {
+    if (pj) localStorage.setItem('sigil-personnage-joueur', JSON.stringify(pj))
+    else localStorage.removeItem('sigil-personnage-joueur')
+    set({ personnageJoueur: pj })
+  },
+  setMode: (mode) => { localStorage.setItem('sigil-mode', mode); set({ mode }) },
+  setDiceResult: (diceResult, broadcast = true) => {
+    const { sessionActive, diceSharingEnabled, compte } = get();
+    // On diffuse toujours si broadcast est true, mais on ajoute des métadonnées pour gérer les jets secrets
+    if (broadcast && diceResult && sessionActive && compte) {
+      const isSecretLocally = !diceSharingEnabled;
+      const isSecret = isSecretLocally || diceResult.some(r => r.secret === true);
+      
+      const senderId = compte.id; // On utilise l'ID du compte pour le partage
+      
+      // On attache les viewers autorisés depuis notre propre copie des paramètres
+      const partagesDes = sessionActive.parametres?.partagesDes || {};
+      const allowedViewers = partagesDes[senderId] || [];
+      
+      const payload = {
+        diceResult,
+        isSecret,
+        senderId,
+        allowedViewers
+      };
+      
+      broadcastService.send(sessionActive.id, 'dice-roll', payload);
+    }
+    set({ diceResult });
+  },
+  setDiceSharingEnabled: (diceSharingEnabled) => set({ diceSharingEnabled }),
+  setBuffRoll: (key, val) => set((state) => ({ buffRolls: { ...state.buffRolls, [key]: val } })),
+  setEnteringSession: (enteringSession) => set({ enteringSession }),
+  deconnexion: () => {
+    localStorage.clear()
+    set({ compte: null, sessionActive: null, roleEffectif: null, pageCourante: 'sessions', pnjControle: null, personnageJoueur: null, buffRolls: {}, diceSharingEnabled: false })
+  },
+}))

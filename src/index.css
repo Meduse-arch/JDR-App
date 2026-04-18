@@ -1,0 +1,140 @@
+@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-main:    #8b4513; /* Accents: Leather / Brown */
+    --color-light:   #a0522d;
+    --color-dark:    #5c2e0b;
+    --color-glow:    rgba(139, 69, 19, 0.3);
+    --color-accent2: #d2691e;
+
+    --bg-app:        #fdf6e3; /* Light Mode: Old Paper */
+    --bg-surface:    #f4e8d3;
+    --bg-card:       #f9f1e1;
+    --bg-card-hover: #f0e2c8;
+    --bg-input:      #f4e8d3;
+    --border:        #d3c5a3;
+    --border-subtle: rgba(211, 197, 163, 0.5);
+
+    --text-primary:  #2d241e; /* Text: Dark Brown */
+    --text-secondary:#5a4a3f;
+    --text-muted:    #8a7b6e;
+  }
+
+  .mode-dark {
+    --color-main:    #d4af37; /* Accents: Aged Gold */
+    --color-light:   #e5c158;
+    --color-dark:    #aa8c2c;
+    --color-glow:    rgba(212, 175, 55, 0.3);
+    --color-accent2: #c5a017;
+
+    --bg-app:        #1a1a1d; /* Dark Mode: Void Grimoire */
+    --bg-surface:    #222226;
+    --bg-card:       #2a2a2f;
+    --bg-card-hover: #333339;
+    --bg-input:      #222226;
+    --border:        #3d3d45;
+    --border-subtle: rgba(61, 61, 69, 0.5);
+
+    --text-primary:  #e0d5c3; /* Text: Light Parchment */
+    --text-secondary:#a89f91;
+    --text-muted:    #757067;
+  }
+
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: 'EB Garamond', serif;
+    position: relative;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-cinzel {
+    font-family: 'Cinzel', serif;
+  }
+
+  /* Runic Background Overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.03;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="10" y="40" font-size="20" fill="%23000">ᚠ ᚢ ᚦ</text><text x="60" y="90" font-size="24" fill="%23000">ᚨ ᚱ ᚲ</text><text x="20" y="150" font-size="18" fill="%23000">ᚷ ᚹ ᚺ</text><text x="120" y="60" font-size="22" fill="%23000">ᚻ ᚼ ᛁ</text><text x="100" y="180" font-size="20" fill="%23000">ᛃ ᛇ ᛈ</text></svg>');
+  }
+
+  .mode-dark body::before {
+    opacity: 0.05;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="10" y="40" font-size="20" fill="%23fff">ᚠ ᚢ ᚦ</text><text x="60" y="90" font-size="24" fill="%23fff">ᚨ ᚱ ᚲ</text><text x="20" y="150" font-size="18" fill="%23fff">ᚷ ᚹ ᚺ</text><text x="120" y="60" font-size="22" fill="%23fff">ᚻ ᚼ ᛁ</text><text x="100" y="180" font-size="20" fill="%23fff">ᛃ ᛇ ᛈ</text></svg>');
+  }
+}
+
+@layer utilities {
+  .bg-app       { background-color: var(--bg-app); }
+  .bg-surface   { background-color: var(--bg-surface); }
+  .bg-card      { background-color: var(--bg-card); }
+  .bg-card-hover:hover { background-color: var(--bg-card-hover); }
+  .bg-input-theme { background-color: var(--bg-input); }
+
+  .border-theme  { border-color: var(--border); }
+  .border-subtle { border-color: var(--border-subtle); }
+
+  .text-primary   { color: var(--text-primary); }
+  .text-secondary { color: var(--text-secondary); }
+  .text-muted-theme { color: var(--text-muted); }
+
+  .text-theme-main  { color: var(--color-main); }
+  .text-theme-light { color: var(--color-light); }
+  .text-theme-dark  { color: var(--color-dark); }
+  .bg-theme-main    { background-color: var(--color-main); }
+  .bg-theme-light   { background-color: var(--color-light); }
+  .bg-theme-dark    { background-color: var(--color-dark); }
+  .border-theme-main { border-color: var(--color-main); }
+
+  .gradient-title {
+    background: linear-gradient(to right, var(--color-light), var(--color-accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .medieval-border {
+    border: 4px double var(--border);
+    border-radius: 8px;
+    position: relative;
+  }
+  
+  .medieval-border::before, .medieval-border::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    border: 2px solid var(--color-main);
+  }
+  .medieval-border::before { top: -4px; left: -4px; border-right: none; border-bottom: none; }
+  .medieval-border::after { bottom: -4px; right: -4px; border-left: none; border-top: none; }
+
+  .vignette-effect {
+    box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.85);
+    pointer-events: none;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar        { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track  {
+  background: var(--bg-surface);
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb  {
+  background: var(--color-dark);
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-main);
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes runeFlicker { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.15; } }

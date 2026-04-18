@@ -1,0 +1,18 @@
+export const RUNES_PAGES: Record<string, string> = {
+  'dashboard':            'ᛟ',
+  'selection-personnage': 'ᛞ',
+  'mon-personnage':       'ᛉ',
+  'mon-inventaire':       'ᚠ',
+  'items':                'ᚠ',
+  'mes-competences':      'ᚨ',
+  'competences':          'ᚨ',
+  'mes-quetes':           'ᚱ',
+  'quetes':               'ᚱ',
+  'lancer-des':           'ᚷ',
+  'map':                  'ᚾ',
+  'tags':                 'ᛜ',
+  'gerer':                'ᚢ',
+  'possession':           'ᛗ',
+  'logs':                 'ᛚ',
+  'chat':                  'ᛇ',
+}

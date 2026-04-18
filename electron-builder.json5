@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.jdr.app",
+  "asar": true,
+  "productName": "Sigil",
+  "directories": {
+    "output": "C:\\Users\\geekr\\Desktop\\projet\\app"
+  },
+  "files": [
+    "dist",
+    "dist-electron"
+  ],
+  "win": {
+    "icon": "public/logo.png",
+    "sign": null,
+    "verifyUpdateCodeSignature": false,
+    "target": "nsis"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  },
+  "mac": null,
+  "linux": null
+}

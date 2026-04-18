@@ -1,0 +1,364 @@
+import { useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import { Personnage, Quete } from '../../types'
+import { useQueteForge } from '../../hooks/useQueteForge'
+import { useQuetePersonnage } from '../../hooks/useQuetePersonnage'
+import { useQuetes } from '../../hooks/useQuetes'
+import { queteService } from '../../services/queteService'
+
+import QueteForgeForm from './QueteForgeForm'
+import { QueteDetailModal } from '../ui/modal'
+import { QueteCard } from '../ui/card'
+import { Button } from '../ui/Button'
+import { ConfirmationBar } from '../ui/ConfirmationBar'
+import { PenTool, Search, CheckCircle2, XCircle, Scroll } from 'lucide-react'
+
+interface Props {
+  mode: 'forge' | 'joueur' | 'attribuer'
+  personnage?: Personnage | null
+}
+
+export default function QuetesView({ mode, personnage = null }: Props) {
+  const forge = useQueteForge()
+  const perso = useQuetePersonnage(personnage)
+  const globalQuetes = useQuetes()
+
+  const [vue, setVue] = useState<'liste' | 'form'>('liste')
+  const [detail, setDetail] = useState<Quete | null>(null)
+  const [recherche, setRecherche] = useState('')
+  const [filtreStatut, setFiltreStatut] = useState('Tous')
+  const [ongletAttr, setOngletAttr] = useState<'liste' | 'ajouter'>('liste')
+  const [ongletJoueur, setOngletJoueur] = useState<'actuel' | 'chroniques'>('actuel')
+  const [ongletForge, setOngletForge] = useState<'encours' | 'terminees' | 'echouees'>('encours')
+  const [selectionRetirer, setSelectionRetirer] = useState<string[]>([])
+  const [selectionAjouter, setSelectionAjouter] = useState<string[]>([])
+  const [enRetrait, setEnRetrait] = useState(false)
+  const [enAjout, setEnAjout] = useState(false)
+
+  const handleSave = async () => {
+    const ok = await forge.sauvegarder()
+    if (ok) setVue('liste')
+    return ok
+  }
+
+  const handleReouvrirQuete = async (id: string) => {
+    const success = await queteService.modifierStatut(id, 'En cours')
+    if (success) {
+      if (mode === 'joueur') {
+        perso.chargerQuetes?.()
+      } else {
+        globalQuetes.charger()
+      }
+      setDetail(null)
+    }
+  }
+
+  const toggleSelectionRetirer = (id: string) => {
+    setSelectionRetirer(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+
+  const toggleSelectionAjouter = (id: string) => {
+    setSelectionAjouter(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+
+  const retirerSelection = async () => {
+    if (!personnage || selectionRetirer.length === 0) return
+    setEnRetrait(true)
+    try {
+      for (const idQuete of selectionRetirer) {
+        await queteService.desassignerQuete(personnage.id, idQuete)
+      }
+      setSelectionRetirer([])
+      perso.chargerQuetes?.()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setEnRetrait(false)
+    }
+  }
+
+  const ajouterSelection = async () => {
+    if (!personnage || selectionAjouter.length === 0) return
+    setEnAjout(true)
+    try {
+      for (const idQuete of selectionAjouter) {
+        await queteService.assignerQuete(personnage.id, idQuete)
+      }
+      setSelectionAjouter([])
+      setOngletAttr('liste')
+      perso.chargerQuetes?.()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setEnAjout(false)
+    }
+  }
+
+  const idsAssignees = new Set(
+    perso.toutesQuetes.map((q: any) => q.id)
+  )
+
+  const listSource = mode === 'forge'
+    ? globalQuetes.quetes.filter(q => {
+        if (ongletForge === 'encours') return q.statut === 'En cours'
+        if (ongletForge === 'terminees') return q.statut === 'Terminée'
+        if (ongletForge === 'echouees') return q.statut === 'Échouée'
+        return true
+      })
+    : mode === 'joueur'
+      ? perso.toutesQuetes
+      : globalQuetes.quetes // mode attribuer : toujours toute la lib
+
+  const filteredRaw = listSource.filter((q: any) => {
+    if (mode === 'attribuer' && ongletAttr === 'liste') {
+      if (!idsAssignees.has(q.id)) return false
+    }
+    if (mode === 'attribuer' && ongletAttr === 'ajouter') {
+      if (idsAssignees.has(q.id)) return false
+    }
+    if (mode === 'joueur') {
+      const isFinished = q.statut === 'Terminée' || q.statut === 'Échouée'
+      if (ongletJoueur === 'actuel' && isFinished) return false
+      if (ongletJoueur === 'chroniques' && !isFinished) return false
+      if (filtreStatut === 'Suivie' && !(q as any).suivie) return false
+      if (filtreStatut !== 'Tous' && filtreStatut !== 'Suivie' && q.statut !== filtreStatut) return false
+    }
+    if (mode !== 'joueur' && filtreStatut !== 'Tous' && q.statut !== filtreStatut) return false
+    return (q.titre || '').toLowerCase().includes(recherche.toLowerCase())
+  })
+
+  const filtered = mode === 'attribuer'
+    ? [...filteredRaw].sort((a: any, b: any) => {
+        const selA = selectionRetirer.includes(a.id) || selectionAjouter.includes(a.id) ? 1 : 0
+        const selB = selectionRetirer.includes(b.id) || selectionAjouter.includes(b.id) ? 1 : 0
+        return selB - selA
+      })
+    : filteredRaw
+
+  const filterOptions = mode === 'joueur' 
+    ? (ongletJoueur === 'actuel' ? ['Tous', 'Suivie', 'En cours'] : ['Tous', 'Terminée', 'Échouée'])
+    : ['Tous', 'En cours', 'Terminée', 'Échouée'];
+
+  if (mode === 'forge' && vue === 'form') {
+    return <QueteForgeForm {...forge} onSave={handleSave} onCancel={() => { forge.reset(); setVue('liste') }} />
+  }
+
+  return (
+    <div className="relative flex flex-col gap-8">
+      {/* BARRE D'OUTILS */}
+      <div className="flex flex-col gap-0 border-b border-theme/10 mb-6 mt-4">
+        {/* Ligne 1 : Onglets principaux + Recherche */}
+        <div className="flex items-center gap-6 pb-3 flex-wrap">
+
+          {/* Onglets mode joueur */}
+          {mode === 'joueur' && [
+            { id: 'actuel', label: 'Destin Actuel' },
+            { id: 'chroniques', label: 'Chroniques' }
+          ].map(tab => (
+            <button key={tab.id}
+              onClick={() => { setOngletJoueur(tab.id as any); setFiltreStatut('Tous'); }}
+              className={`font-cinzel text-[11px] uppercase tracking-[0.3em] transition-all relative py-1 ${ongletJoueur === tab.id ? 'text-theme-main' : 'text-primary opacity-30 hover:opacity-70'}`}>
+              {tab.label}
+              {ongletJoueur === tab.id && <div className="absolute bottom-0 left-0 w-full h-px bg-theme-main shadow-[0_0_8px_var(--color-main)]" />}
+            </button>
+          ))}
+
+          {/* Onglets mode forge */}
+          {mode === 'forge' && [
+            { id: 'encours', label: 'En Cours' },
+            { id: 'terminees', label: 'Chroniques' },
+            { id: 'echouees', label: 'Échouées' }
+          ].map(tab => (
+            <button key={tab.id}
+              onClick={() => { setOngletForge(tab.id as any); setFiltreStatut('Tous'); }}
+              className={`font-cinzel text-[11px] uppercase tracking-[0.3em] transition-all relative py-1 ${ongletForge === tab.id ? 'text-theme-main' : 'text-primary opacity-30 hover:opacity-70'}`}>
+              {tab.label}
+              {ongletForge === tab.id && <div className="absolute bottom-0 left-0 w-full h-px bg-theme-main shadow-[0_0_8px_var(--color-main)]" />}
+            </button>
+          ))}
+
+          {/* Onglets mode attribuer : Possédées / Bibliothèque */}
+          {mode === 'attribuer' && (
+            <>
+              {(['liste', 'ajouter'] as const).map(o => (
+                <button key={o} onClick={() => setOngletAttr(o)}
+                  className={`font-cinzel text-[11px] uppercase tracking-[0.3em] transition-all relative py-1 ${ongletAttr === o ? 'text-theme-main' : 'text-primary opacity-30 hover:opacity-70'}`}>
+                  {o === 'liste' ? 'Assignées' : 'Bibliothèque'}
+                  {ongletAttr === o && <div className="absolute bottom-0 left-0 w-full h-px bg-theme-main shadow-[0_0_8px_var(--color-main)]" />}
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Bouton forge */}
+          {mode === 'forge' && (
+            <Button onClick={() => setVue('form')} className="ml-auto font-cinzel gap-2 group border-theme-main/30 hover:border-theme-main/60 transition-all text-[10px] uppercase py-2 px-6">
+              <PenTool size={14} className="group-hover:rotate-12 transition-transform" />
+              Inscrire un nouveau récit
+            </Button>
+          )}
+
+          {/* Recherche */}
+          <div className={`relative w-40 group ${mode !== 'forge' ? 'ml-auto' : ''}`}>
+            <Search size={13} className="absolute left-0 top-1/2 -translate-y-1/2 text-theme-main opacity-40 group-focus-within:opacity-100 transition-opacity" />
+            <input type="text" placeholder="Rechercher..." value={recherche} onChange={e => setRecherche(e.target.value)}
+              className="w-full pl-5 pr-2 py-1.5 bg-transparent border-b border-theme/10 font-garamond italic text-primary focus:border-theme-main/50 outline-none transition-all placeholder:opacity-20 text-sm" />
+          </div>
+        </div>
+
+        {/* Ligne 2 : Filtres statut (sauf mode attribuer) */}
+        {mode !== 'attribuer' && (
+          <div className="flex gap-4 pb-3 overflow-x-auto no-scrollbar">
+            {filterOptions.map(s => (
+              <button key={s} onClick={() => setFiltreStatut(s)}
+                className={`font-cinzel text-[10px] uppercase tracking-[0.25em] transition-all relative py-1 whitespace-nowrap ${filtreStatut === s ? 'text-theme-main' : 'text-primary opacity-30 hover:opacity-70'}`}>
+                {s}
+                {filtreStatut === s && <div className="absolute bottom-0 left-0 w-full h-px bg-theme-main shadow-[0_0_8px_var(--color-main)]" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Grille des Récits */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-24 mt-10">
+        <AnimatePresence mode="popLayout">
+          {filtered.map((q: any) => {
+            const isAssignee = idsAssignees.has(q.id)
+            const isSelRetirer = selectionRetirer.includes(q.id)
+            const isSelAjouter = selectionAjouter.includes(q.id)
+            const isSelected = isSelRetirer || isSelAjouter
+
+            // Mode forge ou joueur : QueteCard normale
+            if (mode !== 'attribuer') {
+              return (
+                  <QueteCard
+                  key={q.id}
+                  quete={q}
+                  onClick={setDetail}
+                  onEdit={mode === 'forge' ? (q) => { forge.chargerPourEdition(q); setVue('form') } : undefined}
+                  onDelete={mode === 'forge' ? (id) => forge.supprimer(id) : undefined}
+                  onSuivre={mode === 'joueur' ? (q) => perso.toggleSuivre(q as any) : undefined}
+                  isSuivie={(q as any).suivie}
+                  onReouvrir={handleReouvrirQuete}
+                />
+              )
+            }
+
+            // Mode attribuer : card unifiée
+            return (
+              <div
+                key={q.id}
+                className={`medieval-border bg-card/40 backdrop-blur-md rounded-sm relative overflow-hidden transition-all duration-300 cursor-pointer ${
+                  isSelected
+                    ? 'border-theme-main scale-[1.02] shadow-[0_0_20px_rgba(var(--color-main-rgb),0.2)]'
+                    : isAssignee && ongletAttr === 'liste'
+                      ? 'border-theme-main/20 hover:border-theme-main/40'
+                      : 'border-white/5 hover:border-theme-main/30'
+                }`}
+                onClick={() => ongletAttr === 'liste'
+                  ? toggleSelectionRetirer(q.id)
+                  : toggleSelectionAjouter(q.id)
+                }
+              >
+                {/* Checkmark */}
+                {isSelected && (
+                  <div className={`absolute -top-2 -right-2 text-white p-1.5 rounded-full shadow-lg z-30 animate-in zoom-in-50 ${
+                    isSelRetirer ? 'bg-red-600' : 'bg-theme-main'
+                  }`}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                )}
+
+                {/* Ligne top dorée */}
+                <div className="absolute top-0 left-3.5 right-3.5 h-px bg-gradient-to-r from-transparent via-theme-main/40 to-transparent" />
+
+                {/* CONTENU */}
+                <div className="p-5 flex flex-col gap-3">
+                  {/* Statut */}
+                  <div className="flex items-center gap-2">
+                    {q.statut === 'Terminée'
+                      ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
+                      : q.statut === 'Échouée'
+                        ? <XCircle size={14} className="text-red-700 shrink-0" />
+                        : <Scroll size={14} className="text-theme-main shrink-0" />
+                    }
+                    <span className={`text-[9px] font-cinzel font-black uppercase tracking-widest ${
+                      q.statut === 'Terminée' ? 'text-green-500/70' :
+                      q.statut === 'Échouée' ? 'text-red-700/70' :
+                      'text-theme-main/70'
+                    }`}>{q.statut}</span>
+                  </div>
+
+                  {/* Titre cliquable */}
+                  <h3
+                    className={`font-cinzel font-black text-lg uppercase tracking-widest leading-tight hover:text-theme-main transition-colors ${
+                      q.statut === 'Terminée' ? 'line-through opacity-50' : 'text-primary'
+                    }`}
+                    onClick={(e) => { e.stopPropagation(); setDetail(q) }}
+                  >
+                    {q.titre}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="font-garamond italic text-secondary text-sm line-clamp-2 leading-relaxed opacity-70">
+                    "{q.description || 'Les parchemins sont vierges...'}"
+                  </p>
+
+                  {/* Récompenses */}
+                  {(q.quete_recompenses?.length || 0) > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {q.quete_recompenses?.slice(0, 2).map((r: any, i: number) => (
+                        <span key={i} className="text-[8px] font-cinzel uppercase px-2 py-0.5 border bg-theme-main/5 text-theme-main/60 border-theme-main/10">
+                          🏆 {r.type === 'Item' ? (r.items?.nom || 'Objet') : r.description}
+                        </span>
+                      ))}
+                      {(q.quete_recompenses?.length || 0) > 2 && (
+                        <span className="text-[8px] font-cinzel opacity-30 uppercase px-2 py-0.5 border border-theme/10">
+                          +{q.quete_recompenses!.length - 2}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* BARRE DE CONFIRMATION */}
+      {mode === 'attribuer' && (selectionRetirer.length > 0 || selectionAjouter.length > 0) && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-4">
+          <ConfirmationBar
+            label={selectionRetirer.length > 0
+              ? `${selectionRetirer.length} récit(s) à retirer`
+              : `${selectionAjouter.length} récit(s) à inscrire`
+            }
+            onConfirm={selectionRetirer.length > 0 ? retirerSelection : ajouterSelection}
+            onCancel={() => { setSelectionRetirer([]); setSelectionAjouter([]) }}
+            confirmText={selectionRetirer.length > 0 ? "Retirer les récits" : "Inscrire les récits"}
+            loading={enRetrait || enAjout}
+          />
+        </div>
+      )}
+
+      <QueteDetailModal 
+        quete={detail} 
+        mode={mode === 'forge' ? 'forge' : 'joueur'} 
+        onClose={() => setDetail(null)}
+        onTerminer={(id) => { forge.modifierStatut(id, 'Terminée'); setDetail(null); }}
+        onEchouer={(id) => { forge.modifierStatut(id, 'Échouée'); setDetail(null); }}
+        onReouvrir={handleReouvrirQuete}
+        onSuivre={(q) => perso.toggleSuivre(q)}
+        onEditer={(q) => { forge.chargerPourEdition(q); setVue('form'); setDetail(null); }}
+      />
+    </div>
+  )
+}
