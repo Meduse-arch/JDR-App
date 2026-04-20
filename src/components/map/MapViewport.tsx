@@ -3,7 +3,6 @@ import { MapChannel, MapToken as MapTokenType } from '../../types';
 import { Personnage } from '../../store/useStore';
 import { MapGrid } from './MapGrid';
 import { MapToken } from './MapToken';
-import { MapFloatBar } from './MapFloatBar';
 import { MapChatPopup } from './MapChatPopup';
 import { Move } from 'lucide-react';
 
@@ -72,10 +71,6 @@ export function MapViewport({
   handleWheel,
   handleCanvasMouseDown,
   handleMapClick,
-  handleZoomIn,
-  handleZoomOut,
-  handleFitMap,
-  toggleRuler,
   setShowMapChat,
   canDragToken,
   handleMouseDown,
@@ -198,18 +193,6 @@ export function MapViewport({
               Glisser · Molette
             </div>
           )}
-
-          {/* ── Barre flottante zoom/règle/fit + bouton chat map ── */}
-          <MapFloatBar
-            zoom={zoom}
-            isRulerActive={isRulerActive}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onFitMap={handleFitMap}
-            onToggleRuler={toggleRuler}
-            showMapChat={showMapChat}
-            onToggleMapChat={() => setShowMapChat(v => !v)}
-          />
 
           {/* ── Pop-up chat contextuel de la map ── */}
           {showMapChat && channelActif && (

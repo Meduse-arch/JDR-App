@@ -39,6 +39,8 @@ export function MapChatPopup({ channelId, channelNom, tokensOnMap, onClose }: Ma
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 50, scale: 0.95 }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+      onMouseDown={e => e.stopPropagation()}
+      data-panel
       className="absolute bottom-[80px] right-6 w-80 h-96 bg-black/80 backdrop-blur-md border border-[#c8a84b]/30 rounded-xl shadow-2xl flex flex-col overflow-hidden z-40"
       style={{ boxShadow: '0 10px 40px rgba(0,0,0,0.8), 0 0 20px rgba(200,168,75,0.1)' }}
     >

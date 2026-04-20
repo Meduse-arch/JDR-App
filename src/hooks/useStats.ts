@@ -1,70 +1,79 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { supabase } from '../supabase'
 import { useStore } from '../store/useStore'
 import { useRealtimeQuery } from './useRealtimeQuery'
 import { statsService, type StatValeur } from '../services/statsService'
 
 export function useStats() {
-  const compte = useStore(s => s.compte)
   const pnjControle = useStore(s => s.pnjControle)
+  const personnageJoueur = useStore(s => s.personnageJoueur)
   const sessionActive = useStore(s => s.sessionActive)
-  const buffRolls = useStore(s => s.buffRolls)
   const setBuffRoll = useStore(s => s.setBuffRoll)
+  const clearBuffRolls = useStore(s => s.clearBuffRolls)
 
   const [stats, setStats] = useState<StatValeur[]>([])
   const [chargement, setChargement] = useState(true)
+  const lastUpdateRef = useRef<number>(0)
+  const lastCharacterIdRef = useRef<string | null>(null)
+
+  // L'ID du personnage est soit celui contrôlé par le MJ, soit celui du Joueur
+  const characterId = pnjControle?.id || personnageJoueur?.id
+
+  // On ne vide le cache QUE si on change réellement de personnage
+  useEffect(() => {
+    if (characterId && characterId !== lastCharacterIdRef.current) {
+      clearBuffRolls()
+      lastCharacterIdRef.current = characterId
+    }
+  }, [characterId, clearBuffRolls])
 
   const chargerStats = useCallback(async () => {
+    if (!characterId || !sessionActive) {
+      setStats([])
+      setChargement(false)
+      return
+    }
+
     setChargement(true)
+    lastUpdateRef.current = Date.now()
     try {
-      let idPersonnage: string | undefined = pnjControle?.id
-
-      if (!idPersonnage) {
-        if (!compte || !sessionActive) return
-        const { data: persos } = await supabase
-          .from('v_personnages')
-          .select('id')
-          .eq('id_session', sessionActive.id)
-          .eq('lie_au_compte', compte.id)
-          .eq('type', 'Joueur')
-          .eq('is_template', false)
-          .limit(1)
-        
-        if (!persos || persos.length === 0) return
-        idPersonnage = persos[0].id
-      }
-
-      if (!idPersonnage) return
-      const characterId: string = idPersonnage
-
       // 1. Charger les buff_rolls persistés en base (source de vérité partagée)
       const buffRollsBase = await statsService.getBuffRolls(characterId)
-      // Fusionner avec le cache Zustand local (la base prime)
-      const buffRollsEffectifs = { ...buffRolls, ...buffRollsBase }
+      
+      // 2. Fusionner avec le cache Zustand local (la base est prioritaire)
+      const currentBuffRolls = useStore.getState().buffRolls
+      const buffRollsEffectifs = { ...currentBuffRolls, ...buffRollsBase }
 
-      // 2. Calculer toutes les stats via le service
+      // 3. Calculer toutes les stats via le service
+      // Récupère le rôle au moment de l'exécution (pas dans les deps)
+      const { roleEffectif, pnjControle } = useStore.getState()
+
+      // Le MJ qui surveille un personnage qu'il ne contrôle pas ne doit pas écrire en BDD
+      const estMjSpectateur = roleEffectif === 'mj' && !pnjControle?.id
+
       const calculatedStats = await statsService.calculateAllStats(
         characterId, 
         buffRollsEffectifs,
         async (cacheKey, val) => {
-          await statsService.saveBuffRoll(characterId, cacheKey, val)
+          if (!estMjSpectateur) {
+            // Joueur ou MJ qui contrôle un PNJ : il est l'auteur du jet, il sauvegarde
+            await statsService.saveBuffRoll(characterId, cacheKey, val)
+          }
+          // Dans tous les cas on met à jour le cache local pour l'affichage immédiat
           setBuffRoll(cacheKey, val)
         }
       )
 
       setStats(calculatedStats)
     } catch (error) {
-      console.error("Erreur lors du chargement des stats:", error)
+      console.error("[useStats] Erreur lors du chargement des stats:", error)
     } finally {
       setChargement(false)
     }
-  }, [compte, pnjControle, sessionActive, buffRolls, setBuffRoll])
+  }, [characterId, sessionActive?.id, setBuffRoll]) // Dépendances stabilisées
 
   useEffect(() => {
     chargerStats()
   }, [chargerStats])
-
-  const lastUpdateRef = useRef<number>(0)
 
   useRealtimeQuery({
     tables: [
@@ -77,10 +86,10 @@ export function useStats() {
     ],
     sessionId: sessionActive?.id,
     onReload: () => {
-      if (Date.now() - lastUpdateRef.current < 1000) return
+      // Rechargement inconditionnel pour assurer la synchro BDD
       chargerStats()
     },
-    enabled: !!sessionActive
+    enabled: !!sessionActive && !!characterId
   })
 
   return { stats, chargement, rechargerStats: chargerStats }

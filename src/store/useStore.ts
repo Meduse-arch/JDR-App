@@ -42,6 +42,7 @@ interface JdrState {
   diceResult: DiceResult[] | null
   diceSharingEnabled: boolean
   buffRolls: Record<string, number>
+  clearBuffRolls: () => void
   enteringSession: { id: string, nom: string } | null
   setCompte: (c: Compte | null) => void
   setSessionActive: (s: Session | null) => void
@@ -131,6 +132,7 @@ export const useStore = create<JdrState>((set, get) => ({
   },
   setDiceSharingEnabled: (diceSharingEnabled) => set({ diceSharingEnabled }),
   setBuffRoll: (key, val) => set((state) => ({ buffRolls: { ...state.buffRolls, [key]: val } })),
+  clearBuffRolls: () => set({ buffRolls: {} }),
   setEnteringSession: (enteringSession) => set({ enteringSession }),
   deconnexion: () => {
     localStorage.clear()

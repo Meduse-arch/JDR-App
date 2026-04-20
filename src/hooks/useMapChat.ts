@@ -47,7 +47,40 @@ export function useMapChat(channelId: string | null) {
       .eq('nom', nomCanal)
       .maybeSingle()
 
-    setCanalId(data?.id ?? null)
+    if (data?.id) {
+      setCanalId(data.id)
+    } else {
+      // Si le canal n'existe pas, on le crée
+      // (Cas des maps créées avant cette fonctionnalité ou erreur de création initiale)
+      try {
+        const membres = await chatService.getMembresSession(sessionActive.id)
+        const ids = membres.map(m => m.id)
+        const nouveauCanal = await chatService.creerCanalPrive(sessionActive.id, ids, nomCanal)
+        
+        if (nouveauCanal) {
+          setCanalId(nouveauCanal.id)
+        } else {
+          // Si la création a échoué, il est possible qu'un autre utilisateur l'ait créé entre-temps
+          // On tente une dernière fois de le récupérer
+          const { data: retryData } = await supabase
+            .from('chat_canaux')
+            .select('id')
+            .eq('id_session', sessionActive.id)
+            .eq('nom', nomCanal)
+            .maybeSingle()
+          
+          if (retryData?.id) {
+            setCanalId(retryData.id)
+          } else {
+            console.warn('Impossible de créer ou trouver le canal chat pour la map:', channelId)
+            setCanalId(null)
+          }
+        }
+      } catch (err) {
+        console.error('Erreur lors de la résolution/création du canal chat map:', err)
+        setCanalId(null)
+      }
+    }
   }, [channelId, sessionActive])
 
   useEffect(() => { resoudreCanalId() }, [resoudreCanalId])
@@ -86,11 +119,21 @@ export function useMapChat(channelId: string | null) {
       /** Permet au MJ de parler sous le nom d'un token/personnage spécifique */
       nomICOverride?: string
     }
-  ) => {
-    if (!sessionActive || !compte || !canalIdRef.current) return
-    if (!contenu.trim() && !options?.image_url) return
+  ): Promise<boolean> => {
+    if (!sessionActive || !compte) {
+      console.warn('Impossible d\'envoyer le message: session ou compte manquant')
+      return false
+    }
+    
+    if (!canalIdRef.current) {
+      console.warn('Impossible d\'envoyer le message: canalId non résolu')
+      return false
+    }
+
+    if (!contenu.trim() && !options?.image_url) return false
 
     setEnvoi(true)
+    let success = false
 
     // Résolution du nom affiché :
     // 1. Si MJ avec un perso choisi → nomICOverride
@@ -120,22 +163,30 @@ export function useMapChat(channelId: string | null) {
     // Broadcast instantané pour le mode Hybride
     broadcastService.send(sessionActive.id, 'chat-message', tempMsg)
 
-    const result = await chatService.envoyerMessage({
-      id_canal: canalIdRef.current,
-      id_session: sessionActive.id,
-      id_compte: compte.id,
-      nom_affiche: nomFinal,
-      contenu: contenu.trim() || undefined,
-      image_url: options?.image_url || undefined,
-    })
+    try {
+      const result = await chatService.envoyerMessage({
+        id_canal: canalIdRef.current,
+        id_session: sessionActive.id,
+        id_compte: compte.id,
+        nom_affiche: nomFinal,
+        contenu: contenu.trim() || undefined,
+        image_url: options?.image_url || undefined,
+      })
 
-    if (result) {
-      setMessages(prev => prev.map(m => m.id === tempMsg.id ? result : m))
-    } else {
+      if (result) {
+        setMessages(prev => prev.map(m => m.id === tempMsg.id ? result : m))
+        success = true
+      } else {
+        console.error('Erreur lors de l\'envoi du message: le service a retourné null')
+        setMessages(prev => prev.filter(m => m.id !== tempMsg.id))
+      }
+    } catch (err) {
+      console.error('Erreur lors de l\'envoi du message:', err)
       setMessages(prev => prev.filter(m => m.id !== tempMsg.id))
     }
 
     setEnvoi(false)
+    return success
   }, [sessionActive, compte, personnageJoueur])
 
   return {

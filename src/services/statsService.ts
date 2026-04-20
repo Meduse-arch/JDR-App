@@ -16,10 +16,16 @@ export const statsService = {
    * Charge les buff_rolls persistés en base pour un personnage
    */
   getBuffRolls: async (idPersonnage: string): Promise<Record<string, number>> => {
-    const { data } = await supabase
+    if (!idPersonnage) return {}
+    const { data, error } = await supabase
       .from('personnage_buff_rolls')
       .select('cache_key, valeur')
       .eq('id_personnage', idPersonnage)
+
+    if (error) {
+      console.error("[StatsService] Erreur getBuffRolls:", error)
+      return {}
+    }
 
     const map: Record<string, number> = {}
     data?.forEach((row: any) => { map[row.cache_key] = row.valeur })
@@ -29,14 +35,24 @@ export const statsService = {
   /**
    * Sauvegarde un buff roll en base
    */
-  saveBuffRoll: async (idPersonnage: string, cacheKey: string, valeur: number) => {
-    await supabase
-      .from('personnage_buff_rolls')
-      .upsert(
-        { id_personnage: idPersonnage, cache_key: cacheKey, valeur },
-        { onConflict: 'id_personnage,cache_key', ignoreDuplicates: true }
-      )
-  },
+saveBuffRoll: async (idPersonnage: string, cacheKey: string, valeur: number) => {
+  console.log("=== saveBuffRoll APPELÉ ===", { idPersonnage, cacheKey, valeur })
+  
+  if (!idPersonnage || !cacheKey) {
+    console.error("=== saveBuffRoll ABANDON : paramètres manquants ===", { idPersonnage, cacheKey })
+    return
+  }
+
+  const { data, error, status, statusText } = await supabase
+    .from('personnage_buff_rolls')
+    .upsert(
+      { id_personnage: idPersonnage, cache_key: cacheKey, valeur },
+      { onConflict: 'id_personnage,cache_key' }
+    )
+    .select()
+
+  console.log("=== saveBuffRoll RÉSULTAT ===", { data, error, status, statusText })
+},
 
   /**
    * Nettoie les buff_rolls obsolètes
@@ -95,7 +111,13 @@ export const statsService = {
       inv.items?.item_tags?.forEach((it: any) => { if (it.id_tag) equippedTagIds.add(it.id_tag) })
     })
 
-    // 3. Compétences acquises
+    // 3. Modificateurs directs liés au personnage
+    const { data: directModifs } = await supabase
+      .from('modificateurs')
+      .select('id, id_stat, valeur, type_calcul, des_nb, des_faces, des_stat_id')
+      .eq('id_personnage', idPersonnage)
+
+    // 4. Compétences acquises
     const { data: compAcquisesRaw } = await supabase
       .from('personnage_competences')
       .select(`
@@ -137,7 +159,6 @@ export const statsService = {
     const accumulerBonus = async (modificateurs: any[], sourceId: string) => {
       if (!modificateurs) return
       for (const m of modificateurs) {
-        if (!m.id_stat) continue
         let val = m.valeur || 0
 
         if (m.type_calcul === 'roll_dice' || m.type_calcul === 'roll_stat') {
@@ -157,11 +178,14 @@ export const statsService = {
               const nomBaseRoll = (Array.isArray(statsData) ? statsData[0]?.nom : statsData?.nom) || 'Stat'
               newRoll = rollStatDice(valeurBaseRoll, m.valeur || 0, nomBaseRoll).total
             }
+            // Enregistrement forcé en base via le callback
             await onNewRoll(cacheKey, newRoll)
             buffRollsCache[cacheKey] = newRoll
             val = newRoll
           }
         }
+
+        if (!m.id_stat) continue
 
         if (m.type_calcul === 'pourcentage') {
           bonusPct[m.id_stat] = (bonusPct[m.id_stat] || 0) + val
@@ -172,7 +196,13 @@ export const statsService = {
     }
 
     // Accumulation
+    // A. Équipements
     for (const entry of (equipement || [])) await accumulerBonus((entry.items as any)?.modificateurs, entry.id)
+    
+    // B. Modificateurs directs (on utilise l'ID du personnage comme sourceId pour la cacheKey)
+    if (directModifs) await accumulerBonus(directModifs, idPersonnage)
+
+    // C. Compétences
     for (const entry of compAcquises) {
       const c = entry.competences as any
       if (!c || c.type === 'passive_toggle') continue
