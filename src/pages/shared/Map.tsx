@@ -56,7 +56,7 @@ export default function CarteMap() {
     }
     loadPersonnageLocal();
   }, [roleEffectif, personnage, sessionActive, compte, pnjControle]);
-  // ...
+
   const isMJ = (roleEffectif === 'admin' || roleEffectif === 'mj') && !pnjControle;
 
   const mapRef = useRef<HTMLDivElement>(null);
@@ -70,6 +70,7 @@ export default function CarteMap() {
   const {
     zoom, pan, isPanning,
     handleWheel, handleCanvasMouseDown, handleCanvasMouseMove, handleCanvasMouseUp,
+    handleCanvasTouchStart, handleCanvasTouchMove, handleCanvasTouchEnd,
     handleFocusToken, handleZoomIn, handleZoomOut, handleFitMap
   } = useMapViewport({ activeChannelData, canvasRef, channelActif });
 
@@ -225,9 +226,9 @@ export default function CarteMap() {
       onMouseMove={e => { handleMouseMove(e); handleRulerMove(e); handleCanvasMouseMove(e); }}
       onMouseUp={() => { handleMouseUp(); handleCanvasMouseUp(); }}
       onMouseLeave={() => { handleMouseUp(); handleCanvasMouseUp(); }}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
+      onTouchMove={(e) => { handleTouchMove(e); handleCanvasTouchMove(e); }}
+      onTouchEnd={() => { handleTouchEnd(); handleCanvasTouchEnd(); }}
+      onTouchCancel={() => { handleTouchEnd(); handleCanvasTouchEnd(); }}
     >
       {isMapLocked && !isMJ && (
         <div className="absolute top-0 left-0 right-0 z-[60] bg-[rgba(180,50,50,0.12)] border-b border-[rgba(180,50,50,0.25)] text-[#e87a7a] py-1.5 text-center font-cinzel text-[11px] tracking-widest flex items-center justify-center gap-2">
@@ -394,6 +395,9 @@ export default function CarteMap() {
           showMapChat={showMapChat}
           handleWheel={handleWheel}
           handleCanvasMouseDown={(e) => handleCanvasMouseDown(e, isRulerActive)}
+          handleCanvasTouchStart={(e) => handleCanvasTouchStart(e, isRulerActive)}
+          handleCanvasTouchMove={handleCanvasTouchMove}
+          handleCanvasTouchEnd={handleCanvasTouchEnd}
           handleMapClick={handleMapClick}
           handleZoomIn={handleZoomIn}
           handleZoomOut={handleZoomOut}

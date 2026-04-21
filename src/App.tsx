@@ -30,6 +30,7 @@ import { supabase } from './supabase'
 import { usePersonnage } from './hooks/usePersonnage'
 import SelectionPersonnage from './pages/shared/SelectionPersonnage'
 import { RUNES_PAGES } from './config/runes'
+import { Layout } from 'lucide-react'
 import Logs from './pages/admin/Logs'
 import CarteMap from './pages/shared/Map'
 import Chat from './pages/shared/Chat'
@@ -46,6 +47,7 @@ export default function App() {
     theme, 
     mode, 
     navigationMode,
+    showImmersiveNavButton,
     setPageCourante, 
     enteringSession, 
     setEnteringSession, 
@@ -238,6 +240,26 @@ export default function App() {
         open={navigationOpen}
         onClose={() => setNavigationOpen(false)}
       />
+
+      {/* Bouton de secours Immersif (Auto sur mobile/tablette, optionnel sur PC) */}
+      {navigationMode === 'immersive' && sessionActive && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ 
+            opacity: (showImmersiveNavButton || window.innerWidth < 1024) ? 1 : 0,
+            scale: (showImmersiveNavButton || window.innerWidth < 1024) ? 1 : 0.8,
+            pointerEvents: (showImmersiveNavButton || window.innerWidth < 1024) ? 'auto' : 'none'
+          }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setNavigationOpen(true)}
+          className="fixed bottom-6 left-6 z-[200] w-12 h-12 rounded-full bg-black/40 border border-theme-main/30 backdrop-blur-md flex items-center justify-center text-theme-main shadow-[0_0_20px_rgba(var(--color-main-rgb),0.2)] hover:border-theme-main hover:shadow-[0_0_30px_rgba(var(--color-main-rgb),0.4)] transition-all group lg:bottom-8 lg:left-8"
+          title="Ouvrir le Grand Portail (Echap)"
+        >
+          <div className="absolute inset-0 rounded-full border border-theme-main/10 animate-ping opacity-20" />
+          <Layout size={20} className="group-hover:rotate-90 transition-transform duration-500" />
+        </motion.button>
+      )}
     </div>
   )
 }

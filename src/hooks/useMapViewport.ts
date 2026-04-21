@@ -12,6 +12,9 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
+  
+  // Tactile - Pinch to zoom
+  const lastPinchDistance = useRef<number | null>(null);
 
   const getMapNatSize = useCallback(() => {
     if (!activeChannelData) return { w: 0, h: 0 };
@@ -75,6 +78,7 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     });
   }, [clampPan, canvasRef]);
 
+  // --- SOURIS ---
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent, isRulerActive: boolean) => {
     const target = e.target as HTMLElement;
     if (target.closest('[data-token]')) return;
@@ -96,6 +100,65 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
   const handleCanvasMouseUp = useCallback(() => {
     setIsPanning(false);
     panStart.current = null;
+  }, []);
+
+  // --- TACTILE ---
+  const handleCanvasTouchStart = useCallback((e: React.TouchEvent, isRulerActive: boolean) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-token]')) return;
+    if (isRulerActive) return;
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setIsPanning(true);
+      panStart.current = { mx: touch.clientX, my: touch.clientY, px: pan.x, py: pan.y };
+      lastPinchDistance.current = null;
+    } else if (e.touches.length === 2) {
+      setIsPanning(false);
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      lastPinchDistance.current = dist;
+    }
+  }, [pan]);
+
+  const handleCanvasTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1 && isPanning && panStart.current) {
+      const touch = e.touches[0];
+      const dx = touch.clientX - panStart.current.mx;
+      const dy = touch.clientY - panStart.current.my;
+      setPan(clampPan(panStart.current.px + dx, panStart.current.py + dy, zoom));
+    } else if (e.touches.length === 2 && lastPinchDistance.current !== null && canvasRef.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      
+      const factor = dist / lastPinchDistance.current;
+      lastPinchDistance.current = dist;
+
+      const rect = canvasRef.current.getBoundingClientRect();
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+
+      setZoom(prevZoom => {
+        const newZoom = Math.max(0.2, Math.min(3, prevZoom * factor));
+        const scale = newZoom / prevZoom;
+        setPan(prevPan => clampPan(
+          centerX - scale * (centerX - prevPan.x),
+          centerY - scale * (centerY - prevPan.y),
+          newZoom
+        ));
+        return newZoom;
+      });
+    }
+  }, [isPanning, zoom, clampPan, canvasRef]);
+
+  const handleCanvasTouchEnd = useCallback(() => {
+    setIsPanning(false);
+    panStart.current = null;
+    lastPinchDistance.current = null;
   }, []);
 
   const handleFocusToken = useCallback((token: MapToken, setSelectedTokenId: (id: string | null) => void) => {
@@ -151,6 +214,9 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     handleCanvasMouseDown,
     handleCanvasMouseMove,
     handleCanvasMouseUp,
+    handleCanvasTouchStart,
+    handleCanvasTouchMove,
+    handleCanvasTouchEnd,
     handleFocusToken,
     handleZoomIn,
     handleZoomOut,

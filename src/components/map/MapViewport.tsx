@@ -31,6 +31,9 @@ interface MapViewportProps {
   
   handleWheel: (e: React.WheelEvent) => void;
   handleCanvasMouseDown: (e: React.MouseEvent) => void;
+  handleCanvasTouchStart: (e: React.TouchEvent) => void;
+  handleCanvasTouchMove: (e: React.TouchEvent) => void;
+  handleCanvasTouchEnd: (e: React.TouchEvent) => void;
   handleMapClick: (e: React.MouseEvent) => void;
   handleZoomIn: () => void;
   handleZoomOut: () => void;
@@ -70,6 +73,9 @@ export function MapViewport({
 
   handleWheel,
   handleCanvasMouseDown,
+  handleCanvasTouchStart,
+  handleCanvasTouchMove,
+  handleCanvasTouchEnd,
   handleMapClick,
   setShowMapChat,
   canDragToken,
@@ -94,6 +100,9 @@ export function MapViewport({
       className={`flex-1 relative overflow-hidden bg-[#0d0b08] select-none ${canvasCursor}`}
       onWheel={handleWheel}
       onMouseDown={handleCanvasMouseDown}
+      onTouchStart={handleCanvasTouchStart}
+      onTouchMove={handleCanvasTouchMove}
+      onTouchEnd={handleCanvasTouchEnd}
       onClick={handleMapClick}
     >
       {activeChannelData ? (

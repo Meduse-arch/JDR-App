@@ -19,6 +19,7 @@ import GererRessources from './gerer/GererRessources'
 import GererInventaire from './gerer/GererInventaire'
 import GererCompetences from './gerer/GererCompetences'
 import GererQuetes from './gerer/GererQuetes'
+import GererProfil from './gerer/GererProfil'
 
 type CompteSimple = { id: string; pseudo: string }
 
@@ -29,7 +30,7 @@ export default function GererPersonnage() {
 
   // Drawer states
   const [gererPersonnage, setGererPersonnage] = useState<Personnage | null>(null)
-  const [onglet, setOnglet] = useState<'stats' | 'ressources' | 'inventaire' | 'competences' | 'quetes'>('stats')
+  const [onglet, setOnglet] = useState<'profil' | 'stats' | 'ressources' | 'inventaire' | 'competences' | 'quetes'>('profil')
 
   // Data states
   const [comptes, setComptes] = useState<CompteSimple[]>([])
@@ -53,8 +54,6 @@ export default function GererPersonnage() {
   const [invoquerTemplate, setInvoquerTemplate] = useState<Personnage | null>(null)
   const [invoquerCount, setInvoquerCount] = useState(1)
   const [selectedBestiaireFilter, setSelectedBestiaireFilter] = useState<'Tous' | 'Monstres' | 'PNJ'>('Tous')
-
-  const [showNewModelMenu, setShowNewModelMenu] = useState(false)
 
   // Handlers
   const chargerDonnees = useCallback(async () => {
@@ -512,148 +511,52 @@ export default function GererPersonnage() {
                   className="w-full pl-12 pr-4 py-3 rounded-sm outline-none transition-all font-garamond font-bold bg-card border border-theme text-primary"
                 />
               </div>
-              <div className="relative">
-                <Button onClick={() => setShowNewModelMenu(!showNewModelMenu)} className="font-cinzel whitespace-nowrap">
-                  <Plus size={16} className="mr-2" /> Nouveau modèle
-                </Button>
-                {showNewModelMenu && (
-                  <div className="absolute top-full right-0 mt-2 w-48 bg-card border border-theme/30 rounded-sm shadow-2xl flex flex-col z-50 overflow-hidden">
-                    <button onClick={() => { setCreationParams({type: 'Monstre', isTemplate: true}); setShowNewModelMenu(false) }} className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 font-cinzel font-black text-xs uppercase tracking-widest text-left"><Skull size={14} className="text-theme-main"/> Monstre</button>
-                    <button onClick={() => { setCreationParams({type: 'PNJ', isTemplate: true}); setShowNewModelMenu(false) }} className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 font-cinzel font-black text-xs uppercase tracking-widest text-left border-t border-theme/10"><User size={14} className="text-theme-main"/> PNJ</button>
-                    <button onClick={() => { setCreationParams({type: 'Boss', isTemplate: true}); setShowNewModelMenu(false) }} className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 font-cinzel font-black text-xs uppercase tracking-widest text-left border-t border-theme/10"><Crown size={14} className="text-red-500"/> Boss</button>
-                  </div>
-                )}
-              </div>
+              <Button onClick={() => setCreationParams({type: 'Monstre', isTemplate: true})} className="font-cinzel whitespace-nowrap">
+                <Plus size={16} className="mr-2" /> Nouveau modèle
+              </Button>
             </div>
 
-            <div className="flex flex-col gap-12 pb-20">
-              {/* Section Monstres */}
-              <div className="flex flex-col gap-4">
-                <h2 className="font-cinzel font-black text-2xl text-theme-main uppercase tracking-widest flex items-center gap-3 border-b border-theme/20 pb-4">
-                  <Skull size={24} /> Monstres
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {templatesFiltres.filter(t => t.type === 'Monstre').map(t => (
-                    <Card key={t.id} className="p-5 bg-card/40 border-theme/20 medieval-border flex flex-col gap-4 relative group">
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-cinzel font-black text-lg text-primary uppercase tracking-widest truncate">{t.nom}</h3>
-                        <ConfirmButton variant="danger" size="sm" onConfirm={() => supprimerInstance(t.id)} className="p-1.5 h-auto bg-transparent text-red-500/50 hover:text-red-500 hover:bg-red-900/20"><Trash2 size={14}/></ConfirmButton>
-                      </div>
-                      <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest opacity-60">
-                        <span className="text-red-400">HP {t.hp_max}</span>
-                        <span className="text-blue-400">MP {t.mana_max}</span>
-                        <span className="text-theme-main flex-1">STAM {t.stam_max}</span>
-                        <button
-                          onClick={e => { e.stopPropagation(); setGererPersonnage(t); setOnglet('stats') }}
-                          className="opacity-0 group-hover:opacity-100 transition-all font-cinzel text-[8px] uppercase tracking-widest text-theme-main/60 hover:text-theme-main border border-theme-main/20 hover:border-theme-main/50 px-2 py-0.5 rounded-sm"
-                        >
-                          Gérer →
-                        </button>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <Button 
-                          className="flex-1 font-cinzel text-[10px] uppercase tracking-widest"
-                          onClick={() => {
-                            setInvoquerTemplate(t)
-                            setInvoquerCount(1)
-                            setShowInvoquerModal(true)
-                            setSelectedBestiaireFilter('Monstres')
-                          }}
-                        >
-                          Instancier
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-
-              {/* Section PNJ */}
-              <div className="flex flex-col gap-4">
-                <h2 className="font-cinzel font-black text-2xl text-theme-main uppercase tracking-widest flex items-center gap-3 border-b border-theme/20 pb-4">
-                  <User size={24} /> PNJ
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {templatesFiltres.filter(t => t.type === 'PNJ').map(t => (
-                    <Card key={t.id} className="p-5 bg-card/40 border-theme/20 medieval-border flex flex-col gap-4 relative group">
-                      <div className="flex justify-between items-start">
-                        <div className="flex flex-col gap-1">
-                          <h3 className="font-cinzel font-black text-lg uppercase tracking-widest truncate text-primary">{t.nom}</h3>
-                          <Badge variant="outline" className="w-fit text-[8px] py-0 font-cinzel uppercase border-theme-main/50 text-theme-main">{t.type}</Badge>
-                        </div>
-                        <ConfirmButton variant="danger" size="sm" onConfirm={() => supprimerInstance(t.id)} className="p-1.5 h-auto bg-transparent text-red-500/50 hover:text-red-500 hover:bg-red-900/20"><Trash2 size={14}/></ConfirmButton>
-                      </div>
-                      <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest opacity-60">
-                        <span className="text-red-400">HP {t.hp_max}</span>
-                        <span className="text-blue-400">MP {t.mana_max}</span>
-                        <span className="text-theme-main flex-1">STAM {t.stam_max}</span>
-                        <button
-                          onClick={e => { e.stopPropagation(); setGererPersonnage(t); setOnglet('stats') }}
-                          className="opacity-0 group-hover:opacity-100 transition-all font-cinzel text-[8px] uppercase tracking-widest text-theme-main/60 hover:text-theme-main border border-theme-main/20 hover:border-theme-main/50 px-2 py-0.5 rounded-sm"
-                        >
-                          Gérer →
-                        </button>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <Button 
-                          className="flex-1 font-cinzel text-[10px] uppercase tracking-widest"
-                          onClick={() => {
-                            setInvoquerTemplate(t)
-                            setInvoquerCount(1)
-                            setShowInvoquerModal(true)
-                            setSelectedBestiaireFilter('PNJ')
-                          }}
-                        >
-                          Instancier
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-
-              {/* Section Boss */}
-              <div className="flex flex-col gap-4">
-                <h2 className="font-cinzel font-black text-2xl text-red-500 uppercase tracking-widest flex items-center gap-3 border-b border-red-900/30 pb-4">
-                  <Crown size={24} /> Boss
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {templatesFiltres.filter(t => t.type === 'Boss').map(t => (
-                    <Card key={t.id} className="p-5 bg-card/40 border-theme/20 medieval-border flex flex-col gap-4 relative group border-red-900/30 bg-red-950/10">
-                      <div className="flex justify-between items-start">
-                        <div className="flex flex-col gap-1">
-                          <h3 className="font-cinzel font-black text-lg uppercase tracking-widest truncate text-red-400">{t.nom}</h3>
-                          <Badge variant="outline" className="w-fit text-[8px] py-0 font-cinzel uppercase border-red-900 text-red-500">{t.type}</Badge>
-                        </div>
-                        <ConfirmButton variant="danger" size="sm" onConfirm={() => supprimerInstance(t.id)} className="p-1.5 h-auto bg-transparent text-red-500/50 hover:text-red-500 hover:bg-red-900/20"><Trash2 size={14}/></ConfirmButton>
-                      </div>
-                      <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest opacity-60">
-                        <span className="text-red-400">HP {t.hp_max}</span>
-                        <span className="text-blue-400">MP {t.mana_max}</span>
-                        <span className="text-theme-main flex-1">STAM {t.stam_max}</span>
-                        <button
-                          onClick={e => { e.stopPropagation(); setGererPersonnage(t); setOnglet('stats') }}
-                          className="opacity-0 group-hover:opacity-100 transition-all font-cinzel text-[8px] uppercase tracking-widest text-theme-main/60 hover:text-theme-main border border-theme-main/20 hover:border-theme-main/50 px-2 py-0.5 rounded-sm"
-                        >
-                          Gérer →
-                        </button>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <Button 
-                          className="flex-1 font-cinzel text-[10px] uppercase tracking-widest"
-                          onClick={() => {
-                            setInvoquerTemplate(t)
-                            setInvoquerCount(1)
-                            setShowInvoquerModal(true)
-                            setSelectedBestiaireFilter('PNJ')
-                          }}
-                        >
-                          Instancier
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+            <div className="flex flex-col gap-6 pb-20">
+              <h2 className="font-cinzel font-black text-2xl text-theme-main uppercase tracking-widest flex items-center gap-3 border-b border-theme/20 pb-4">
+                <BookOpen size={24} /> Archives des Modèles
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {templatesFiltres.map(t => (
+                  <Card key={t.id} className="p-5 bg-card/40 border-theme/20 medieval-border flex flex-col gap-4 relative group hover:border-theme-main/40 transition-all">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-cinzel font-black text-lg text-primary uppercase tracking-widest truncate">{t.nom}</h3>
+                      <ConfirmButton variant="danger" size="sm" onConfirm={() => supprimerInstance(t.id)} className="p-1.5 h-auto bg-transparent text-red-500/50 hover:text-red-500 hover:bg-red-900/20"><Trash2 size={14}/></ConfirmButton>
+                    </div>
+                    <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest opacity-60">
+                      <span className="text-red-400">HP {t.hp_max}</span>
+                      <span className="text-blue-400">MP {t.mana_max}</span>
+                      <span className="text-theme-main flex-1">STAM {t.stam_max}</span>
+                      <button
+                        onClick={e => { e.stopPropagation(); setGererPersonnage(t); setOnglet('stats') }}
+                        className="opacity-0 group-hover:opacity-100 transition-all font-cinzel text-[8px] uppercase tracking-widest text-theme-main/60 hover:text-theme-main border border-theme-main/20 hover:border-theme-main/50 px-2 py-0.5 rounded-sm"
+                      >
+                        Gérer →
+                      </button>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <Button 
+                        className="flex-1 font-cinzel text-[10px] uppercase tracking-widest"
+                        onClick={() => {
+                          setInvoquerTemplate(t)
+                          setInvoquerCount(1)
+                          setShowInvoquerModal(true)
+                        }}
+                      >
+                        Instancier
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+                {templatesFiltres.length === 0 && (
+                  <div className="col-span-full py-20 text-center opacity-20 font-garamond italic text-xl">
+                    Aucun modèle ne repose dans ces archives...
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -692,9 +595,20 @@ export default function GererPersonnage() {
 
         {/* Header drawer */}
         <div className="flex items-center justify-between p-6 border-b border-theme shrink-0">
-          <div>
-            <p className="font-cinzel text-[10px] uppercase tracking-[0.3em] text-theme-main/50">Gestion de</p>
-            <h3 className="font-cinzel font-black uppercase tracking-widest text-xl text-primary">{gererPersonnage?.nom}</h3>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-sm border border-theme/20 bg-black/40 overflow-hidden shrink-0">
+              {gererPersonnage?.image_url ? (
+                <img src={gererPersonnage.image_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center opacity-20">
+                  <User size={24} />
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-cinzel text-[10px] uppercase tracking-[0.3em] text-theme-main/50">Gestion de</p>
+              <h3 className="font-cinzel font-black uppercase tracking-widest text-xl text-primary">{gererPersonnage?.nom}</h3>
+            </div>
           </div>
           <button onClick={() => setGererPersonnage(null)} className="text-theme-main/30 hover:text-theme-main transition-all">
             <X size={20} />
@@ -702,8 +616,9 @@ export default function GererPersonnage() {
         </div>
 
         {/* Onglets fins */}
-        <div className="flex gap-6 px-6 border-b border-theme shrink-0">
+        <div className="flex gap-6 px-6 border-b border-theme shrink-0 overflow-x-auto no-scrollbar">
           {([
+            ['profil', 'Profil'],
             ['stats', 'Stats'],
             ['ressources', 'Ressources'],
             ['inventaire', 'Inventaire'],
@@ -711,7 +626,7 @@ export default function GererPersonnage() {
             ['quetes', 'Quêtes'],
           ] as const).map(([id, label]) => (
             <button key={id} onClick={() => setOnglet(id)}
-              className={`font-cinzel text-[10px] uppercase tracking-[0.25em] py-3 relative transition-all ${onglet === id ? 'text-theme-main' : 'text-primary opacity-30 hover:opacity-70'}`}>
+              className={`font-cinzel text-[10px] uppercase tracking-[0.25em] py-3 relative transition-all shrink-0 ${onglet === id ? 'text-theme-main' : 'text-primary opacity-30 hover:opacity-70'}`}>
               {label}
               {onglet === id && <div className="absolute bottom-0 left-0 w-full h-px bg-theme-main shadow-[0_0_8px_var(--color-main)]" />}
             </button>
@@ -722,6 +637,7 @@ export default function GererPersonnage() {
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
           {gererPersonnage && (
             <>
+              {onglet === 'profil' && <GererProfil personnage={gererPersonnage} onRecharger={chargerDonnees} />}
               {onglet === 'stats' && <GererStats personnage={gererPersonnage} onRecharger={chargerDonnees} />}
               {onglet === 'ressources' && <GererRessources personnage={gererPersonnage} mettreAJourLocalement={mettreAJourPersonnageMJ} />}
               {onglet === 'inventaire' && <GererInventaire personnage={gererPersonnage} />}

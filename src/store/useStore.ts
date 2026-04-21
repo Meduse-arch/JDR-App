@@ -25,7 +25,7 @@ export type Personnage = {
   stam: number
   stam_max: number
   created_at?: string
-  image_url?: string | null   // ← image de profil du personnage (colonne personnages.image_url)
+  image_url?: string | null
   couleur?: string | null
 }
 
@@ -41,6 +41,7 @@ interface JdrState {
   theme: ThemeId
   mode: ModeId
   navigationMode: NavigationMode
+  showImmersiveNavButton: boolean
   diceResult: DiceResult[] | null
   diceSharingEnabled: boolean
   buffRolls: Record<string, number>
@@ -52,8 +53,10 @@ interface JdrState {
   setPageCourante: (p: string) => void
   setPnjControle: (pnj: Personnage | null) => void
   setPersonnageJoueur: (pj: Personnage | null) => void
+  setTheme: (t: ThemeId) => void
   setMode: (m: ModeId) => void
   setNavigationMode: (m: NavigationMode) => void
+  setShowImmersiveNavButton: (show: boolean) => void
   setDiceResult: (diceResult: DiceResult[] | null, broadcast?: boolean) => void
   setDiceSharingEnabled: (enabled: boolean) => void
   setBuffRoll: (key: string, val: number) => void
@@ -71,11 +74,12 @@ export const useStore = create<JdrState>((set, get) => ({
   theme: (localStorage.getItem('sigil-theme') as ThemeId) || 'theme-violet',
   mode: (localStorage.getItem('sigil-mode') as ModeId) || 'mode-dark',
   navigationMode: (localStorage.getItem('sigil-nav-mode') as NavigationMode) || 'basic',
-  navigationKey: localStorage.getItem('sigil-nav-key') || 'Escape',
+  showImmersiveNavButton: localStorage.getItem('sigil-immersive-nav-btn') !== 'false',
   diceResult: null,
   diceSharingEnabled: false,
   buffRolls: {},
   enteringSession: null,
+
   setCompte: (compte) => {
     if (compte) localStorage.setItem('sigil-compte', JSON.stringify(compte))
     else localStorage.removeItem('sigil-compte')
@@ -96,7 +100,6 @@ export const useStore = create<JdrState>((set, get) => ({
     set({ sessionActive: session, pnjControle, personnageJoueur })
   },
   setRoleEffectif: (role) => {
-    if (!role) localStorage.removeItem('sigil-role-effectif')
     set({ roleEffectif: role })
   },
   setPageCourante: (page) => { set({ pageCourante: page }) },
@@ -110,28 +113,22 @@ export const useStore = create<JdrState>((set, get) => ({
     else localStorage.removeItem('sigil-personnage-joueur')
     set({ personnageJoueur: pj })
   },
+  setTheme: (theme) => { localStorage.setItem('sigil-theme', theme); set({ theme }) },
   setMode: (mode) => { localStorage.setItem('sigil-mode', mode); set({ mode }) },
   setNavigationMode: (navigationMode) => { localStorage.setItem('sigil-nav-mode', navigationMode); set({ navigationMode }) },
+  setShowImmersiveNavButton: (showImmersiveNavButton) => { 
+    localStorage.setItem('sigil-immersive-nav-btn', String(showImmersiveNavButton)); 
+    set({ showImmersiveNavButton }) 
+  },
   setDiceResult: (diceResult, broadcast = true) => {
     const { sessionActive, diceSharingEnabled, compte } = get();
-    // On diffuse toujours si broadcast est true, mais on ajoute des métadonnées pour gérer les jets secrets
     if (broadcast && diceResult && sessionActive && compte) {
       const isSecretLocally = !diceSharingEnabled;
       const isSecret = isSecretLocally || diceResult.some(r => r.secret === true);
-      
-      const senderId = compte.id; // On utilise l'ID du compte pour le partage
-      
-      // On attache les viewers autorisés depuis notre propre copie des paramètres
+      const senderId = compte.id;
       const partagesDes = sessionActive.parametres?.partagesDes || {};
       const allowedViewers = partagesDes[senderId] || [];
-      
-      const payload = {
-        diceResult,
-        isSecret,
-        senderId,
-        allowedViewers
-      };
-      
+      const payload = { diceResult, isSecret, senderId, allowedViewers };
       broadcastService.send(sessionActive.id, 'dice-roll', payload);
     }
     set({ diceResult });
