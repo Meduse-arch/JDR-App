@@ -218,7 +218,7 @@ export default function Navigation({ open, onClose }: Props) {
                   <span className="text-[9px] font-cinzel uppercase tracking-widest text-theme-main opacity-50 mb-1">Monde Actuel</span>
                   <div className="flex items-center gap-4 group cursor-pointer" onClick={() => { setSessionActive(null); onClose(); }}>
                     <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-sm border border-theme/20 bg-black/10 flex items-center justify-center text-theme-main group-hover:border-theme-main transition-all flex-shrink-0">
-                      <Globe size={18} lg:size={20} />
+                      <Globe className="w-[18px] h-[18px] lg:w-[20px] lg:h-[20px]" />
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="font-cinzel text-xs lg:text-sm font-bold text-primary group-hover:text-theme-main transition-colors truncate">{sessionActive?.nom || 'AUCUN MONDE'}</span>

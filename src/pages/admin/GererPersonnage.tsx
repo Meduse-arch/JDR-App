@@ -53,7 +53,6 @@ export default function GererPersonnage() {
   const [showInvoquerModal, setShowInvoquerModal] = useState(false)
   const [invoquerTemplate, setInvoquerTemplate] = useState<Personnage | null>(null)
   const [invoquerCount, setInvoquerCount] = useState(1)
-  const [selectedBestiaireFilter, setSelectedBestiaireFilter] = useState<'Tous' | 'Monstres' | 'PNJ'>('Tous')
 
   // Handlers
   const chargerDonnees = useCallback(async () => {
@@ -380,7 +379,7 @@ export default function GererPersonnage() {
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="secondary" onClick={() => { setShowInvoquerModal(true); setInvoquerTemplate(null); setSelectedBestiaireFilter('PNJ') }} className="font-cinzel whitespace-nowrap">
+                  <Button variant="secondary" onClick={() => { setShowInvoquerModal(true); setInvoquerTemplate(null); }} className="font-cinzel whitespace-nowrap">
                     <BookOpen size={16} className="mr-2" /> Depuis un modèle
                   </Button>
                   <Button onClick={() => setCreationParams({ type: 'PNJ', isTemplate: false })} className="font-cinzel whitespace-nowrap">
@@ -452,7 +451,7 @@ export default function GererPersonnage() {
                     </button>
                   ))}
                 </div>
-                <Button onClick={() => { setShowInvoquerModal(true); setInvoquerTemplate(null); setSelectedBestiaireFilter('Monstres') }} className="font-cinzel whitespace-nowrap">
+                <Button onClick={() => { setShowInvoquerModal(true); setInvoquerTemplate(null); }} className="font-cinzel whitespace-nowrap">
                   <Ghost size={16} className="mr-2" /> + Invoquer
                 </Button>
               </div>
@@ -570,8 +569,6 @@ export default function GererPersonnage() {
         onClose={() => setShowInvoquerModal(false)}
         templates={templates}
         onInstancier={handleInstancier}
-        selectedBestiaireFilter={selectedBestiaireFilter}
-        setSelectedBestiaireFilter={setSelectedBestiaireFilter}
         invoquerTemplate={invoquerTemplate}
         setInvoquerTemplate={setInvoquerTemplate}
         invoquerCount={invoquerCount}
@@ -651,3 +648,4 @@ export default function GererPersonnage() {
     </div>
   )
 }
+
