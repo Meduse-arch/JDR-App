@@ -1,0 +1,23 @@
+export const TITRES_LEGENDE: Record<string, string> = {
+  'sessions': "PORTE DES MONDES",
+  'dashboard': "SANCTUAIRE",
+  'selection-personnage': "ORACLE DU CODEX",
+  'mon-personnage': "INCARNATION DE L'ÂME",
+  'mon-inventaire': "POSSESSIONS DU MONDE",
+  'mes-competences': "CODEX DES ARCANES",
+  'mes-quetes': "CHRONIQUES DES LÉGENDES",
+  'lancer-des': "VERDICT DE L'ORACLE",
+  'pnj': "POPULATION ACTIVE",
+  'joueurs': "HÉROS DU RÉCIT",
+  'bestiaire': "BESTIAIRE ANCIEN",
+  'items': "FORGE DES OBJETS",
+  'competences': "FORGE DES ARCANES",
+  'quetes': "RÉCIT DU MONDE",
+  'gerer': "LOIS DE L'UNIVERS",
+  'possession': "POSSESSION",
+  'gerer-univers': "LOIS DE L'UNIVERS",
+  'gerer-mj': "CONSEIL DES MAÎTRES",
+  'tags': "SIGNES ET SYMBOLES",
+  'chat': "CHRONIQUES DU CONSEIL",
+  'map': "CARTE DES ROYAUMES"
+};

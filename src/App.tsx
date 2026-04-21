@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from './store/useStore'
-import Sidebar from './components/Sidebar'
+import Navigation from './components/Navigation'
 import Header from './components/Header'
+import Sidebar from './components/Sidebar'
 import DashboardAdmin from './pages/admin/DashboardAdmin'
 import DashboardJoueur from './pages/joueur/DashboardJoueur'
 import Connexion from './pages/auth/Connexion'
@@ -33,30 +34,10 @@ import Logs from './pages/admin/Logs'
 import CarteMap from './pages/shared/Map'
 import Chat from './pages/shared/Chat'
 
-const TITRES_LEGENDE: Record<string, string> = {
-  'sessions': "PORTE DES MONDES",
-  'dashboard': "SANCTUAIRE",
-  'selection-personnage': "ORACLE DU CODEX",
-  'mon-personnage': "INCARNATION DE L'ÂME",
-  'mon-inventaire': "POSSESSIONS DU MONDE",
-  'mes-competences': "CODEX DES ARCANES",
-  'mes-quetes': "CHRONIQUES DES LÉGENDES",
-  'lancer-des': "VERDICT DE L'ORACLE",
-  'pnj': "POPULATION ACTIVE",
-  'joueurs': "HÉROS DU RÉCIT",
-  'bestiaire': "BESTIAIRE ANCIEN",
-  'items': "FORGE DES OBJETS",
-  'competences': "FORGE DES ARCANES",
-  'quetes': "RÉCIT DU MONDE",
-  'gerer': "LOIS DE L'UNIVERS",
-  'possession': "POSSESSION",
-  'gerer-univers': "LOIS DE L'UNIVERS",
-  'gerer-mj': "CONSEIL DES MAÎTRES",
-  'tags': "SIGNES ET SYMBOLES",
-  'chat': "CHRONIQUES DU CONSEIL",
-};
+import { TITRES_LEGENDE } from './config/titres'
 
 export default function App() {
+  const [navigationOpen, setNavigationOpen] = useState(false)
   const { 
     compte, 
     sessionActive, 
@@ -64,6 +45,7 @@ export default function App() {
     roleEffectif, 
     theme, 
     mode, 
+    navigationMode,
     setPageCourante, 
     enteringSession, 
     setEnteringSession, 
@@ -89,6 +71,19 @@ export default function App() {
       if (panicPnj) setPnjControle(JSON.parse(panicPnj))
       setPageCourante(panicPage)
     }
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      
+      if (e.key === 'Escape') {
+        setNavigationOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
   }, [])
 
   const { personnage } = usePersonnage()
@@ -125,6 +120,11 @@ export default function App() {
       setRoleEffectif(role)
       setSessionActive(session)
       setPageCourante('dashboard')
+      
+      // Si navigation immersive, on ouvre le portail tout de suite
+      if (navigationMode === 'immersive') {
+        setNavigationOpen(true)
+      }
     }
     
     setEnteringSession(null)
@@ -133,7 +133,6 @@ export default function App() {
   // ÉCRAN 1 : PORTE DES MONDES (SESSIONS)
   if (!sessionActive) return (
     <div className={`flex flex-col h-screen ${theme} ${mode} bg-app text-primary relative overflow-hidden`}>
-      <Header />
       <div className="flex-1 overflow-y-auto custom-scrollbar bg-black/5">
         <Sessions />
       </div>
@@ -179,10 +178,11 @@ export default function App() {
 
   return (
     <div className={`flex flex-col h-screen overflow-hidden ${theme} ${mode} bg-app text-primary relative`}>
-      <Header />
-
+      {navigationMode === 'basic' && <Header />}
+      
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        {navigationMode === 'basic' && <Sidebar />}
+        
         <main className="flex-1 overflow-y-auto custom-scrollbar bg-black/5 relative">
           {/* Rune de fond unique et fixe (3% opacité) */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
@@ -232,6 +232,12 @@ export default function App() {
           onComplete={handlePortalComplete} 
         />
       )}
+
+      {/* Overlay de navigation */}
+      <Navigation
+        open={navigationOpen}
+        onClose={() => setNavigationOpen(false)}
+      />
     </div>
   )
 }

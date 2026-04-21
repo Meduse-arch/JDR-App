@@ -4,6 +4,7 @@ import { broadcastService } from '../services/broadcastService'
 export type RoleId = 'admin' | 'mj' | 'joueur'
 export type ThemeId = 'theme-violet' | 'theme-default'
 export type ModeId = 'mode-dark' | 'mode-light'
+export type NavigationMode = 'basic' | 'immersive'
 
 export type Compte = { id: string; pseudo: string; role: RoleId }
 export type Session = { id: string; nom: string; description: string; cree_par: string; created_at?: string; parametres?: any }
@@ -39,6 +40,7 @@ interface JdrState {
   personnageJoueur: Personnage | null
   theme: ThemeId
   mode: ModeId
+  navigationMode: NavigationMode
   diceResult: DiceResult[] | null
   diceSharingEnabled: boolean
   buffRolls: Record<string, number>
@@ -51,6 +53,7 @@ interface JdrState {
   setPnjControle: (pnj: Personnage | null) => void
   setPersonnageJoueur: (pj: Personnage | null) => void
   setMode: (m: ModeId) => void
+  setNavigationMode: (m: NavigationMode) => void
   setDiceResult: (diceResult: DiceResult[] | null, broadcast?: boolean) => void
   setDiceSharingEnabled: (enabled: boolean) => void
   setBuffRoll: (key: string, val: number) => void
@@ -67,6 +70,8 @@ export const useStore = create<JdrState>((set, get) => ({
   personnageJoueur: JSON.parse(localStorage.getItem('sigil-personnage-joueur') || 'null'),
   theme: (localStorage.getItem('sigil-theme') as ThemeId) || 'theme-violet',
   mode: (localStorage.getItem('sigil-mode') as ModeId) || 'mode-dark',
+  navigationMode: (localStorage.getItem('sigil-nav-mode') as NavigationMode) || 'basic',
+  navigationKey: localStorage.getItem('sigil-nav-key') || 'Escape',
   diceResult: null,
   diceSharingEnabled: false,
   buffRolls: {},
@@ -106,6 +111,7 @@ export const useStore = create<JdrState>((set, get) => ({
     set({ personnageJoueur: pj })
   },
   setMode: (mode) => { localStorage.setItem('sigil-mode', mode); set({ mode }) },
+  setNavigationMode: (navigationMode) => { localStorage.setItem('sigil-nav-mode', navigationMode); set({ navigationMode }) },
   setDiceResult: (diceResult, broadcast = true) => {
     const { sessionActive, diceSharingEnabled, compte } = get();
     // On diffuse toujours si broadcast est true, mais on ajoute des métadonnées pour gérer les jets secrets

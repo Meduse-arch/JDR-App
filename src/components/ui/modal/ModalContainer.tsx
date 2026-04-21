@@ -9,7 +9,8 @@ interface ModalContainerProps {
 export function ModalContainer({ onClose, children, className = '' }: ModalContainerProps) {
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-[200] p-4 bg-black/50"
+      className="fixed inset-0 flex items-center justify-center z-[1000] p-4 bg-black/70 backdrop-blur-sm"
+      style={{ minHeight: '100vh', width: '100vw' }}
       onClick={onClose}
     >
 

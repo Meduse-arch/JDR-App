@@ -3,7 +3,8 @@ import { Card } from '../ui/card'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Button } from '../ui/Button'
-import { CATEGORIES } from '../../utils/constants'
+import { CATEGORIES, ORDRE_STATS } from '../../utils/constants'
+import { statsEngine } from '../../utils/statsEngine'
 import { Sword, Shield, Gem, FlaskConical, Sparkles, Package, Tags, BarChart2, Zap, Check, Plus, Minus, X } from 'lucide-react'
 
 const RESSOURCES_MODIFS = [
@@ -32,6 +33,8 @@ interface Props {
 }
 
 export default function ItemForgeForm(props: Props) {
+  const sortedStats = statsEngine.trierStats(props.stats, ORDRE_STATS)
+
   const getIcon = (cat: CategorieItem) => {
     switch (cat) {
       case 'Arme': return <Sword size={14} />;
@@ -129,7 +132,7 @@ export default function ItemForgeForm(props: Props) {
               <BarChart2 size={18} /> Statistiques & Attributs
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {props.stats.map(s => (
+              {sortedStats.map(s => (
                 <button 
                   key={s.id} 
                   onClick={() => props.toggleStatModif(s.id)} 
@@ -210,7 +213,7 @@ export default function ItemForgeForm(props: Props) {
                     <Input type="number" value={e.des_faces || ''} onChange={val => props.updateEffet(idx, { des_faces: parseInt(val.target.value) || null })} placeholder="Faces" className="h-10 text-[10px] font-cinzel" />
                     <Select value={e.des_stat_id || ''} onChange={val => props.updateEffet(idx, { des_stat_id: val.target.value || null })} className="h-10 text-[9px] font-cinzel">
                       <option value="">PAS DE STAT</option>
-                      {props.stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                      {sortedStats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
                     </Select>
                   </div>
                 </div>

@@ -13,7 +13,7 @@ import { MapToolbar } from '../../components/map/MapToolbar';
 import { Input } from '../../components/ui/Input';
 
 export default function CarteMap() {
-  const { sessionActive, roleEffectif, personnageJoueur: personnage, compte } = useStore();
+  const { sessionActive, roleEffectif, personnageJoueur: personnage, compte, pnjControle } = useStore();
   const {
     channels,
     tokens,
@@ -35,6 +35,12 @@ export default function CarteMap() {
 
   useEffect(() => {
     async function loadPersonnageLocal() {
+      // Priorité au personnage contrôlé (PNJ ou possession)
+      if (pnjControle) {
+        setPersonnageLocal(pnjControle);
+        return;
+      }
+
       if (roleEffectif === 'joueur' && sessionActive && compte) {
         const { data } = await supabase
           .from('personnages').select('*')
@@ -44,10 +50,14 @@ export default function CarteMap() {
         if (data) setPersonnageLocal(data as Personnage);
       } else if (personnage) {
         setPersonnageLocal(personnage);
+      } else {
+        setPersonnageLocal(null);
       }
     }
     loadPersonnageLocal();
-  }, [roleEffectif, personnage, sessionActive, compte]);
+  }, [roleEffectif, personnage, sessionActive, compte, pnjControle]);
+  // ...
+  const isMJ = (roleEffectif === 'admin' || roleEffectif === 'mj') && !pnjControle;
 
   const mapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -88,7 +98,6 @@ export default function CarteMap() {
     loadPersonnages();
   }, [sessionActive, roleEffectif]);
 
-  const isMJ = roleEffectif === 'admin' || roleEffectif === 'mj';
   const isMapLocked = !isMJ && activeChannelData && !activeChannelData.active;
   const hasMyToken = personnageLocal
     ? tokens.some(t => t.id_personnage === personnageLocal.id)

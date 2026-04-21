@@ -1,9 +1,12 @@
 import { useStore } from '../store/useStore'
 import { usePersonnage } from '../hooks/usePersonnage'
 import { Button } from './ui/Button'
-import { Moon, Sun, Globe, LogOut, User } from 'lucide-react'
+import { Moon, Sun, Globe, LogOut, User, Settings } from 'lucide-react'
+import { useState } from 'react'
+import { AppSettingsModal } from './ui/modal'
 
 export default function Header() {
+  const [showSettings, setShowSettings] = useState(false)
   const { 
     mode, setMode, deconnexion, compte, sessionActive, setSessionActive, 
     setPageCourante 
@@ -55,6 +58,13 @@ export default function Header() {
           </div>
         )}
 
+        <button onClick={() => setShowSettings(true)}
+          className="w-10 h-10 rounded-sm flex items-center justify-center bg-black/20 border border-theme/30 text-theme-main hover:bg-black/30 transition-all"
+          title="Paramètres"
+        >
+          <Settings size={18} />
+        </button>
+
         <button onClick={() => setMode(mode === 'mode-dark' ? 'mode-light' : 'mode-dark')}
           className="w-10 h-10 rounded-sm flex items-center justify-center bg-black/20 border border-theme/30 text-theme-main">
           {mode === 'mode-dark' ? <Moon size={18} /> : <Sun size={18} />}
@@ -67,6 +77,10 @@ export default function Header() {
           </Button>
         </div>
       </div>
+
+      {showSettings && (
+        <AppSettingsModal onClose={() => setShowSettings(false)} />
+      )}
     </header>
   )
 }

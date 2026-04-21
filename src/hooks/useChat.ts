@@ -5,8 +5,8 @@ import { chatService, ChatCanal, ChatMessage } from '../services/chatService'
 import { broadcastService } from '../services/broadcastService'
 
 export function useChat() {
-  const { compte, sessionActive, roleEffectif, personnageJoueur } = useStore()
-  const isMJ = roleEffectif === 'admin' || roleEffectif === 'mj'
+  const { compte, sessionActive, roleEffectif, personnageJoueur, pnjControle } = useStore()
+  const isMJ = (roleEffectif === 'admin' || roleEffectif === 'mj') && !pnjControle
 
   const [canaux, setCanaux]               = useState<ChatCanal[]>([])
   const [canalActifId, setCanalActifId]   = useState<string | null>(null)
@@ -35,16 +35,24 @@ export function useChat() {
 
   // ── Nom affiché selon le mode ──────────────────────────────────────────────
   const nomAffiche = useCallback((modeIC = false): string => {
-    if (modeIC && personnageJoueur) return personnageJoueur.nom
+    if (modeIC) {
+      if (pnjControle) return pnjControle.nom
+      if (personnageJoueur) return personnageJoueur.nom
+    }
     return compte?.pseudo || 'Inconnu'
-  }, [compte, personnageJoueur])
+  }, [compte, personnageJoueur, pnjControle])
 
   // ── Charger les canaux ────────────────────────────────────────────────────
   const chargerCanaux = useCallback(async () => {
     if (!sessionActive || !compte) return
     setChargementCanaux(true)
 
-    const data = await chatService.getCanaux(sessionActive.id, compte.id, isMJ)
+    // Si on possède un personnage joueur, on veut voir SES canaux privés
+    const targetCompteId = (pnjControle?.type === 'Joueur' && pnjControle.lie_au_compte) 
+      ? pnjControle.lie_au_compte 
+      : compte.id
+
+    const data = await chatService.getCanaux(sessionActive.id, targetCompteId, isMJ)
 
     // ── Filtre : on exclut les canaux réservés aux maps (préfixe "map_") ──
     const canauxVisibles = data.filter(c => !c.nom?.startsWith('map_'))

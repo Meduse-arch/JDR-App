@@ -4,6 +4,8 @@ import { personnageService } from '../../../services/personnageService'
 import { useStore, type Personnage } from '../../../store/useStore'
 import { StatsCard } from '../../../components/ui/card'
 import { ConfirmationBar } from '../../../components/ui/ConfirmationBar'
+import { statsEngine } from '../../../utils/statsEngine'
+import { ORDRE_STATS } from '../../../utils/constants'
 
 type Props = { personnage: Personnage; onRecharger?: () => void }
 
@@ -28,10 +30,12 @@ export default function GererStats({ personnage, onRecharger }: Props) {
       const s = data
         .filter((d: any) => !STATS_SYSTEME.includes(d.stats.nom))
         .map((d: any) => ({ id_stat: d.id_stat, nom: d.stats.nom, valeur: d.valeur }))
-      setStats(s)
+      
+      const sortedStats = statsEngine.trierStats(s, ORDRE_STATS)
+      setStats(sortedStats)
       const initialTemp: Record<string, number> = {}
       const initialDeltas: Record<string, string> = {}
-      s.forEach(item => {
+      sortedStats.forEach(item => {
         initialTemp[item.nom] = item.valeur
         initialDeltas[item.nom] = ''
       })

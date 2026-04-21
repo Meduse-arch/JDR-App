@@ -2,6 +2,8 @@ import { Stat, Modificateur, EffetActif, Tag } from '../../types'
 import { Button } from '../ui/Button'
 import { useState } from 'react'
 import { Zap, Backpack, Sparkles, Shuffle, BarChart2, Droplets, Swords, Dices, X, Save } from 'lucide-react'
+import { statsEngine } from '../../utils/statsEngine'
+import { ORDRE_STATS } from '../../utils/constants'
 
 interface Props {
   stats: Stat[]
@@ -41,6 +43,8 @@ const JAUGES = [
 
 export default function CompetenceForgeForm(props: Props) {
   const [onglet, setOnglet] = useState<'stats' | 'ressources' | 'couts' | 'dés'>('stats')
+
+  const sortedStats = statsEngine.trierStats(props.stats, ORDRE_STATS)
 
   const inputClass = "w-full bg-transparent border-b border-theme/20 py-2 outline-none focus:border-theme-main transition-all font-garamond italic text-lg text-primary placeholder:opacity-20 shadow-none";
   const labelClass = "text-[10px] font-cinzel font-black uppercase tracking-[0.2em] text-theme-main/60 mb-1 block";
@@ -209,7 +213,7 @@ export default function CompetenceForgeForm(props: Props) {
                             value={m.id_stat} 
                             onChange={e => props.updateModif(idx, { id_stat: e.target.value })}
                           >
-                            {props.stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                            {sortedStats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
                           </select>
                         </div>
                         <div className="w-full sm:w-48 flex flex-col">
@@ -217,7 +221,7 @@ export default function CompetenceForgeForm(props: Props) {
                           <select 
                             className={inputClass}
                             value={m.type_calcul} 
-                            onChange={e => props.updateModif(idx, { type_calcul: e.target.value as any, des_nb: e.target.value==='roll_dice'?1:null, des_faces: e.target.value==='roll_dice'?6:null, des_stat_id: e.target.value==='roll_stat'?props.stats[0]?.id:null })}
+                            onChange={e => props.updateModif(idx, { type_calcul: e.target.value as any, des_nb: e.target.value==='roll_dice'?1:null, des_faces: e.target.value==='roll_dice'?6:null, des_stat_id: e.target.value==='roll_stat'?sortedStats[0]?.id:null })}
                           >
                             <option value="fixe">Fixe</option>
                             <option value="pourcentage">Pourcentage</option>
@@ -237,7 +241,7 @@ export default function CompetenceForgeForm(props: Props) {
                           <>
                             <div className="col-span-2">
                               <label className={labelClass}>Basé sur</label>
-                              <select className={inputClass} value={m.des_stat_id || ''} onChange={e => props.updateModif(idx, { des_stat_id: e.target.value || null })}>{props.stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</select>
+                              <select className={inputClass} value={m.des_stat_id || ''} onChange={e => props.updateModif(idx, { des_stat_id: e.target.value || null })}>{sortedStats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</select>
                             </div>
                             <div className="col-span-1">
                               <label className={labelClass}>Bonus</label>
@@ -294,7 +298,7 @@ export default function CompetenceForgeForm(props: Props) {
                           {['fixe', 'roll_stat', 'roll_dice'].map(type => (
                             <button 
                               key={type} 
-                              onClick={() => props.updateEffet(idx, { des_nb: type==='roll_dice'?1:null, des_faces: type==='roll_dice'?6:null, des_stat_id: type==='roll_stat'?props.stats[0]?.id:null }, onglet as any)} 
+                              onClick={() => props.updateEffet(idx, { des_nb: type==='roll_dice'?1:null, des_faces: type==='roll_dice'?6:null, des_stat_id: type==='roll_stat'?sortedStats[0]?.id:null }, onglet as any)} 
                               className={`font-cinzel text-[9px] uppercase tracking-widest transition-all relative py-1 ${
                                 (!e.des_nb && !e.des_stat_id && type === 'fixe') || (e.des_stat_id && type === 'roll_stat') || (e.des_nb && type === 'roll_dice') 
                                 ? 'text-theme-main opacity-100' 
@@ -319,7 +323,7 @@ export default function CompetenceForgeForm(props: Props) {
                             <>
                               <div className="col-span-2">
                                 <label className={labelClass}>Basé sur</label>
-                                <select className={inputClass} value={e.des_stat_id || ''} onChange={ev => props.updateEffet(idx, { des_stat_id: ev.target.value || null }, onglet as any)}>{props.stats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</select>
+                                <select className={inputClass} value={e.des_stat_id || ''} onChange={ev => props.updateEffet(idx, { des_stat_id: ev.target.value || null }, onglet as any)}>{sortedStats.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</select>
                               </div>
                               <div className="col-span-1">
                                 <label className={labelClass}>Bonus</label>

@@ -28,6 +28,7 @@ export const menuMJ: MenuItem[] = [
 
 export const menuJoueur: MenuItem[] = [
   { id: 'dashboard',       label: 'Tableau de bord', icon: <RuneIcon rune={RUNES_PAGES['dashboard']} />,       rune: RUNES_PAGES['dashboard'] },
+  { id: 'selection-personnage', label: 'Sélection Personnage', icon: <RuneIcon rune={RUNES_PAGES['selection-personnage']} />, rune: RUNES_PAGES['selection-personnage'] },
   { id: 'mon-personnage',  label: 'Ma Fiche',         icon: <RuneIcon rune={RUNES_PAGES['mon-personnage']} />,  rune: RUNES_PAGES['mon-personnage'] },
   { id: 'lancer-des',      label: 'Lancer de dé',     icon: <RuneIcon rune={RUNES_PAGES['lancer-des']} />,      rune: RUNES_PAGES['lancer-des'] },
   { id: 'map',             label: 'Carte du Monde',   icon: <RuneIcon rune={RUNES_PAGES['map']} />,             rune: RUNES_PAGES['map'] },

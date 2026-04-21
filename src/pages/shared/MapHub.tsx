@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MapChannel } from '../../types';
 import { Plus, Lock, Unlock, Trash2, Map as MapIcon, LogIn, PencilLine } from 'lucide-react';
+import { useStore } from '../../store/useStore';
 
 interface MapHubProps {
   channels: MapChannel[];
@@ -27,7 +28,8 @@ export default function MapHub({
   onEditChannel,
   sidebarOnly = false,
 }: MapHubProps) {
-  const isMJ = roleEffectif === 'admin' || roleEffectif === 'mj';
+  const pnjControle = useStore(s => s.pnjControle);
+  const isMJ = (roleEffectif === 'admin' || roleEffectif === 'mj') && !pnjControle;
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
