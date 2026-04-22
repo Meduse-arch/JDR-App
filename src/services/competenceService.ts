@@ -32,7 +32,7 @@ export const competenceService = {
    */
   updateCompetence: async (
     idCompetence: string,
-    competenceData: { nom: string; description: string; type: string, condition_type?: string | null },
+    competenceData: { nom: string; description: string; type: string, condition_type?: string | null, image_url?: string | null },
     modificateurs: Partial<any>[] = [],
     effetsActifs: Partial<any>[] = [],
     tagIds: string[] = []
@@ -110,7 +110,7 @@ export const competenceService = {
    * Crée une nouvelle compétence avec modificateurs et effets_actifs
    */
   createCompetence: async (
-    competenceData: { nom: string; description: string; type: string, id_session: string, condition_type?: string | null },
+    competenceData: { nom: string; description: string; type: string, id_session: string, condition_type?: string | null, image_url?: string | null },
     modificateurs: Partial<any>[] = [],
     effetsActifs: Partial<any>[] = [],
     tagIds: string[] = []
@@ -127,7 +127,7 @@ export const competenceService = {
       .single();
 
     if (error || !newComp) {
-      console.error("Erreur création compétence:", error);
+      console.error("Erreur création compétence (supabase):", error);
       return null;
     }
 

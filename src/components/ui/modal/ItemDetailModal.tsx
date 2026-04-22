@@ -38,31 +38,43 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
   return (
     <ModalContainer onClose={onClose} className="max-w-lg">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-2xl font-cinzel font-black uppercase tracking-widest text-primary">
-          {actualItem.nom}
-        </h3>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="font-cinzel text-[10px] tracking-[0.2em] px-2 py-0.5 uppercase bg-theme-main/20 text-theme-main">
-            {actualItem.categorie}
-          </div>
-          
-          {actualItem.tags && actualItem.tags.length > 0 && (
-            <div className="flex gap-2">
-              {actualItem.tags.map(t => (
-                <span key={t.id} className="text-[9px] font-cinzel opacity-40 uppercase tracking-widest">
-                  #{t.nom}
-                </span>
-              ))}
+      <div className="flex gap-4 items-start">
+        <div className="flex-1 flex flex-col gap-2">
+          <h3 className="text-2xl font-cinzel font-black uppercase tracking-widest text-primary">
+            {actualItem.nom}
+          </h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="font-cinzel text-[10px] tracking-[0.2em] px-2 py-0.5 uppercase bg-theme-main/20 text-theme-main">
+              {actualItem.categorie}
             </div>
-          )}
+            
+            {actualItem.tags && actualItem.tags.length > 0 && (
+              <div className="flex gap-2">
+                {actualItem.tags.map(t => (
+                  <span key={t.id} className="text-[9px] font-cinzel opacity-40 uppercase tracking-widest">
+                    #{t.nom}
+                  </span>
+                ))}
+              </div>
+            )}
 
-          {entry && entry.quantite > 1 && (
-            <div className="font-cinzel text-[10px] px-2 py-0.5 bg-white/5 text-theme-main/50 rounded-sm">
-              ×{entry.quantite}
-            </div>
-          )}
+            {entry && entry.quantite > 1 && (
+              <div className="font-cinzel text-[10px] px-2 py-0.5 bg-white/5 text-theme-main/50 rounded-sm">
+                ×{entry.quantite}
+              </div>
+            )}
+          </div>
         </div>
+
+        {actualItem.image_url && (
+          <div className="w-20 h-20 shrink-0 rounded-sm overflow-hidden border border-theme-main/30 bg-black/40 shadow-xl">
+            <img 
+              src={actualItem.image_url} 
+              alt={actualItem.nom} 
+              className="w-full h-full object-cover" 
+            />
+          </div>
+        )}
       </div>
 
       <div className="h-px w-full bg-linear-to-r from-transparent via-theme-main/20 to-transparent" />

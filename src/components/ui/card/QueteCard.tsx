@@ -1,3 +1,4 @@
+import { forwardRef } from 'react'
 import { Quete } from '../../../types'
 import { SelectableCard } from './SelectableCard'
 import { ActionBar } from './ActionBar'
@@ -21,12 +22,13 @@ interface QueteCardProps {
   onReouvrir?: (id: string) => void
 }
 
-export function QueteCard({ quete: q, onClick, onEdit, onDelete, onSuivre, isSuivie, isSelected, onSelect, onReouvrir }: QueteCardProps) {
+export const QueteCard = forwardRef<HTMLDivElement, QueteCardProps>(({ quete: q, onClick, onEdit, onDelete, onSuivre, isSuivie, isSelected, onSelect, onReouvrir }, ref) => {
   const isFinished = q.statut === 'Terminée' || q.statut === 'Échouée'
   const showReouvrir = isFinished && !!onReouvrir
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -36,17 +38,28 @@ export function QueteCard({ quete: q, onClick, onEdit, onDelete, onSuivre, isSui
       <SelectableCard
         showCheckmark={!!onSelect}
         isSelected={isSelected}
-        className={`h-full flex flex-col cursor-pointer relative group bg-card/20 backdrop-blur-md border border-white/5 medieval-border transition-all hover:bg-card/40 p-0 ${
+        className={`h-full flex flex-col cursor-pointer relative group bg-card/20 backdrop-blur-md border border-white/5 medieval-border transition-all hover:bg-card/40 p-0 overflow-hidden ${
           q.statut === 'Terminée' ? 'opacity-70 grayscale-[0.3]' :
           q.statut === 'Échouée' ? 'opacity-60 grayscale' :
           'border-theme-main/20 hover:border-theme-main/40'
         }`}
         onClick={() => onSelect ? onSelect(q.id) : onClick(q)}
       >
+        {/* Image minimaliste en coin (optionnelle) */}
+        {q.image_url && (
+          <div className="absolute top-4 right-4 w-14 h-14 rounded-sm overflow-hidden border border-white/10 bg-black/40 shadow-lg z-20">
+            <img 
+              src={q.image_url} 
+              alt={q.titre} 
+              className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" 
+            />
+          </div>
+        )}
+
         {/* CONTENU */}
         <div className="p-5 flex flex-col gap-3 flex-1">
           {/* Statut + titre */}
-          <div className="flex justify-between items-start gap-4">
+          <div className="flex justify-between items-start gap-4 pr-14">
             <div className="flex flex-col gap-1 overflow-hidden flex-1">
               <div className="flex items-center gap-2">
                 {q.statut === 'Terminée' ? <CheckCircle2 size={14} className="text-green-500 shrink-0" /> :
@@ -99,4 +112,4 @@ export function QueteCard({ quete: q, onClick, onEdit, onDelete, onSuivre, isSui
       </SelectableCard>
     </motion.div>
   )
-}
+})

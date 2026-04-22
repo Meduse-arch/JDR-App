@@ -57,6 +57,7 @@ export const queteService = {
       titre: quete.titre, 
       description: quete.description, 
       statut: quete.statut || 'En cours',
+      image_url: quete.image_url || null,
       id_session: sessionId 
     }
 

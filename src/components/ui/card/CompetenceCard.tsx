@@ -32,13 +32,24 @@ export const CompetenceCard: React.FC<CompetenceCardProps> = ({
     <SelectableCard 
       isActive={isActive}
       showCheckmark={false}
-      className="group flex flex-col h-full cursor-pointer p-6 relative rounded-sm bg-card/40 backdrop-blur-md" 
+      className="group flex flex-col h-full cursor-pointer p-6 relative rounded-sm bg-card/40 backdrop-blur-md overflow-hidden" 
       onClick={() => onClick(competence)}
     >
       <div className="absolute inset-0 z-0 cursor-pointer" />
       
-      <div className="relative z-10 flex flex-col mb-4">
-        <h3 className="font-cinzel font-black uppercase tracking-widest text-lg truncate pr-2 text-primary">
+      {/* Image minimaliste en coin (optionnelle) */}
+      {competence.image_url && (
+        <div className="absolute top-4 right-4 w-12 h-12 rounded-sm overflow-hidden border border-theme-main/20 bg-black/40 shadow-lg z-20">
+          <img 
+            src={competence.image_url} 
+            alt={competence.nom} 
+            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" 
+          />
+        </div>
+      )}
+
+      <div className="relative z-10 flex flex-col mb-4 pr-12">
+        <h3 className="font-cinzel font-black uppercase tracking-widest text-lg truncate pr-2 text-primary group-hover:text-theme-main transition-colors">
           {competence.nom}
         </h3>
         

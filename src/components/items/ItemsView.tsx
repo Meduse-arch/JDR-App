@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Personnage, Item, InventaireEntry } from '../../types'
 import { useItemForge } from '../../hooks/useItemForge'
 import { useItemInventaire } from '../../hooks/useItemInventaire'
@@ -267,6 +268,7 @@ export default function ItemsView({ mode, personnage = null }: Props) {
 
       {/* GRILLE D'OBJETS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-24">
+        <AnimatePresence mode="popLayout">
         {filtered.map((rawEntry: any) => {
           const item = rawEntry.items || rawEntry
           const entry = getEntryForItem(item.id) // entrée inventaire si elle existe
@@ -287,7 +289,12 @@ export default function ItemsView({ mode, personnage = null }: Props) {
               quantite: 1, equipe: false, items: item
             }
             return (
-              <div key={item.id} className="relative group hover:shadow-[0_0_30px_rgba(var(--color-main-rgb),0.15)] transition-all duration-500">
+              <motion.div 
+                layout
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}
+                key={item.id} 
+                className="relative group hover:shadow-[0_0_30px_rgba(var(--color-main-rgb),0.15)] transition-shadow duration-500"
+              >
                 <ItemCard
                   entry={itemToRender}
                   onUtiliser={mode === 'joueur' ? usage.utiliserItem : undefined}
@@ -299,15 +306,17 @@ export default function ItemsView({ mode, personnage = null }: Props) {
                   labelEffet={e => formatLabelEffet(e, allStats)}
                   modifs={item.modificateurs || []}
                 />
-              </div>
+              </motion.div>
             )
           }
 
           // Mode gerer : rendu unifié pour possédées ET bibliothèque
           return (
-            <div
+            <motion.div
+              layout
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}
               key={item.id}
-              className={`medieval-border bg-card/40 backdrop-blur-md rounded-sm relative overflow-hidden transition-all duration-300 cursor-pointer ${
+              className={`medieval-border bg-card/40 backdrop-blur-md rounded-sm relative overflow-hidden transition-colors duration-300 cursor-pointer ${
                 isSelected || isSelectedPoss
                   ? 'border-theme-main scale-[1.02] shadow-[0_0_20px_rgba(var(--color-main-rgb),0.2)]'
                   : isPossede && !isLibraryMode
@@ -463,9 +472,10 @@ export default function ItemsView({ mode, personnage = null }: Props) {
                   >+</button>
                 </div>
               )}
-            </div>
+            </motion.div>
           )
         })}
+        </AnimatePresence>
       </div>
 
       {/* BARRE DE CONFIRMATION */}

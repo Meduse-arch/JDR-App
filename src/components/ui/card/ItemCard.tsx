@@ -40,20 +40,31 @@ export function ItemCard({
     <SelectableCard
       onClick={() => onClick?.(entry)}
       showCheckmark={false}
-      className={`flex flex-col h-full min-h-[320px] cursor-pointer rounded-sm 
+      className={`flex flex-col h-full min-h-[220px] cursor-pointer rounded-sm 
         bg-card/40 backdrop-blur-md border-2 overflow-hidden p-0
         ${entry.equipe && hasActions ? 'border-theme-main' : 'border-theme/20 hover:border-theme-main/50'}`}
     >
       {/* Barre dorée équipé */}
       {entry.equipe && hasActions && (
-        <div className="absolute top-0 right-0 w-1 h-full bg-theme-main shadow-[0_0_10px_var(--color-main)]" />
+        <div className="absolute top-0 left-0 w-1 h-full bg-theme-main shadow-[0_0_10px_var(--color-main)]" />
       )}
 
-      {/* CONTENU SCROLLABLE */}
-      <div className="flex flex-col gap-3 p-4 flex-1 overflow-hidden">
+      {/* CONTENU */}
+      <div className="flex flex-col gap-3 p-4 flex-1 overflow-hidden relative">
         
+        {/* Image minimaliste en coin (optionnelle) */}
+        {item.image_url && (
+          <div className="absolute top-4 right-4 w-16 h-16 rounded-sm overflow-hidden border border-theme-main/20 bg-black/40 shadow-lg z-20">
+            <img 
+              src={item.image_url} 
+              alt={item.nom} 
+              className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" 
+            />
+          </div>
+        )}
+
         {/* Header : catégorie + équipé/quantité */}
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start pr-16">
           <Badge
             variant="outline"
             className="text-[9px] font-cinzel font-black uppercase tracking-widest px-2 py-1 bg-black/40 flex items-center gap-2 border-none text-theme-main"
@@ -74,7 +85,7 @@ export function ItemCard({
         </div>
 
         {/* Nom + tags */}
-        <div>
+        <div className="pr-16">
           <h3 className="font-cinzel font-black text-lg uppercase text-primary leading-tight tracking-widest group-hover:text-theme-main transition-colors line-clamp-2">
             {item.nom}
           </h3>

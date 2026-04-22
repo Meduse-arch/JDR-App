@@ -32,17 +32,29 @@ export const QueteDetailModal: React.FC<QueteDetailModalProps> = ({
 
   return (
     <ModalContainer onClose={onClose} className="max-w-lg">
-      <div className="flex flex-col gap-2">
-        <div className={`w-fit font-cinzel text-[10px] tracking-[0.2em] px-2 py-0.5 uppercase ${
-          isTerminee ? 'bg-green-500/20 text-green-500' :
-          isEchouee ? 'bg-red-500/20 text-red-500' :
-          'bg-theme-main/20 text-theme-main'
-        }`}>
-          {quete.statut}
+      <div className="flex gap-4 items-start">
+        <div className="flex-1 flex flex-col gap-2">
+          <div className={`w-fit font-cinzel text-[10px] tracking-[0.2em] px-2 py-0.5 uppercase ${
+            isTerminee ? 'bg-green-500/20 text-green-500' :
+            isEchouee ? 'bg-red-500/20 text-red-500' :
+            'bg-theme-main/20 text-theme-main'
+          }`}>
+            {quete.statut}
+          </div>
+          <h3 className="text-2xl font-cinzel font-black uppercase tracking-widest text-primary">
+            {quete.titre}
+          </h3>
         </div>
-        <h3 className="text-2xl font-cinzel font-black uppercase tracking-widest text-primary">
-          {quete.titre}
-        </h3>
+
+        {quete.image_url && (
+          <div className="w-20 h-20 shrink-0 rounded-sm overflow-hidden border border-theme-main/30 bg-black/40 shadow-xl">
+            <img 
+              src={quete.image_url} 
+              alt={quete.titre} 
+              className="w-full h-full object-cover" 
+            />
+          </div>
+        )}
       </div>
 
       <div className="bg-black/20 p-4 rounded-sm border-l-4 border-theme-main/40 max-h-40 overflow-y-auto custom-scrollbar">

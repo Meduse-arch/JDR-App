@@ -16,7 +16,7 @@ const RESSOURCES_MODIFS = [
 interface Props {
   stats: Stat[]
   tags: Tag[]
-  form: { nom: string; description: string; categorie: CategorieItem }
+  form: { nom: string; description: string; categorie: CategorieItem; image_url?: string | null }
   setForm: (f: any) => void
   modifs: Partial<Modificateur>[]
   effets: Partial<EffetActif>[]
@@ -57,6 +57,16 @@ export default function ItemForgeForm(props: Props) {
             onChange={e => props.setForm({...props.form, nom: e.target.value})} 
             placeholder="Nom de la relique..." 
             className="font-garamond font-bold text-lg"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-[10px] font-cinzel font-black uppercase tracking-[0.2em] text-theme-main ml-1">URL de l'image (optionnel)</label>
+          <Input 
+            value={props.form.image_url || ''} 
+            onChange={e => props.setForm({...props.form, image_url: e.target.value})} 
+            placeholder="https://exemple.com/image.png" 
+            className="font-garamond text-sm"
           />
         </div>
         

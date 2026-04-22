@@ -13,7 +13,7 @@ export function useQueteForge() {
   const [joueurs, setJoueurs] = useState<Personnage[]>([])
   const [itemsDispos, setItemsDispos] = useState<Item[]>([])
   
-  const [form, setForm] = useState<Partial<Quete>>({ titre: '', description: '', statut: 'En cours' })
+  const [form, setForm] = useState<Partial<Quete>>({ titre: '', description: '', statut: 'En cours', image_url: '' })
   const [recompenses, setRecompenses] = useState<Partial<Recompense>[]>([])
   const [participants, setParticipants] = useState<string[]>([])
   const [sauvegardant, setSauvegardant] = useState(false)
@@ -26,7 +26,7 @@ export function useQueteForge() {
   }, [sessionActive])
 
   const reset = () => {
-    setForm({ titre: '', description: '', statut: 'En cours' })
+    setForm({ titre: '', description: '', statut: 'En cours', image_url: '' })
     setRecompenses([])
     setParticipants([])
   }

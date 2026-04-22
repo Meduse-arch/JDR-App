@@ -17,6 +17,7 @@ export function useCompetenceForge() {
   const [idEdition, setIdEdition] = useState<string | null>(null)
   const [nom, setNom] = useState('')
   const [description, setDescription] = useState('')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [typeComp, setTypeComp] = useState('active')
   const [tagsChoisis, setTagsChoisis] = useState<string[]>([])
   const [modifs, setModifs] = useState<Partial<Modificateur>[]>([])
@@ -37,6 +38,7 @@ export function useCompetenceForge() {
     setIdEdition(null)
     setNom('')
     setDescription('')
+    setImageUrl(null)
     setTypeComp('active')
     setModifs([])
     setEffets([])
@@ -51,6 +53,7 @@ export function useCompetenceForge() {
     setIdEdition(comp.id)
     setNom(comp.nom)
     setDescription(comp.description)
+    setImageUrl(comp.image_url || null)
     setTypeComp(comp.type)
     setModifs(comp.modificateurs || [])
     setConditionType(comp.condition_type || null)
@@ -70,7 +73,11 @@ export function useCompetenceForge() {
   }
 
   const sauvegarder = async () => {
-    if (!nom || !sessionActive) return false
+    console.log('Tentative de sauvegarde de la compétence:', { nom, imageUrl, idEdition });
+    if (!nom || !sessionActive) {
+      console.warn('Sauvegarde annulée: nom ou sessionActive manquant');
+      return false
+    }
     
     const finalModifs = modifs.map(m => ({
       ...m,
@@ -86,6 +93,7 @@ export function useCompetenceForge() {
     const compData = { 
       nom, 
       description, 
+      image_url: imageUrl,
       type: typeComp as any, 
       condition_type: typeComp === 'passive_auto' ? conditionType : null
     }
@@ -165,6 +173,7 @@ export function useCompetenceForge() {
     stats, tags,
     nom, setNom,
     description, setDescription,
+    imageUrl, setImageUrl,
     typeComp, setTypeComp,
     tagsChoisis,
     modifs, setModifs,

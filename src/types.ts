@@ -29,6 +29,7 @@ export interface Item {
   nom: string;
   description: string;
   categorie: CategorieItem;
+  image_url?: string | null;
   cree_par?: string;
   modificateurs?: Modificateur[];
   effets_actifs?: EffetActif[];
@@ -66,6 +67,7 @@ export interface Competence {
   nom: string;
   description: string;
   type: TypeCompetence;
+  image_url?: string | null;
   modificateurs?: Modificateur[];
   effets_actifs?: EffetActif[];
   tags?: { id: string; nom: string }[];
@@ -107,6 +109,7 @@ export interface Quete {
   titre: string;
   description: string;
   statut: 'En cours' | 'Terminée' | 'Échouée';
+  image_url?: string | null;
   created_at?: string;
   quete_recompenses?: Recompense[];
   personnage_quetes?: { id_personnage: string; suivie: boolean; personnages?: { nom: string } }[];

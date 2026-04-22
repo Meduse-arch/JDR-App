@@ -30,7 +30,7 @@ export const itemsService = {
    */
   updateItem: async (
     idItem: string,
-    itemData: { nom: string; description: string; categorie: CategorieItem },
+    itemData: { nom: string; description: string; categorie: CategorieItem; image_url?: string | null },
     modificateurs: Partial<Modificateur>[],
     effetsActifs: Partial<EffetActif>[] = [],
     tagIds: string[] = []
@@ -104,7 +104,7 @@ export const itemsService = {
   createItem: async (
     idSession: string,
     idCompte: string | undefined,
-    itemData: { nom: string; description: string; categorie: CategorieItem },
+    itemData: { nom: string; description: string; categorie: CategorieItem; image_url?: string | null },
     modificateurs: Partial<Modificateur>[],
     effetsActifs: Partial<EffetActif>[] = [],
     tagIds: string[] = []

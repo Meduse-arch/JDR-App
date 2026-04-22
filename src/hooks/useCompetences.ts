@@ -53,7 +53,7 @@ export function useCompetences() {
   };
 
   const creerCompetence = async (
-    data: { nom: string; description: string; type: string, id_session: string },
+    data: { nom: string; description: string; type: string; id_session: string; image_url?: string | null; condition_type?: string | null },
     modificateurs: any[] = [],
     effetsActifs: any[] = [],
     tagIds: string[] = []
@@ -68,7 +68,7 @@ export function useCompetences() {
 
   const modifierCompetence = async (
     id: string,
-    data: { nom: string; description: string; type: string },
+    data: { nom: string; description: string; type: string; image_url?: string | null; condition_type?: string | null },
     modificateurs: any[] = [],
     effetsActifs: any[] = [],
     tagIds: string[] = []

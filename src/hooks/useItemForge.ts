@@ -11,7 +11,7 @@ export function useItemForge() {
   const { charger, supprimerItem } = useItems()
 
   const [idEdition, setIdEdition] = useState<string | null>(null)
-  const [form, setForm] = useState({ nom: '', description: '', categorie: 'Divers' as CategorieItem })
+  const [form, setForm] = useState({ nom: '', description: '', categorie: 'Divers' as CategorieItem, image_url: '' as string | null })
   const [modifs, setModifs] = useState<Partial<Modificateur>[]>([])
   const [effets, setEffets] = useState<Partial<EffetActif>[]>([])
   const [enCours, setEnCours] = useState(false)
@@ -26,7 +26,7 @@ export function useItemForge() {
 
   const reset = () => {
     setIdEdition(null)
-    setForm({ nom: '', description: '', categorie: 'Divers' })
+    setForm({ nom: '', description: '', categorie: 'Divers', image_url: '' })
     setModifs([])
     setEffets([])
     setTagsChoisis([])
@@ -34,7 +34,7 @@ export function useItemForge() {
 
   const chargerPourEdition = (item: Item) => {
     setIdEdition(item.id)
-    setForm({ nom: item.nom, description: item.description, categorie: item.categorie })
+    setForm({ nom: item.nom, description: item.description, categorie: item.categorie, image_url: item.image_url || '' })
     setModifs(item.modificateurs || [])
     setEffets(item.effets_actifs || [])
     setTagsChoisis(item.tags?.map(t => t.id) || [])

@@ -45,6 +45,14 @@ export default function QueteForgeForm(props: Props) {
             placeholder="Nom de l'aventure..." 
             className="font-cinzel font-bold uppercase tracking-widest bg-black/20 border-white/10"
           />
+
+          <Input 
+            label="Illustration (URL)" 
+            value={props.form.image_url || ''} 
+            onChange={e => props.setForm({...props.form, image_url: e.target.value})} 
+            placeholder="https://exemple.com/image.png" 
+            className="font-garamond text-sm bg-black/20 border-white/10"
+          />
           
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black uppercase tracking-widest text-theme-main opacity-60 ml-1">Récit & Lore</label>

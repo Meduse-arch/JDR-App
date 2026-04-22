@@ -10,6 +10,7 @@ interface Props {
   tags: Tag[]
   nom: string; setNom: (v: string) => void
   description: string; setDescription: (v: string) => void
+  imageUrl: string | null; setImageUrl: (v: string | null) => void
   typeComp: string; setTypeComp: (v: string) => void
   tagsChoisis: string[]
   modifs: Partial<Modificateur>[]
@@ -65,6 +66,16 @@ export default function CompetenceForgeForm(props: Props) {
                 value={props.nom} 
                 onChange={e => props.setNom(e.target.value)} 
                 placeholder="Inscrivez le nom du sort..." 
+              />
+            </div>
+
+            <div className="flex flex-col">
+              <label className={labelClass}>Illustration (URL)</label>
+              <input 
+                className={inputClass}
+                value={props.imageUrl || ''} 
+                onChange={e => props.setImageUrl(e.target.value || null)} 
+                placeholder="https://exemple.com/image.png" 
               />
             </div>
 

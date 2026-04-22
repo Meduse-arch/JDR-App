@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Personnage, Competence } from '../../types'
 import { useCompetenceForge } from '../../hooks/useCompetenceForge'
 import { useCompetenceAttribution } from '../../hooks/useCompetenceAttribution'
@@ -177,6 +178,7 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
 
       {/* GRILLE DES ARCANES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-24">
+        <AnimatePresence mode="popLayout">
         {filtered.map((rawItem: any) => {
           const comp = rawItem.competence || rawItem
           const acquise = attr.competencesAcquises.find(
@@ -190,7 +192,12 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
           // Mode forge : garder CompetenceCard existante
           if (mode === 'forge') {
             return (
-              <div key={comp.id} className="relative group hover:shadow-[0_0_30px_rgba(var(--color-main-rgb),0.15)] transition-all duration-500">
+              <motion.div 
+                layout
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}
+                key={comp.id} 
+                className="relative group hover:shadow-[0_0_30px_rgba(var(--color-main-rgb),0.15)] transition-shadow duration-500"
+              >
               <CompetenceCard
                   competence={comp}
                   stats={allStats}
@@ -199,14 +206,19 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
                   onEdit={(c) => { forge.chargerPourEdition(c); setVue('creer') }}
                   onDelete={forge.supprimer}
                 />
-              </div>
+              </motion.div>
             )
           }
 
           // Mode utiliser (joueur) : CompetenceCard avec actions joueur
           if (mode === 'utiliser') {
             return (
-              <div key={comp.id} className="relative group hover:shadow-[0_0_30px_rgba(var(--color-main-rgb),0.15)] transition-all duration-500">
+              <motion.div 
+                layout
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}
+                key={comp.id} 
+                className="relative group hover:shadow-[0_0_30px_rgba(var(--color-main-rgb),0.15)] transition-shadow duration-500"
+              >
                 <CompetenceCard
                   competence={comp}
                   stats={allStats}
@@ -216,15 +228,17 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
                   onUse={comp.type === 'active' ? usage.utiliserCompetence : undefined}
                   onToggle={comp.type === 'passive_toggle' ? () => usage.toggleCompetence(acquise, rechargerStats, attr.chargerCompetencesAcquises) : undefined}
                 />
-              </div>
+              </motion.div>
             )
           }
 
           // Mode attribuer : nouvelle card unifiée
           return (
-            <div
+            <motion.div
+              layout
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}
               key={comp.id}
-              className={`medieval-border bg-card/40 backdrop-blur-md rounded-sm relative overflow-hidden transition-all duration-300 cursor-pointer ${
+              className={`medieval-border bg-card/40 backdrop-blur-md rounded-sm relative overflow-hidden transition-colors duration-300 cursor-pointer ${
                 isSelected
                   ? 'border-theme-main scale-[1.02] shadow-[0_0_20px_rgba(var(--color-main-rgb),0.2)]'
                   : isPossede && ongletAttr === 'liste'
@@ -312,9 +326,10 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
                   </span>
                 )}
               </div>
-            </div>
+            </motion.div>
           )
         })}
+        </AnimatePresence>
       </div>
 
       {/* BARRES DE CONFIRMATION */}

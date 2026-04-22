@@ -36,26 +36,38 @@ export const CompetenceDetailModal: React.FC<CompetenceDetailModalProps> = ({
 
   return (
     <ModalContainer onClose={onClose} className="max-w-lg">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-2xl font-cinzel font-black uppercase tracking-widest text-primary">
-          {competence.nom}
-        </h3>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className={`font-cinzel text-[10px] tracking-[0.2em] px-2 py-0.5 uppercase ${
-            isActiveType ? 'bg-theme-main/20 text-theme-main' :
-            isPassiveAuto ? 'bg-blue-500/20 text-blue-400' :
-            'bg-purple-500/20 text-purple-400'
-          }`}>
-            {isActiveType ? 'Actif' : isPassiveAuto ? 'Automatique' : 'Basculable'}
-          </div>
-          <div className="flex gap-2">
-            {competence.tags?.map(t => (
-              <span key={t.id} className="text-[9px] font-cinzel opacity-40 uppercase tracking-widest">
-                #{t.nom}
-              </span>
-            ))}
+      <div className="flex gap-4 items-start">
+        <div className="flex-1 flex flex-col gap-2">
+          <h3 className="text-2xl font-cinzel font-black uppercase tracking-widest text-primary">
+            {competence.nom}
+          </h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className={`font-cinzel text-[10px] tracking-[0.2em] px-2 py-0.5 uppercase ${
+              isActiveType ? 'bg-theme-main/20 text-theme-main' :
+              isPassiveAuto ? 'bg-blue-500/20 text-blue-400' :
+              'bg-purple-500/20 text-purple-400'
+            }`}>
+              {isActiveType ? 'Actif' : isPassiveAuto ? 'Automatique' : 'Basculable'}
+            </div>
+            <div className="flex gap-2">
+              {competence.tags?.map(t => (
+                <span key={t.id} className="text-[9px] font-cinzel opacity-40 uppercase tracking-widest">
+                  #{t.nom}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
+
+        {competence.image_url && (
+          <div className="w-20 h-20 shrink-0 rounded-sm overflow-hidden border border-theme-main/30 bg-black/40 shadow-xl">
+            <img 
+              src={competence.image_url} 
+              alt={competence.nom} 
+              className="w-full h-full object-cover" 
+            />
+          </div>
+        )}
       </div>
 
       <div className="h-px w-full bg-linear-to-r from-transparent via-theme-main/20 to-transparent" />
