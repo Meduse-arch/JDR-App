@@ -12,7 +12,7 @@ import { QueteDetailModal } from '../ui/modal'
 import { QueteCard } from '../ui/card'
 import { Button } from '../ui/Button'
 import { ConfirmationBar } from '../ui/ConfirmationBar'
-import { PenTool, Search, CheckCircle2, XCircle, Scroll } from 'lucide-react'
+import { PenTool, Search, CheckCircle2, XCircle, Scroll, Trash2 } from 'lucide-react'
 
 interface Props {
   mode: 'forge' | 'joueur' | 'attribuer'
@@ -215,9 +215,19 @@ export default function QuetesView({ mode, personnage = null }: Props) {
         <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-theme/10 shrink-0">
           {mode === 'forge' ? (
             <>
-              <Button variant="secondary" onClick={() => { forge.chargerPourEdition(q); setVue('form'); setDetail(null); }} className="w-full gap-2">
-                <PenTool size={14} /> Modifier le Récit
-              </Button>
+              <div className="flex items-center gap-2 w-full">
+                <Button variant="secondary" onClick={() => { forge.chargerPourEdition(q); setVue('form'); setDetail(null); }} className="flex-1 gap-2">
+                  <PenTool size={14} /> Modifier le Récit
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { forge.supprimer(q.id); setDetail(null); }}
+                  className="px-3 border-red-500/20 text-red-500 hover:bg-red-500/10 hover:border-red-500 hover:text-red-400"
+                  title="Supprimer"
+                >
+                  <Trash2 size={16} />
+                </Button>
+              </div>
               {q.statut !== 'En cours' && (
                 <Button variant="outline" onClick={() => handleReouvrirQuete(q.id)} className="w-full py-3 uppercase text-xs tracking-widest text-primary/60 hover:text-theme-main border-theme/20 hover:border-theme-main/40">
                   Rouvrir la quête
@@ -244,9 +254,9 @@ export default function QuetesView({ mode, personnage = null }: Props) {
   }
 
   return (
-    <div className="relative flex flex-col gap-8">
+    <div className={`relative flex flex-col ${isCodex ? 'h-[calc(100vh-10rem)]' : ''}`}>
       {/* BARRE D'OUTILS */}
-      <div className="flex flex-col gap-0 border-b border-theme/10 mb-6 mt-4">
+      <div className="flex flex-col gap-0 border-b border-theme/10 mb-6 mt-4 shrink-0">
         {/* Ligne 1 : Onglets principaux + Recherche */}
         <div className="flex items-center gap-6 pb-3 flex-wrap">
 
@@ -321,10 +331,10 @@ export default function QuetesView({ mode, personnage = null }: Props) {
       </div>
 
       {/* AFFICHAGE DES RÉCITS */}
-      <div className={`mt-10 pb-24 ${isCodex ? 'flex flex-col lg:flex-row gap-6 items-start' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'}`}>
+      <div className={`flex-1 min-h-0 ${isCodex ? 'flex flex-col lg:flex-row gap-6 items-start h-full' : 'pb-24 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'}`}>
         
         {/* LISTE OU GRILLE */}
-        <div className={isCodex ? 'flex-1 flex flex-col gap-2 w-full' : 'contents'}>
+        <div className={isCodex ? 'flex-1 flex flex-col gap-2 w-full h-full overflow-y-auto custom-scrollbar lg:pr-2' : 'contents'}>
           <AnimatePresence mode="popLayout">
             {filtered.map((q: any) => {
               const isAssignee = idsAssignees.has(q.id)
@@ -476,7 +486,7 @@ export default function QuetesView({ mode, personnage = null }: Props) {
 
         {/* PANNEAU DROIT (VUE CODEX DESKTOP) */}
         {isCodex && (
-          <div className="hidden lg:flex flex-col w-[380px] xl:w-[450px] shrink-0 sticky top-4 border border-theme/20 bg-card/40 backdrop-blur-md rounded-sm h-[calc(100vh-12rem)] shadow-xl relative overflow-hidden">
+          <div className="hidden lg:flex flex-col w-[380px] xl:w-[450px] shrink-0 border border-theme/20 bg-card/40 backdrop-blur-md rounded-sm h-full shadow-xl relative overflow-hidden">
              {renderCodexDetail()}
           </div>
         )}

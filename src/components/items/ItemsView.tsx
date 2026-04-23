@@ -18,7 +18,7 @@ import { ItemCard } from '../ui/card'
 import { ItemDetailModal } from '../ui/modal'
 import { Button } from '../ui/Button'
 import { ConfirmationBar } from '../ui/ConfirmationBar'
-import { Search, PenTool, Sword, Shield, Gem, FlaskConical, Sparkles, Package } from 'lucide-react'
+import { Search, PenTool, Sword, Shield, Gem, FlaskConical, Sparkles, Package, Trash2 } from 'lucide-react'
 
 interface Props {
   mode: 'forge' | 'gerer' | 'joueur'
@@ -203,7 +203,7 @@ export default function ItemsView({ mode, personnage = null }: Props) {
 
     return (
       <div className="flex flex-col gap-6 animate-in slide-in-from-right-4 duration-300 h-full p-6">
-        <div className="flex gap-4 items-start">
+        <div className="flex gap-4 items-start shrink-0">
           <div className="flex-1 flex flex-col gap-2">
             <h3 className="text-2xl font-cinzel font-black uppercase tracking-widest text-primary">
               {actualItem.nom}
@@ -244,7 +244,7 @@ export default function ItemsView({ mode, personnage = null }: Props) {
 
         <div className="h-px w-full bg-gradient-to-r from-transparent via-theme-main/20 to-transparent shrink-0" />
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-6 min-h-0">
           {actualItem.description && (
             <div className="bg-black/20 p-4 rounded-sm border-l-2 border-theme-main/40">
               <p className="font-garamond text-base italic text-secondary leading-relaxed">
@@ -276,13 +276,23 @@ export default function ItemsView({ mode, personnage = null }: Props) {
 
         <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-theme/10 shrink-0">
           {mode === 'forge' ? (
-            <Button 
-              variant="secondary" 
-              onClick={() => { forge.chargerPourEdition(actualItem); setVue('creer'); setDetail(null); }} 
-              className="w-full gap-2"
-            >
-              <PenTool size={14} /> Modifier dans la Forge
-            </Button>
+            <div className="flex items-center gap-2 w-full">
+              <Button 
+                variant="secondary" 
+                onClick={() => { forge.chargerPourEdition(actualItem); setVue('creer'); setDetail(null); }} 
+                className="flex-1 gap-2"
+              >
+                <PenTool size={14} /> Modifier dans la Forge
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { forge.supprimer(actualItem.id).then(reloadLib); setDetail(null); }}
+                className="px-3 border-red-500/20 text-red-500 hover:bg-red-500/10 hover:border-red-500 hover:text-red-400"
+                title="Supprimer"
+              >
+                <Trash2 size={16} />
+              </Button>
+            </div>
           ) : (
             mode === 'joueur' && entry && (
               actualItem.categorie === 'Consommable' ? (
@@ -310,10 +320,10 @@ export default function ItemsView({ mode, personnage = null }: Props) {
   }
 
   return (
-    <div className="relative">
+    <div className={`relative flex flex-col ${isCodex ? 'h-[calc(100vh-10rem)]' : ''}`}>
       {/* BARRE DE RECHERCHE & FILTRES - LIGNE ÉLÉGANTE STYLE CODEX */}
       {mode === 'gerer' ? (
-        <div className="flex flex-col gap-0 border-b border-theme/10 mb-6 mt-4">
+        <div className="flex flex-col gap-0 border-b border-theme/10 mb-6 mt-4 shrink-0">
           {/* Ligne 1 : Onglets + Recherche */}
           <div className="flex items-center gap-6 pb-3">
             {(['inventaire', 'ajouter'] as const).map(o => (
@@ -347,7 +357,7 @@ export default function ItemsView({ mode, personnage = null }: Props) {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row justify-between items-center gap-8 border-b border-theme/10 pb-6 mt-4 mb-10">
+        <div className="flex flex-col lg:flex-row justify-between items-center gap-8 border-b border-theme/10 pb-6 mt-4 mb-10 shrink-0">
           <div className="flex flex-col lg:flex-row items-center gap-8 flex-1 w-full">
             {/* Catégories en labels fins */}
             <div className="flex flex-wrap justify-center lg:justify-start gap-x-6 gap-y-2">
@@ -393,10 +403,10 @@ export default function ItemsView({ mode, personnage = null }: Props) {
       )}
 
       {/* AFFICHAGE DES OBJETS */}
-      <div className={`pb-24 ${isCodex ? 'flex flex-col lg:flex-row gap-6 items-start' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'}`}>
+      <div className={`flex-1 min-h-0 ${isCodex ? 'flex flex-col lg:flex-row gap-6 items-start h-full' : 'pb-24 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'}`}>
         
         {/* LISTE OU GRILLE */}
-        <div className={isCodex ? 'flex-1 flex flex-col gap-2 w-full' : 'contents'}>
+        <div className={isCodex ? 'flex-1 flex flex-col gap-2 w-full h-full overflow-y-auto custom-scrollbar lg:pr-2' : 'contents'}>
           <AnimatePresence mode="popLayout">
           {filtered.map((rawEntry: any) => {
             const item = rawEntry.items || rawEntry
@@ -682,7 +692,7 @@ export default function ItemsView({ mode, personnage = null }: Props) {
 
         {/* PANNEAU DROIT (VUE CODEX DESKTOP) */}
         {isCodex && (
-          <div className="hidden lg:flex flex-col w-[380px] xl:w-[450px] shrink-0 sticky top-4 border border-theme/20 bg-card/40 backdrop-blur-md rounded-sm h-[calc(100vh-12rem)] shadow-xl relative overflow-hidden">
+          <div className="hidden lg:flex flex-col w-[380px] xl:w-[450px] shrink-0 border border-theme/20 bg-card/40 backdrop-blur-md rounded-sm h-full shadow-xl relative overflow-hidden">
              {renderCodexDetail()}
           </div>
         )}
@@ -720,4 +730,3 @@ export default function ItemsView({ mode, personnage = null }: Props) {
     </div>
   )
 }
-

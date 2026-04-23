@@ -18,7 +18,7 @@ import { CompetenceCard } from '../ui/card'
 import { CompetenceDetailModal } from '../ui/modal'
 import { Button } from '../ui/Button'
 import { ConfirmationBar } from '../ui/ConfirmationBar'
-import { Search, Wand2, BookOpen, Zap, CircleDot } from 'lucide-react'
+import { Search, Wand2, BookOpen, Zap, CircleDot, Trash2 } from 'lucide-react'
 
 interface Props {
   mode: 'forge' | 'attribuer' | 'utiliser'
@@ -229,20 +229,33 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
         </div>
 
         <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-theme/10 shrink-0">
-          {mode === 'forge' && (
-            <Button variant="secondary" onClick={() => { forge.chargerPourEdition(comp); setVue('creer'); setDetail(null); }} className="w-full gap-2">
-              Modifier l'arcane
-            </Button>
-          )}
-          {mode === 'utiliser' && comp.type === 'active' && (
-            <Button variant="primary" onClick={() => usage.utiliserCompetence(comp)} className="w-full py-3 uppercase text-xs tracking-widest">
-              Lancer l'arcane
-            </Button>
-          )}
-          {mode === 'utiliser' && comp.type === 'passive_toggle' && acquise && (
-            <Button variant={acquise.is_active ? 'secondary' : 'primary'} onClick={() => usage.toggleCompetence(acquise, rechargerStats, attr.chargerCompetencesAcquises)} className="w-full py-3 uppercase text-xs tracking-widest">
-              {acquise.is_active ? 'Désactiver l\'Aura' : 'Activer l\'Aura'}
-            </Button>
+          {mode === 'forge' ? (
+            <div className="flex items-center gap-2 w-full">
+              <Button variant="secondary" onClick={() => { forge.chargerPourEdition(comp); setVue('creer'); setDetail(null); }} className="flex-1 gap-2">
+                Modifier l'arcane
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { forge.supprimer(comp.id); setDetail(null); }}
+                className="px-3 border-red-500/20 text-red-500 hover:bg-red-500/10 hover:border-red-500 hover:text-red-400"
+                title="Supprimer"
+              >
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          ) : (
+            <>
+              {comp.type === 'active' && (
+                <Button variant="primary" onClick={() => usage.utiliserCompetence(comp)} className="w-full py-3 uppercase text-xs tracking-widest">
+                  Lancer l'arcane
+                </Button>
+              )}
+              {comp.type === 'passive_toggle' && acquise && (
+                <Button variant={acquise.is_active ? 'secondary' : 'primary'} onClick={() => usage.toggleCompetence(acquise, rechargerStats, attr.chargerCompetencesAcquises)} className="w-full py-3 uppercase text-xs tracking-widest">
+                  {acquise.is_active ? 'Désactiver l\'Aura' : 'Activer l\'Aura'}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -250,9 +263,9 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
   }
 
   return (
-    <div className="relative flex flex-col gap-8">
+    <div className={`relative flex flex-col ${isCodex ? 'h-[calc(100vh-10rem)]' : ''}`}>
       {/* BARRE D'OUTILS */}
-      <div className="flex flex-col gap-0 border-b border-theme/10 mb-6 mt-4">
+      <div className="flex flex-col gap-0 border-b border-theme/10 mb-6 mt-4 shrink-0">
         {/* Ligne 1 : Onglets + Recherche */}
         <div className="flex items-center gap-6 pb-3">
           {['Tous', 'Actif', 'Passif'].map(t => (
@@ -289,10 +302,10 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
       </div>
 
       {/* AFFICHAGE DES ARCANES */}
-      <div className={`pb-24 ${isCodex ? 'flex flex-col lg:flex-row gap-6 items-start' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'}`}>
+      <div className={`flex-1 min-h-0 ${isCodex ? 'flex flex-col lg:flex-row gap-6 items-start h-full' : 'pb-24 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'}`}>
         
         {/* LISTE OU GRILLE */}
-        <div className={isCodex ? 'flex-1 flex flex-col gap-2 w-full' : 'contents'}>
+        <div className={isCodex ? 'flex-1 flex flex-col gap-2 w-full h-full overflow-y-auto custom-scrollbar lg:pr-2' : 'contents'}>
           <AnimatePresence mode="popLayout">
           {filtered.map((rawItem: any) => {
             const comp = rawItem.competence || rawItem
@@ -500,7 +513,7 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
 
         {/* PANNEAU DROIT (VUE CODEX DESKTOP) */}
         {isCodex && (
-          <div className="hidden lg:flex flex-col w-[380px] xl:w-[450px] shrink-0 sticky top-4 border border-theme/20 bg-card/40 backdrop-blur-md rounded-sm h-[calc(100vh-12rem)] shadow-xl relative overflow-hidden">
+          <div className="hidden lg:flex flex-col w-[380px] xl:w-[450px] shrink-0 border border-theme/20 bg-card/40 backdrop-blur-md rounded-sm h-full shadow-xl relative overflow-hidden">
              {renderCodexDetail()}
           </div>
         )}
