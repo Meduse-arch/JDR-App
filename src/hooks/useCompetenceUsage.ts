@@ -195,7 +195,7 @@ export function useCompetenceUsage(
       setDiceResult(null);
       setTimeout(() => {
         setDiceResult(diceResults);
-      }, 10);
+      }, 50);
     }
     if (Object.keys(globalUpdates).length > 0) await mettreAJourLocalement(globalUpdates);
     

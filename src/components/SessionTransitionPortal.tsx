@@ -65,7 +65,7 @@ const SessionTransitionPortal: React.FC<Props> = ({ sessionNom, onComplete }) =>
         >
           <RunicDecoder 
             text={sessionNom.toUpperCase()} 
-            className={`${getFontSize(sessionNom)} font-cinzel font-black tracking-[0.2em] text-theme-main drop-shadow-[0_0_30px_rgba(var(--color-main-rgb),0.5)] block leading-tight whitespace-nowrap`}
+            className={`${getFontSize(sessionNom)} font-cinzel font-black tracking-[0.2em] text-theme-main block leading-tight whitespace-nowrap`}
           />
         </motion.div>
 

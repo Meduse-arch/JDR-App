@@ -28,7 +28,8 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
     navigationMode, setNavigationMode, 
     showImmersiveNavButton, setShowImmersiveNavButton,
     itemDisplayMode, setItemDisplayMode,
-    characterSheetMode, setCharacterSheetMode
+    characterSheetMode, setCharacterSheetMode,
+    sessionListViewMode, setSessionListViewMode
   } = useStore()
 
   const [activeTab, setActiveTab] = useState<TabId>('navigation')
@@ -233,6 +234,15 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
                         desc="Active le portrait central et les jauges circulaires sur votre fiche."
                         active={characterSheetMode === 'hero'}
                         onToggle={() => setCharacterSheetMode(characterSheetMode === 'hero' ? 'classic' : 'hero')}
+                      />
+                    </ControlGroup>
+
+                    <ControlGroup label="Hall des Sessions">
+                      <SwitchRow 
+                        label="Mode Tarot"
+                        desc="Affiche vos sessions sous forme de cartes d'arcanes mystiques."
+                        active={sessionListViewMode === 'tarot'}
+                        onToggle={() => setSessionListViewMode(sessionListViewMode === 'tarot' ? 'list' : 'tarot')}
                       />
                     </ControlGroup>
                   </div>

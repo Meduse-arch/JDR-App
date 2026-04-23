@@ -6,6 +6,7 @@ export type ModeId = 'mode-dark' | 'mode-light'
 export type NavigationMode = 'basic' | 'immersive'
 export type ItemViewMode = 'grid' | 'codex'
 export type CharacterSheetMode = 'classic' | 'hero'
+export type SessionListViewMode = 'list' | 'tarot'
 
 export type Compte = { id: string; pseudo: string; role: RoleId }
 export type Session = { id: string; nom: string; description: string; cree_par: string; created_at?: string; parametres?: any }
@@ -44,6 +45,7 @@ interface JdrState {
   showImmersiveNavButton: boolean
   itemDisplayMode: ItemViewMode
   characterSheetMode: CharacterSheetMode
+  sessionListViewMode: SessionListViewMode
   diceResult: DiceResult[] | null
   diceSharingEnabled: boolean
   buffRolls: Record<string, number>
@@ -60,6 +62,7 @@ interface JdrState {
   setShowImmersiveNavButton: (show: boolean) => void
   setItemDisplayMode: (mode: ItemViewMode) => void
   setCharacterSheetMode: (mode: CharacterSheetMode) => void
+  setSessionListViewMode: (mode: SessionListViewMode) => void
   setDiceResult: (diceResult: DiceResult[] | null, broadcast?: boolean) => void
   setDiceSharingEnabled: (enabled: boolean) => void
   setBuffRoll: (key: string, val: number) => void
@@ -79,6 +82,7 @@ export const useStore = create<JdrState>((set, get) => ({
   showImmersiveNavButton: localStorage.getItem('sigil-immersive-nav-btn') !== 'false',
   itemDisplayMode: (localStorage.getItem('sigil-item-display-mode') as ItemViewMode) || 'grid',
   characterSheetMode: (localStorage.getItem('sigil-char-sheet-mode') as CharacterSheetMode) || 'classic',
+  sessionListViewMode: (localStorage.getItem('sigil-session-list-mode') as SessionListViewMode) || 'list',
   diceResult: null,
   diceSharingEnabled: false,
   buffRolls: {},
@@ -130,6 +134,10 @@ export const useStore = create<JdrState>((set, get) => ({
   setCharacterSheetMode: (characterSheetMode) => {
     localStorage.setItem('sigil-char-sheet-mode', characterSheetMode);
     set({ characterSheetMode });
+  },
+  setSessionListViewMode: (sessionListViewMode) => {
+    localStorage.setItem('sigil-session-list-mode', sessionListViewMode);
+    set({ sessionListViewMode });
   },
   setDiceResult: (diceResult, broadcast = true) => {
     const { sessionActive, diceSharingEnabled, compte } = get();

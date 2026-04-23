@@ -251,7 +251,15 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
                 </Button>
               )}
               {comp.type === 'passive_toggle' && acquise && (
-                <Button variant={acquise.is_active ? 'secondary' : 'primary'} onClick={() => usage.toggleCompetence(acquise, rechargerStats, attr.chargerCompetencesAcquises)} className="w-full py-3 uppercase text-xs tracking-widest">
+                <Button 
+                  variant={acquise.is_active ? 'secondary' : 'primary'} 
+                  onClick={async () => {
+                    // Mise à jour optimiste du detail
+                    setDetail({ ...comp }); // Force re-render with current state
+                    await usage.toggleCompetence(acquise, rechargerStats, attr.chargerCompetencesAcquises);
+                  }} 
+                  className="w-full py-3 uppercase text-xs tracking-widest"
+                >
                   {acquise.is_active ? 'Désactiver l\'Aura' : 'Activer l\'Aura'}
                 </Button>
               )}

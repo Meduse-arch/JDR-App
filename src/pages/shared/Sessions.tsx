@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
 import { Card } from '../../components/ui/card'
@@ -6,22 +7,24 @@ import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { ConfirmButton } from '../../components/ui/ConfirmButton'
 import RunicDecoder from '../../components/ui/RunicDecoder'
-import { Globe, X, Search, User, Calendar, Crown, Trash2, PlusCircle, MoveRight, Map } from 'lucide-react'
+import { Globe, X, Search, User, Calendar, Crown, Trash2, PlusCircle, MoveRight, Map, Compass } from 'lucide-react'
 
 type Session = { id: string; nom: string; description: string; created_at?: string; cree_par: string }
 type Compte  = { id: string; pseudo: string }
 
 export default function Sessions() {
-  const compte           = useStore(s => s.compte)
+  const compte = useStore(s => s.compte)
+  const sessionListViewMode = useStore(s => s.sessionListViewMode)
   const setEnteringSession = useStore(s => s.setEnteringSession)
+  const enteringSession = useStore(s => s.enteringSession)
 
-  const [sessions,   setSessions]   = useState<Session[]>([])
-  const [comptes,    setComptes]    = useState<Record<string, string>>({})
-  const [nom,        setNom]        = useState('')
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [comptes, setComptes] = useState<Record<string, string>>({})
+  const [nom, setNom] = useState('')
   const [description, setDescription] = useState('')
   const [afficherFormulaire, setAfficherFormulaire] = useState(false)
-  const [recherche,  setRecherche]  = useState('')
-  const [filtreMJ,   setFiltreMJ]   = useState('')
+  const [recherche, setRecherche] = useState('')
+  const [filtreMJ, setFiltreMJ] = useState('')
   const [filtreDate, setFiltreDate] = useState('')
 
   useEffect(() => { chargerSessions() }, [])
@@ -70,6 +73,90 @@ export default function Sessions() {
     setEnteringSession({ id: session.id, nom: session.nom })
   }
 
+  // ─── RENDU MODE TAROT ──────────────────────────────────────────────────────
+  const TarotLayout = () => (
+    <div className="flex flex-wrap justify-center gap-12 py-10">
+      {sessionsFiltrees.map((session, idx) => (
+        <motion.div
+          key={session.id}
+          initial={{ opacity: 0, y: 50, rotateY: -30 }}
+          animate={{ opacity: 1, y: 0, rotateY: 0 }}
+          transition={{ delay: idx * 0.1, duration: 0.8, ease: "easeOut" }}
+          whileHover={{ y: -20, rotateY: 5, scale: 1.02 }}
+          className="relative w-72 h-[500px] perspective-1000 group cursor-pointer"
+          onClick={() => rejoindreSession(session)}
+        >
+          {/* Main Card Body */}
+          <div className="absolute inset-0 bg-card border-2 border-theme-main/30 rounded-lg overflow-hidden shadow-2xl transition-all duration-500 group-hover:border-theme-main group-hover:shadow-[0_0_40px_rgba(var(--color-main-rgb),0.3)]">
+            
+            {/* Background Texture/Pattern */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, var(--color-main) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+            
+            {/* Session Info (Top) */}
+            <div className="p-6 text-center h-1/2 flex flex-col items-center justify-center bg-gradient-to-b from-theme-main/10 to-transparent">
+              <div className="w-16 h-16 rounded-full border border-theme-main/40 flex items-center justify-center mb-6 bg-black/40 group-hover:scale-110 transition-transform">
+                <Compass className="text-theme-main" size={24} />
+              </div>
+              <h3 className="font-cinzel font-black text-2xl uppercase tracking-[0.2em] text-primary leading-tight group-hover:text-theme-main transition-colors mb-2">
+                {session.nom}
+              </h3>
+              <div className="h-px w-12 bg-theme-main/30 my-2" />
+              <p className="text-[10px] font-cinzel font-bold text-theme-main/60 uppercase tracking-widest">Arcane de Réalité</p>
+            </div>
+
+            {/* Illustration Placeholder/Visual (Middle) */}
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-theme-main/20 to-transparent" />
+            
+            {/* Description & Footer (Bottom) */}
+            <div className="p-6 h-1/2 flex flex-col justify-between bg-black/20">
+              <p className="font-garamond italic text-primary/60 text-center text-base leading-relaxed line-clamp-4 mt-2">
+                "{session.description || "Un royaume dont les secrets restent à découvrir par les voyageurs du Sigil."}"
+              </p>
+
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex items-center gap-2 text-[9px] font-cinzel font-black uppercase tracking-tighter opacity-40">
+                  <Crown size={12} className="text-theme-main" /> {comptes[session.cree_par] || 'Inconnu'}
+                </div>
+                
+                <div className="w-full flex items-center justify-between pt-4 border-t border-white/5">
+                  {compte?.role === 'admin' ? (
+                    <ConfirmButton
+                      size="sm"
+                      variant="danger"
+                      onConfirm={() => supprimerSession(session.id)}
+                      className="w-8 h-8 p-0 rounded-full opacity-20 hover:opacity-100 transition-all border-none bg-red-900/10"
+                    >
+                      <Trash2 size={14} />
+                    </ConfirmButton>
+                  ) : <div className="w-8" />}
+
+                  <div className="text-[10px] font-cinzel font-black text-theme-main group-hover:animate-pulse tracking-[0.3em] uppercase">
+                    Entrer
+                  </div>
+
+                  <div className="w-8 flex justify-end">
+                    <MoveRight size={16} className="text-theme-main opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Corner Ornaments */}
+            <div className="absolute top-2 left-2 w-4 h-4 border-t border-l border-theme-main/20" />
+            <div className="absolute top-2 right-2 w-4 h-4 border-t border-r border-theme-main/20" />
+            <div className="absolute bottom-2 left-2 w-4 h-4 border-b border-l border-theme-main/20" />
+            <div className="absolute bottom-2 right-2 w-4 h-4 border-b border-r border-theme-main/20" />
+          </div>
+
+          {/* Decorative Halo (behind) */}
+          <div className="absolute -inset-4 bg-theme-main/5 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity rounded-full -z-10" />
+        </motion.div>
+      ))}
+    </div>
+  )
+
+  if (enteringSession) return <div className="h-full bg-black" />
+
   return (
     <div className="flex flex-col h-full p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar relative">
       {/* Fond : Rune Ehwaz (ᛖ) */}
@@ -81,7 +168,7 @@ export default function Sessions() {
         {/* Header : LA PORTE DES MONDES */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 pb-8 gap-6 border-b border-theme/20">
           <div className="flex flex-col">
-            <h2 className="font-cinzel text-4xl md:text-6xl font-black tracking-[0.3em] text-theme-main mb-2">
+            <h2 className="font-cinzel text-4xl md:text-6xl font-black tracking-[0.3em] text-theme-main mb-2 uppercase">
               <RunicDecoder text="LA PORTE DES MONDES" />
             </h2>
             <p className="font-garamond italic text-secondary opacity-60 text-lg">
@@ -126,7 +213,7 @@ export default function Sessions() {
           />
         </div>
 
-        {/* Formulaire création : LE FORMULAIRE DE FORGE */}
+        {/* Formulaire création */}
         {afficherFormulaire && (
           <Card className="mb-12 animate-in fade-in slide-in-from-top-4 duration-500 bg-card/60 p-10 rounded-sm medieval-border shadow-2xl">
             <h3 className="font-cinzel font-black text-2xl uppercase tracking-[0.2em] mb-8 text-theme-main text-center">
@@ -166,73 +253,77 @@ export default function Sessions() {
           </Card>
         )}
 
-        {/* Liste des sessions : LES STÈLES DE RÉALITÉ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pb-10">
-          {sessionsFiltrees.length === 0 && (
-            <div className="col-span-full flex flex-col items-center justify-center py-32 opacity-20 border-2 border-dashed border-theme/10 rounded-sm">
-              <Map size={80} className="mb-6 opacity-5" />
-              <p className="text-xl font-cinzel font-bold uppercase tracking-[0.3em] text-center max-w-md">
-                Les brumes du néant persistent. Aucun monde n'a encore été forgé.
-              </p>
-            </div>
-          )}
-          {sessionsFiltrees.map(session => (
-            <Card
-              key={session.id}
-              className="bg-card/40 backdrop-blur-md border border-theme/20 rounded-sm p-8 hover:border-theme-main transition-all group relative overflow-hidden flex flex-col justify-between h-full shadow-lg hover:shadow-theme-main/10"
-            >
-              {/* Effet de lueur interne au survol via un élément absolu */}
-              <div className="absolute inset-0 bg-gradient-to-br from-theme-main/0 to-theme-main/0 group-hover:from-theme-main/5 group-hover:to-transparent transition-all pointer-events-none" />
-              
-              <div className="relative z-10">
-                <h3 className="font-cinzel font-black text-2xl mb-4 leading-tight text-primary group-hover:text-theme-main transition-colors uppercase tracking-widest">
-                  {session.nom}
-                </h3>
-                {session.description && (
-                  <p className="font-garamond italic text-secondary text-base leading-relaxed line-clamp-2 mb-8 opacity-80">
-                    "{session.description}"
-                  </p>
-                )}
-              </div>
+        {/* Liste des sessions */}
+        {sessionsFiltrees.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 opacity-20 border-2 border-dashed border-theme/10 rounded-sm">
+            <Map size={80} className="mb-6 opacity-5" />
+            <p className="text-xl font-cinzel font-bold uppercase tracking-[0.3em] text-center max-w-md">
+              Les brumes du néant persistent. Aucun monde n'a encore été forgé.
+            </p>
+          </div>
+        ) : (
+          sessionListViewMode === 'tarot' ? (
+            <TarotLayout />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pb-10">
+              {sessionsFiltrees.map(session => (
+                <Card
+                  key={session.id}
+                  className="bg-card/40 backdrop-blur-md border border-theme/20 rounded-sm p-8 hover:border-theme-main transition-all group relative overflow-hidden flex flex-col justify-between h-full shadow-lg hover:shadow-theme-main/10"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-theme-main/0 to-theme-main/0 group-hover:from-theme-main/5 group-hover:to-transparent transition-all pointer-events-none" />
+                  
+                  <div className="relative z-10">
+                    <h3 className="font-cinzel font-black text-2xl mb-4 leading-tight text-primary group-hover:text-theme-main transition-colors uppercase tracking-widest">
+                      {session.nom}
+                    </h3>
+                    {session.description && (
+                      <p className="font-garamond italic text-secondary text-base leading-relaxed line-clamp-2 mb-8 opacity-80">
+                        "{session.description}"
+                      </p>
+                    )}
+                  </div>
 
-              <div className="relative z-10 flex flex-col gap-6 mt-auto">
-                <div className="flex items-center justify-between pt-6 border-t border-theme/10">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center text-[10px] font-cinzel font-black uppercase tracking-widest opacity-40 group-hover:opacity-100 transition-opacity">
-                      <Crown size={12} className="mr-2 text-theme-main" /> Gardien : {comptes[session.cree_par] || 'Inconnu'}
+                  <div className="relative z-10 flex flex-col gap-6 mt-auto">
+                    <div className="flex items-center justify-between pt-6 border-t border-theme/10">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center text-[10px] font-cinzel font-black uppercase tracking-widest opacity-40 group-hover:opacity-100 transition-opacity">
+                          <Crown size={12} className="mr-2 text-theme-main" /> Gardien : {comptes[session.cree_par] || 'Inconnu'}
+                        </div>
+                        {session.created_at && (
+                          <span className="text-[9px] font-cinzel font-bold uppercase tracking-wider opacity-20 flex items-center gap-2">
+                            <Calendar size={10} /> {new Date(session.created_at).toLocaleDateString('fr-FR')}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3 shrink-0">
+                        {compte?.role === 'admin' && (
+                          <ConfirmButton
+                            size="sm"
+                            variant="danger"
+                            onConfirm={() => supprimerSession(session.id)}
+                            className="w-10 h-10 p-0 rounded-sm border-theme/20 opacity-40 hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 size={16} />
+                          </ConfirmButton>
+                        )}
+                        <Button
+                          size="md"
+                          variant="ghost"
+                          className="font-cinzel font-black text-xs uppercase tracking-[0.2em] border border-theme-main/50 text-theme-main hover:bg-theme-main hover:text-white transition-all rounded-sm px-6 py-2 flex items-center gap-3"
+                          onClick={() => rejoindreSession(session)}
+                        >
+                          S'INCARNER <MoveRight size={16} />
+                        </Button>
+                      </div>
                     </div>
-                    {session.created_at && (
-                      <span className="text-[9px] font-cinzel font-bold uppercase tracking-wider opacity-20 flex items-center gap-2">
-                        <Calendar size={10} /> {new Date(session.created_at).toLocaleDateString('fr-FR')}
-                      </span>
-                    )}
                   </div>
-
-                  <div className="flex gap-3 shrink-0">
-                    {compte?.role === 'admin' && (
-                      <ConfirmButton
-                        size="sm"
-                        variant="danger"
-                        onConfirm={() => supprimerSession(session.id)}
-                        className="w-10 h-10 p-0 rounded-sm border-theme/20 opacity-40 hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 size={16} />
-                      </ConfirmButton>
-                    )}
-                    <Button
-                      size="md"
-                      variant="ghost"
-                      className="font-cinzel font-black text-xs uppercase tracking-[0.2em] border border-theme-main/50 text-theme-main hover:bg-theme-main hover:text-white transition-all rounded-sm px-6 py-2 flex items-center gap-3"
-                      onClick={() => rejoindreSession(session)}
-                    >
-                      S'INCARNER <MoveRight size={16} />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+                </Card>
+              ))}
+            </div>
+          )
+        )}
       </div>
     </div>
   )

@@ -33,10 +33,12 @@ export default function ItemsView({ mode, personnage = null }: Props) {
   // Logic Hooks
   const forge = useItemForge()
   const gerer = useItemInventaire(personnage ?? personnageActif)
-  const joueurInv = useJoueurInventaire(personnage?.id || personnageActif?.id, personnage?.nom || personnageActif?.nom)
+  
   const usage = useItemUsage(personnage ?? personnageActif, mettreAJourLocalement, async (id, q) => {
      await inventaireService.retirerItem(id, q)
-     await joueurInv.charger()
+     await gerer.inventaire // Note: useItemInventaire might need a charger exposed if we want to bypass RT
+     // In practice, useRealtimeQuery inside useInventaire (via useItemInventaire) handles reloads, 
+     // but we can call gerer's internal charger if needed.
      await rechargerPersonnage()
      await rechargerStats()
   }, statsCalculees)
@@ -91,7 +93,7 @@ export default function ItemsView({ mode, personnage = null }: Props) {
       setDeltas({})
       setInputDeltaValues({})
       setSelectionPoss([])
-      await joueurInv.charger()
+      // gerer.inventaire will be updated by RT
     } catch (e) {
       console.error(e)
     } finally {
@@ -111,7 +113,6 @@ export default function ItemsView({ mode, personnage = null }: Props) {
       setDeltas({})
       setInputDeltaValues({})
       setOngletGerer('inventaire')
-      await joueurInv.charger()
     } catch (e) {
       console.error(e)
     } finally {
@@ -141,8 +142,12 @@ export default function ItemsView({ mode, personnage = null }: Props) {
   }
 
   const handleEquiper = async (entry: InventaireEntry) => {
+    // Mise à jour optimiste du detail pour un retour immédiat
+    if (detail && (detail as any).id === entry.id) {
+      setDetail({ ...entry, equipe: !entry.equipe });
+    }
+    
     await gerer.toggleEquipement(entry)
-    await joueurInv.charger()
     await rechargerStats()
   }
 
@@ -160,7 +165,7 @@ export default function ItemsView({ mode, personnage = null }: Props) {
     ? libItems
     : mode === 'gerer'
       ? libItems
-      : joueurInv.inventaire
+      : gerer.inventaire
 
   const filteredRaw = listSource.filter((i: any) => {
     const item = i.items || i
