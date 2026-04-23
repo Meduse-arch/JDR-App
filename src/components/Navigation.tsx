@@ -273,7 +273,7 @@ export default function Navigation({ open, onClose }: Props) {
 
       {/* Modal Paramètres */}
       {showSettings && (
-        <AppSettingsModal onClose={() => setShowSettings(false)} />
+        <AppSettingsModal key="settings-modal" onClose={() => setShowSettings(false)} />
       )}
     </AnimatePresence>
   )

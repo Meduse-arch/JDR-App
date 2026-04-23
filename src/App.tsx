@@ -53,8 +53,7 @@ export default function App() {
     setSessionActive, 
     setRoleEffectif,
     setPnjControle
-  } = useStore()
-
+    } = useStore()
   useEffect(() => {
     const panicPage = sessionStorage.getItem('sigil-panic-page')
     const panicSession = sessionStorage.getItem('sigil-panic-session')

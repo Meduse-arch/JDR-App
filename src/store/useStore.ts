@@ -4,6 +4,7 @@ import { broadcastService } from '../services/broadcastService'
 export type RoleId = 'admin' | 'mj' | 'joueur'
 export type ModeId = 'mode-dark' | 'mode-light'
 export type NavigationMode = 'basic' | 'immersive'
+export type ItemViewMode = 'grid' | 'codex'
 
 export type Compte = { id: string; pseudo: string; role: RoleId }
 export type Session = { id: string; nom: string; description: string; cree_par: string; created_at?: string; parametres?: any }
@@ -40,6 +41,7 @@ interface JdrState {
   mode: ModeId
   navigationMode: NavigationMode
   showImmersiveNavButton: boolean
+  itemDisplayMode: ItemViewMode
   diceResult: DiceResult[] | null
   diceSharingEnabled: boolean
   buffRolls: Record<string, number>
@@ -54,6 +56,7 @@ interface JdrState {
   setMode: (m: ModeId) => void
   setNavigationMode: (m: NavigationMode) => void
   setShowImmersiveNavButton: (show: boolean) => void
+  setItemDisplayMode: (mode: ItemViewMode) => void
   setDiceResult: (diceResult: DiceResult[] | null, broadcast?: boolean) => void
   setDiceSharingEnabled: (enabled: boolean) => void
   setBuffRoll: (key: string, val: number) => void
@@ -71,6 +74,7 @@ export const useStore = create<JdrState>((set, get) => ({
   mode: (localStorage.getItem('sigil-mode') as ModeId) || 'mode-dark',
   navigationMode: (localStorage.getItem('sigil-nav-mode') as NavigationMode) || 'basic',
   showImmersiveNavButton: localStorage.getItem('sigil-immersive-nav-btn') !== 'false',
+  itemDisplayMode: (localStorage.getItem('sigil-item-display-mode') as ItemViewMode) || 'grid',
   diceResult: null,
   diceSharingEnabled: false,
   buffRolls: {},
@@ -114,6 +118,10 @@ export const useStore = create<JdrState>((set, get) => ({
   setShowImmersiveNavButton: (showImmersiveNavButton) => { 
     localStorage.setItem('sigil-immersive-nav-btn', String(showImmersiveNavButton)); 
     set({ showImmersiveNavButton }) 
+  },
+  setItemDisplayMode: (itemDisplayMode) => {
+    localStorage.setItem('sigil-item-display-mode', itemDisplayMode);
+    set({ itemDisplayMode });
   },
   setDiceResult: (diceResult, broadcast = true) => {
     const { sessionActive, diceSharingEnabled, compte } = get();

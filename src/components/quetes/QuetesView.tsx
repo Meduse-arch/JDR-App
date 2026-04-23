@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Personnage, Quete } from '../../types'
+import { useStore } from '../../store/useStore'
 import { useQueteForge } from '../../hooks/useQueteForge'
 import { useQuetePersonnage } from '../../hooks/useQuetePersonnage'
 import { useQuetes } from '../../hooks/useQuetes'
@@ -34,6 +35,9 @@ export default function QuetesView({ mode, personnage = null }: Props) {
   const [selectionAjouter, setSelectionAjouter] = useState<string[]>([])
   const [enRetrait, setEnRetrait] = useState(false)
   const [enAjout, setEnAjout] = useState(false)
+
+  const { itemDisplayMode } = useStore()
+  const isCodex = itemDisplayMode === 'codex'
 
   const handleSave = async () => {
     const ok = await forge.sauvegarder()
@@ -147,6 +151,98 @@ export default function QuetesView({ mode, personnage = null }: Props) {
     return <QueteForgeForm {...forge} onSave={handleSave} onCancel={() => { forge.reset(); setVue('liste') }} />
   }
 
+  const renderCodexDetail = () => {
+    if (!detail) return (
+      <div className="flex flex-col items-center justify-center h-full opacity-20">
+        <Scroll size={64} className="mb-4 text-theme-main" />
+        <span className="font-cinzel tracking-widest uppercase text-primary">Sélectionnez un récit</span>
+      </div>
+    )
+
+    const q = detail;
+
+    return (
+      <div className="flex flex-col gap-6 animate-in slide-in-from-right-4 duration-300 h-full p-6">
+        <div className="flex gap-4 items-start">
+          <div className="flex-1 flex flex-col gap-2">
+            <h3 className="text-2xl font-cinzel font-black uppercase tracking-widest text-primary">
+              {q.titre}
+            </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="font-cinzel text-[9px] tracking-[0.2em] px-2 py-0.5 uppercase bg-black/40 border border-theme/10 rounded-sm flex items-center gap-1">
+                {q.statut === 'Terminée' ? <CheckCircle2 size={10} className="text-green-500" /> : q.statut === 'Échouée' ? <XCircle size={10} className="text-red-700" /> : <Scroll size={10} className="text-theme-main" />}
+                <span className={q.statut === 'Terminée' ? 'text-green-500' : q.statut === 'Échouée' ? 'text-red-700' : 'text-theme-main'}>{q.statut}</span>
+              </div>
+            </div>
+          </div>
+
+          {q.image_url && (
+            <div className="w-16 h-16 shrink-0 rounded-sm overflow-hidden border border-theme-main/30 bg-black/40 shadow-xl">
+              <img 
+                src={q.image_url} 
+                alt={q.titre} 
+                className="w-full h-full object-cover" 
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-theme-main/20 to-transparent shrink-0" />
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-6">
+          <div className="bg-black/20 p-4 rounded-sm border-l-2 border-theme-main/40">
+            <p className="font-garamond text-base italic text-secondary leading-relaxed">
+              "{q.description || 'Les parchemins sont vierges...'}"
+            </p>
+          </div>
+
+          {(q.quete_recompenses?.length || 0) > 0 && (
+            <div className="flex flex-col gap-2 mt-4">
+              <h4 className="font-cinzel text-[10px] uppercase tracking-[0.2em] text-theme-main opacity-60">
+                Récompenses
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {q.quete_recompenses?.map((r: any, i: number) => (
+                  <span key={i} className="text-[9px] font-cinzel uppercase px-2 py-1 border bg-theme-main/5 text-theme-main/80 border-theme-main/20 rounded-sm flex items-center gap-1">
+                    🏆 {r.type === 'Item' ? (r.items?.nom || 'Objet') : r.description}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-theme/10 shrink-0">
+          {mode === 'forge' ? (
+            <>
+              <Button variant="secondary" onClick={() => { forge.chargerPourEdition(q); setVue('form'); setDetail(null); }} className="w-full gap-2">
+                <PenTool size={14} /> Modifier le Récit
+              </Button>
+              {q.statut !== 'En cours' && (
+                <Button variant="outline" onClick={() => handleReouvrirQuete(q.id)} className="w-full py-3 uppercase text-xs tracking-widest text-primary/60 hover:text-theme-main border-theme/20 hover:border-theme-main/40">
+                  Rouvrir la quête
+                </Button>
+              )}
+            </>
+          ) : (
+            mode === 'joueur' && (
+              <>
+                <Button variant={(q as any).suivie ? 'secondary' : 'primary'} onClick={() => perso.toggleSuivre(q as any)} className="w-full py-3 uppercase text-xs tracking-widest">
+                  {(q as any).suivie ? 'Ne plus suivre le récit' : 'Suivre ce récit'}
+                </Button>
+                {q.statut !== 'En cours' && (
+                  <Button variant="outline" onClick={() => handleReouvrirQuete(q.id)} className="w-full mt-2 py-2 uppercase text-[10px] tracking-widest text-primary/40 hover:text-theme-main border-theme/10 hover:border-theme-main/40">
+                    Rouvrir la quête
+                  </Button>
+                )}
+              </>
+            )
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="relative flex flex-col gap-8">
       {/* BARRE D'OUTILS */}
@@ -224,113 +320,166 @@ export default function QuetesView({ mode, personnage = null }: Props) {
         )}
       </div>
 
-      {/* Grille des Récits */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-24 mt-10">
-        <AnimatePresence mode="popLayout">
-          {filtered.map((q: any) => {
-            const isAssignee = idsAssignees.has(q.id)
-            const isSelRetirer = selectionRetirer.includes(q.id)
-            const isSelAjouter = selectionAjouter.includes(q.id)
-            const isSelected = isSelRetirer || isSelAjouter
+      {/* AFFICHAGE DES RÉCITS */}
+      <div className={`mt-10 pb-24 ${isCodex ? 'flex flex-col lg:flex-row gap-6 items-start' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'}`}>
+        
+        {/* LISTE OU GRILLE */}
+        <div className={isCodex ? 'flex-1 flex flex-col gap-2 w-full' : 'contents'}>
+          <AnimatePresence mode="popLayout">
+            {filtered.map((q: any) => {
+              const isAssignee = idsAssignees.has(q.id)
+              const isSelRetirer = selectionRetirer.includes(q.id)
+              const isSelAjouter = selectionAjouter.includes(q.id)
+              const isSelected = isSelRetirer || isSelAjouter
 
-            // Mode forge ou joueur : QueteCard normale
-            if (mode !== 'attribuer') {
-              return (
-                  <QueteCard
-                  key={q.id}
-                  quete={q}
-                  onClick={setDetail}
-                  onEdit={mode === 'forge' ? (q) => { forge.chargerPourEdition(q); setVue('form') } : undefined}
-                  onDelete={mode === 'forge' ? (id) => forge.supprimer(id) : undefined}
-                  onSuivre={mode === 'joueur' ? (q) => perso.toggleSuivre(q as any) : undefined}
-                  isSuivie={(q as any).suivie}
-                  onReouvrir={handleReouvrirQuete}
-                />
-              )
-            }
-
-            // Mode attribuer : card unifiée
-            return (
-              <div
-                key={q.id}
-                className={`medieval-border bg-card/40 backdrop-blur-md rounded-sm relative overflow-hidden transition-all duration-300 cursor-pointer ${
-                  isSelected
-                    ? 'border-theme-main scale-[1.02] shadow-[0_0_20px_rgba(var(--color-main-rgb),0.2)]'
-                    : isAssignee && ongletAttr === 'liste'
-                      ? 'border-theme-main/20 hover:border-theme-main/40'
-                      : 'border-white/5 hover:border-theme-main/30'
-                }`}
-                onClick={() => ongletAttr === 'liste'
-                  ? toggleSelectionRetirer(q.id)
-                  : toggleSelectionAjouter(q.id)
-                }
-              >
-                {/* Checkmark */}
-                {isSelected && (
-                  <div className={`absolute -top-2 -right-2 text-white p-1.5 rounded-full shadow-lg z-30 animate-in zoom-in-50 ${
-                    isSelRetirer ? 'bg-red-600' : 'bg-theme-main'
-                  }`}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                )}
-
-                {/* Ligne top dorée */}
-                <div className="absolute top-0 left-3.5 right-3.5 h-px bg-gradient-to-r from-transparent via-theme-main/40 to-transparent" />
-
-                {/* CONTENU */}
-                <div className="p-5 flex flex-col gap-3">
-                  {/* Statut */}
-                  <div className="flex items-center gap-2">
-                    {q.statut === 'Terminée'
-                      ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
-                      : q.statut === 'Échouée'
-                        ? <XCircle size={14} className="text-red-700 shrink-0" />
-                        : <Scroll size={14} className="text-theme-main shrink-0" />
-                    }
-                    <span className={`text-[9px] font-cinzel font-black uppercase tracking-widest ${
-                      q.statut === 'Terminée' ? 'text-green-500/70' :
-                      q.statut === 'Échouée' ? 'text-red-700/70' :
-                      'text-theme-main/70'
-                    }`}>{q.statut}</span>
-                  </div>
-
-                  {/* Titre cliquable */}
-                  <h3
-                    className={`font-cinzel font-black text-lg uppercase tracking-widest leading-tight hover:text-theme-main transition-colors ${
-                      q.statut === 'Terminée' ? 'line-through opacity-50' : 'text-primary'
+              // ─── RENDU LIGNE CODEX ───
+              if (isCodex) {
+                const isActive = detail?.id === q.id;
+                return (
+                  <motion.div 
+                    layout
+                    initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}
+                    key={q.id} 
+                    onClick={() => {
+                      if (mode === 'attribuer') {
+                        if (ongletAttr === 'liste') toggleSelectionRetirer(q.id);
+                        else toggleSelectionAjouter(q.id);
+                      }
+                      setDetail(q);
+                    }}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-sm cursor-pointer transition-all ${
+                      isActive ? 'bg-theme-main/10 border-theme-main shadow-[0_0_15px_rgba(var(--color-main-rgb),0.2)]' : 
+                      isSelected ? 'border-theme-main/50 bg-theme-main/5 scale-[1.01]' :
+                      'bg-card/40 border-theme/20 hover:border-theme-main/40'
                     }`}
-                    onClick={(e) => { e.stopPropagation(); setDetail(q) }}
                   >
-                    {q.titre}
-                  </h3>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 shrink-0 rounded-sm bg-black/40 flex items-center justify-center border shadow-inner overflow-hidden ${q.statut === 'Terminée' ? 'text-green-500 border-green-500/20' : q.statut === 'Échouée' ? 'text-red-700 border-red-700/20' : 'text-theme-main border-theme/10'}`}>
+                         {q.image_url ? (
+                           <img src={q.image_url} alt="" className="w-full h-full object-cover" />
+                         ) : (
+                           q.statut === 'Terminée' ? <CheckCircle2 size={18} /> : q.statut === 'Échouée' ? <XCircle size={18} /> : <Scroll size={18} />
+                         )}
+                      </div>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-cinzel font-bold text-sm uppercase tracking-widest ${q.statut !== 'En cours' ? 'text-primary/50 line-through' : 'text-primary'}`}>{q.titre}</span>
+                          {(q as any).suivie && <span className="w-2 h-2 rounded-full bg-theme-main animate-pulse shadow-[0_0_8px_var(--color-main)]" title="Suivie" />}
+                        </div>
+                        <span className={`font-garamond italic text-[11px] ${q.statut === 'Terminée' ? 'text-green-500/70' : q.statut === 'Échouée' ? 'text-red-700/70' : 'text-theme-main/60'}`}>{q.statut}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )
+              }
 
-                  {/* Description */}
-                  <p className="font-garamond italic text-secondary text-sm line-clamp-2 leading-relaxed opacity-70">
-                    "{q.description || 'Les parchemins sont vierges...'}"
-                  </p>
+              // ─── RENDU GRILLE ACTUELLE ───
+              // Mode forge ou joueur : QueteCard normale
+              if (mode !== 'attribuer') {
+                return (
+                    <QueteCard
+                    key={q.id}
+                    quete={q}
+                    onClick={setDetail}
+                    onEdit={mode === 'forge' ? (q) => { forge.chargerPourEdition(q); setVue('form') } : undefined}
+                    onDelete={mode === 'forge' ? (id) => forge.supprimer(id) : undefined}
+                    onSuivre={mode === 'joueur' ? (q) => perso.toggleSuivre(q as any) : undefined}
+                    isSuivie={(q as any).suivie}
+                    onReouvrir={handleReouvrirQuete}
+                  />
+                )
+              }
 
-                  {/* Récompenses */}
-                  {(q.quete_recompenses?.length || 0) > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {q.quete_recompenses?.slice(0, 2).map((r: any, i: number) => (
-                        <span key={i} className="text-[8px] font-cinzel uppercase px-2 py-0.5 border bg-theme-main/5 text-theme-main/60 border-theme-main/10">
-                          🏆 {r.type === 'Item' ? (r.items?.nom || 'Objet') : r.description}
-                        </span>
-                      ))}
-                      {(q.quete_recompenses?.length || 0) > 2 && (
-                        <span className="text-[8px] font-cinzel opacity-30 uppercase px-2 py-0.5 border border-theme/10">
-                          +{q.quete_recompenses!.length - 2}
-                        </span>
-                      )}
+              // Mode attribuer : card unifiée
+              return (
+                <div
+                  key={q.id}
+                  className={`medieval-border bg-card/40 backdrop-blur-md rounded-sm relative overflow-hidden transition-all duration-300 cursor-pointer ${
+                    isSelected
+                      ? 'border-theme-main scale-[1.02] shadow-[0_0_20px_rgba(var(--color-main-rgb),0.2)]'
+                      : isAssignee && ongletAttr === 'liste'
+                        ? 'border-theme-main/20 hover:border-theme-main/40'
+                        : 'border-white/5 hover:border-theme-main/30'
+                  }`}
+                  onClick={() => ongletAttr === 'liste'
+                    ? toggleSelectionRetirer(q.id)
+                    : toggleSelectionAjouter(q.id)
+                  }
+                >
+                  {/* Checkmark */}
+                  {isSelected && (
+                    <div className={`absolute -top-2 -right-2 text-white p-1.5 rounded-full shadow-lg z-30 animate-in zoom-in-50 ${
+                      isSelRetirer ? 'bg-red-600' : 'bg-theme-main'
+                    }`}>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
                     </div>
                   )}
+
+                  {/* Ligne top dorée */}
+                  <div className="absolute top-0 left-3.5 right-3.5 h-px bg-gradient-to-r from-transparent via-theme-main/40 to-transparent" />
+
+                  {/* CONTENU */}
+                  <div className="p-5 flex flex-col gap-3">
+                    {/* Statut */}
+                    <div className="flex items-center gap-2">
+                      {q.statut === 'Terminée'
+                        ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
+                        : q.statut === 'Échouée'
+                          ? <XCircle size={14} className="text-red-700 shrink-0" />
+                          : <Scroll size={14} className="text-theme-main shrink-0" />
+                      }
+                      <span className={`text-[9px] font-cinzel font-black uppercase tracking-widest ${
+                        q.statut === 'Terminée' ? 'text-green-500/70' :
+                        q.statut === 'Échouée' ? 'text-red-700/70' :
+                        'text-theme-main/70'
+                      }`}>{q.statut}</span>
+                    </div>
+
+                    {/* Titre cliquable */}
+                    <h3
+                      className={`font-cinzel font-black text-lg uppercase tracking-widest leading-tight hover:text-theme-main transition-colors ${
+                        q.statut === 'Terminée' ? 'line-through opacity-50' : 'text-primary'
+                      }`}
+                      onClick={(e) => { e.stopPropagation(); setDetail(q) }}
+                    >
+                      {q.titre}
+                    </h3>
+
+                    {/* Description */}
+                    <p className="font-garamond italic text-secondary text-sm line-clamp-2 leading-relaxed opacity-70">
+                      "{q.description || 'Les parchemins sont vierges...'}"
+                    </p>
+
+                    {/* Récompenses */}
+                    {(q.quete_recompenses?.length || 0) > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {q.quete_recompenses?.slice(0, 2).map((r: any, i: number) => (
+                          <span key={i} className="text-[8px] font-cinzel uppercase px-2 py-0.5 border bg-theme-main/5 text-theme-main/60 border-theme-main/10">
+                            🏆 {r.type === 'Item' ? (r.items?.nom || 'Objet') : r.description}
+                          </span>
+                        ))}
+                        {(q.quete_recompenses?.length || 0) > 2 && (
+                          <span className="text-[8px] font-cinzel opacity-30 uppercase px-2 py-0.5 border border-theme/10">
+                            +{q.quete_recompenses!.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </AnimatePresence>
+              )
+            })}
+          </AnimatePresence>
+        </div>
+
+        {/* PANNEAU DROIT (VUE CODEX DESKTOP) */}
+        {isCodex && (
+          <div className="hidden lg:flex flex-col w-[380px] xl:w-[450px] shrink-0 sticky top-4 border border-theme/20 bg-card/40 backdrop-blur-md rounded-sm h-[calc(100vh-12rem)] shadow-xl relative overflow-hidden">
+             {renderCodexDetail()}
+          </div>
+        )}
       </div>
 
       {/* BARRE DE CONFIRMATION */}
@@ -349,16 +498,19 @@ export default function QuetesView({ mode, personnage = null }: Props) {
         </div>
       )}
 
-      <QueteDetailModal 
-        quete={detail} 
-        mode={mode === 'forge' ? 'forge' : 'joueur'} 
-        onClose={() => setDetail(null)}
-        onTerminer={(id) => { forge.modifierStatut(id, 'Terminée'); setDetail(null); }}
-        onEchouer={(id) => { forge.modifierStatut(id, 'Échouée'); setDetail(null); }}
-        onReouvrir={handleReouvrirQuete}
-        onSuivre={(q) => perso.toggleSuivre(q)}
-        onEditer={(q) => { forge.chargerPourEdition(q); setVue('form'); setDetail(null); }}
-      />
+      {/* DETAIL MODAL (Mobile uniquement en mode Codex, ou partout en mode Grille) */}
+      <div className={isCodex ? 'block lg:hidden' : 'block'}>
+        <QueteDetailModal 
+          quete={detail} 
+          mode={mode === 'forge' ? 'forge' : 'joueur'} 
+          onClose={() => setDetail(null)}
+          onTerminer={(id) => { forge.modifierStatut(id, 'Terminée'); setDetail(null); }}
+          onEchouer={(id) => { forge.modifierStatut(id, 'Échouée'); setDetail(null); }}
+          onReouvrir={handleReouvrirQuete}
+          onSuivre={(q) => perso.toggleSuivre(q)}
+          onEditer={(q) => { forge.chargerPourEdition(q); setVue('form'); setDetail(null); }}
+        />
+      </div>
     </div>
   )
 }

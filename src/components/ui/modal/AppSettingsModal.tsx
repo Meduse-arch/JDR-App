@@ -1,14 +1,18 @@
 import { ModalContainer } from './ModalContainer'
 import { useStore } from '../../../store/useStore'
 import { Button } from '../Button'
-import { Settings, Layout, Zap, MousePointer2 } from 'lucide-react'
+import { Settings, Layout, Zap, MousePointer2, Grid, BookOpen } from 'lucide-react'
 
 interface AppSettingsModalProps {
   onClose: () => void
 }
 
 export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
-  const { navigationMode, setNavigationMode, showImmersiveNavButton, setShowImmersiveNavButton } = useStore()
+  const { 
+    navigationMode, setNavigationMode, 
+    showImmersiveNavButton, setShowImmersiveNavButton,
+    itemDisplayMode, setItemDisplayMode
+  } = useStore()
 
   return (
     <ModalContainer onClose={onClose} className="max-w-md">
@@ -19,7 +23,7 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
         </h2>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
         {/* Style de Navigation */}
         <section>
           <h3 className="text-lg font-cinzel text-theme-main border-b border-theme-main/20 pb-2 mb-4 flex items-center gap-2">
@@ -82,9 +86,51 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
             </div>
           </section>
         )}
+
+        {/* Affichage des pages */}
+        <section>
+          <h3 className="text-lg font-cinzel text-theme-main border-b border-theme-main/20 pb-2 mb-4 flex items-center gap-2">
+            <BookOpen size={18} /> Affichage de l'Inventaire
+          </h3>
+          
+          <div className="grid grid-cols-1 gap-3">
+            <label 
+              className={`flex items-center justify-between p-4 rounded border cursor-pointer transition-all ${itemDisplayMode === 'grid' ? 'bg-theme-main/10 border-theme-main shadow-inner' : 'bg-black/20 border-theme/10 hover:border-theme/30'}`}
+              onClick={() => setItemDisplayMode('grid')}
+            >
+              <div className="flex items-center gap-3">
+                <Grid size={20} className={itemDisplayMode === 'grid' ? 'text-theme-main' : 'text-primary/40'} />
+                <div className="flex flex-col">
+                  <span className="font-cinzel text-sm font-bold text-primary uppercase tracking-widest">Grille Classique</span>
+                  <span className="font-garamond italic text-xs text-primary/60">Cartes détaillées en grille</span>
+                </div>
+              </div>
+              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${itemDisplayMode === 'grid' ? 'border-theme-main bg-theme-main' : 'border-theme/30'}`}>
+                {itemDisplayMode === 'grid' && <div className="w-1.5 h-1.5 rounded-full bg-app" />}
+              </div>
+            </label>
+
+            <label 
+              className={`flex items-center justify-between p-4 rounded border cursor-pointer transition-all ${itemDisplayMode === 'codex' ? 'bg-theme-main/10 border-theme-main' : 'bg-black/20 border-theme/10 hover:border-theme/30'}`}
+              onClick={() => setItemDisplayMode('codex')}
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen size={20} className={itemDisplayMode === 'codex' ? 'text-theme-main' : 'text-primary/40'} />
+                <div className="flex flex-col">
+                  <span className="font-cinzel text-sm font-bold text-primary uppercase tracking-widest">Mode Codex</span>
+                  <span className="font-garamond italic text-xs text-primary/60">Liste à gauche, détails à droite</span>
+                </div>
+              </div>
+              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${itemDisplayMode === 'codex' ? 'border-theme-main bg-theme-main' : 'border-theme/30'}`}>
+                {itemDisplayMode === 'codex' && <div className="w-1.5 h-1.5 rounded-full bg-app" />}
+              </div>
+            </label>
+          </div>
+        </section>
+
       </div>
 
-      <div className="flex justify-end mt-8">
+      <div className="flex justify-end mt-8 border-t border-theme/20 pt-4">
         <Button onClick={onClose} className="w-full">
           Fermer
         </Button>
