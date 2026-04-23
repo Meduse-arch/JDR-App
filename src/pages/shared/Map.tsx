@@ -71,7 +71,7 @@ export default function CarteMap() {
     zoom, pan, isPanning,
     handleWheel, handleCanvasMouseDown, handleCanvasMouseMove, handleCanvasMouseUp,
     handleCanvasTouchStart, handleCanvasTouchMove, handleCanvasTouchEnd,
-    handleFocusToken, handleZoomIn, handleZoomOut, handleFitMap
+    handleFocusToken, handleZoomIn, handleZoomOut, handleFitMap, handleCenterMap
   } = useMapViewport({ activeChannelData, canvasRef, channelActif });
 
   const [vue, setVue] = useState<'hub' | 'map'>('hub');
@@ -256,11 +256,23 @@ export default function CarteMap() {
             onToggleTokenForm={() => setShowTokenForm(!showTokenForm)}
             onAjouterMonToken={handleAjouterMonToken}
             showTokensPanel={showTokensPanel}
-            onToggleTokensPanel={() => setShowTokensPanel(p => !p)}
+            onToggleTokensPanel={() => { 
+              setShowTokensPanel(!showTokensPanel);
+              setShowChatPanel(false);
+              setShowMapSidebar(false);
+            }}
             showChatPanel={showChatPanel}
-            onToggleChatPanel={() => setShowChatPanel(p => !p)}
+            onToggleChatPanel={() => {
+              setShowChatPanel(!showChatPanel);
+              setShowTokensPanel(false);
+              setShowMapSidebar(false);
+            }}
             showMapList={showMapSidebar}
-            onToggleMapList={() => setShowMapSidebar(s => !s)}
+            onToggleMapList={() => {
+              setShowMapSidebar(!showMapSidebar);
+              setShowTokensPanel(false);
+              setShowChatPanel(false);
+            }}
             onFocusToken={(t) => handleFocusToken(t, setSelectedTokenId)}
           />
           {showMapSidebar && (

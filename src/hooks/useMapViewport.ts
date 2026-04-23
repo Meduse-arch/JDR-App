@@ -13,8 +13,8 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
   
-  // Tactile - Pinch to zoom
-  const lastPinchDistance = useRef<number | null>(null);
+  // Sauvegarder la taille du viewport pour détecter les changements
+  const viewportSize = useRef({ w: 0, h: 0 });
 
   const getMapNatSize = useCallback(() => {
     if (!activeChannelData) return { w: 0, h: 0 };
@@ -24,15 +24,21 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     };
   }, [activeChannelData]);
 
-  const clampPan = useCallback((px: number, py: number, z: number) => {
+  const clampPan = useCallback((px: number, py: number, z: number, bypassClamp = false) => {
     if (!activeChannelData || !canvasRef.current) return { x: px, y: py };
     const vW = canvasRef.current.clientWidth;
     const vH = canvasRef.current.clientHeight;
+    if (vW === 0 || vH === 0) return { x: px, y: py };
+
     const nat = getMapNatSize();
     const mapW = nat.w * z;
     const mapH = nat.h * z;
-    const clampAxis = (p: number, mapSize: number, viewSize: number) =>
-      mapSize <= viewSize ? (viewSize - mapSize) / 2 : Math.max(viewSize - mapSize, Math.min(0, p));
+
+    const clampAxis = (p: number, mapSize: number, viewSize: number) => {
+      if (mapSize <= viewSize) return (viewSize - mapSize) / 2;
+      return Math.max(viewSize - mapSize, Math.min(0, p));
+    };
+
     return { x: clampAxis(px, mapW, vW), y: clampAxis(py, mapH, vH) };
   }, [activeChannelData, getMapNatSize, canvasRef]);
 
@@ -45,19 +51,52 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     const fz = Math.max(0.1, Math.min(vW / nat.w, vH / nat.h) * 0.97);
     setZoom(fz);
     setPan({ x: (vW - nat.w * fz) / 2, y: (vH - nat.h * fz) / 2 });
+    viewportSize.current = { w: vW, h: vH };
   }, [activeChannelData, getMapNatSize]);
 
+  // Initial fit when map is loaded
   useEffect(() => {
-    if (!activeChannelData) return;
+    if (!activeChannelData || !channelActif) return;
+    const el = canvasRef.current;
+    if (el && el.clientWidth > 0) {
+      applyFit(el);
+    }
+  }, [channelActif, activeChannelData, applyFit, canvasRef]);
+
+  // Observer les changements de taille du viewport pour compenser le pan
+  useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
-    if (el.clientWidth > 0 && el.clientHeight > 0) { applyFit(el); return; }
-    const ro = new ResizeObserver(() => {
-      if (el.clientWidth > 0 && el.clientHeight > 0) { applyFit(el); ro.disconnect(); }
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width: newW, height: newH } = entry.contentRect;
+        if (newW === 0 || newH === 0) continue;
+
+        const oldW = viewportSize.current.w;
+        const oldH = viewportSize.current.h;
+
+        if (oldW !== 0 && (oldW !== newW || oldH !== newH)) {
+          // Calculer le point de la map qui était au centre de l'ancien viewport
+          setPan(prevPan => {
+            const centerX = (oldW / 2 - prevPan.x) / zoom;
+            const centerY = (oldH / 2 - prevPan.y) / zoom;
+
+            // Calculer le nouveau pan pour que ce même point soit au centre du nouveau viewport
+            const nextPanX = newW / 2 - centerX * zoom;
+            const nextPanY = newH / 2 - centerY * zoom;
+
+            return clampPan(nextPanX, nextPanY, zoom);
+          });
+        }
+
+        viewportSize.current = { w: newW, h: newH };
+      }
     });
+
     ro.observe(el);
     return () => ro.disconnect();
-  }, [channelActif, activeChannelData, applyFit, canvasRef]);
+  }, [zoom, clampPan, canvasRef]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -204,6 +243,16 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     if (canvasRef.current) applyFit(canvasRef.current);
   }, [applyFit, canvasRef]);
 
+  const handleCenterMap = useCallback(() => {
+    if (!canvasRef.current || !activeChannelData) return;
+    const vW = canvasRef.current.clientWidth;
+    const vH = canvasRef.current.clientHeight;
+    const nat = getMapNatSize();
+    const mapW = nat.w * zoom;
+    const mapH = nat.h * zoom;
+    setPan(clampPan((vW - mapW) / 2, (vH - mapH) / 2, zoom));
+  }, [activeChannelData, getMapNatSize, zoom, clampPan, canvasRef]);
+
   return {
     zoom,
     setZoom,
@@ -221,6 +270,7 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     handleZoomIn,
     handleZoomOut,
     handleFitMap,
+    handleCenterMap,
     applyFit
   };
 }

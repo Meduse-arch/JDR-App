@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useStore } from '../../store/useStore';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { supabase } from '../../supabase';
@@ -13,6 +15,7 @@ interface MapCreationModalProps {
 }
 
 export function MapCreationModal({ sessionId, onClose, onSubmit, initialData }: MapCreationModalProps) {
+  const { mode, navigationMode } = useStore();
   const [tab, setTab] = useState<'nouvelle' | 'galerie'>('nouvelle');
   const [nom, setNom] = useState(initialData?.nom || '');
   const [imageUrl, setImageUrl] = useState(initialData?.image_url || '');
@@ -57,11 +60,11 @@ export function MapCreationModal({ sessionId, onClose, onSubmit, initialData }: 
     onSubmit({ nom, image_url: imageUrl, largeur, hauteur, grille_taille: grilleTaille });
   };
 
-  return (
-    <div className="fixed top-0 right-0 bottom-0 left-[65px] z-[100] bg-black/95 backdrop-blur-md flex flex-row animate-in fade-in duration-300">
+  return createPortal(
+    <div className={`fixed ${navigationMode === 'basic' ? 'top-16 left-[72px]' : 'top-0 left-0'} right-0 bottom-0 z-[50] ${mode} bg-app backdrop-blur-md flex flex-col lg:flex-row animate-in fade-in duration-300 overflow-hidden`}>
 
       {/* GAUCHE : Panneau de configuration — largeur fixe, hauteur 100%, flex column */}
-      <div className="w-80 flex-shrink-0 flex flex-col h-full bg-card border-r border-white/10 shadow-2xl z-10 medieval-border">
+      <div className="w-full lg:w-80 flex-shrink-0 flex flex-col h-[40vh] lg:h-full bg-card border-r border-white/10 shadow-2xl z-10 medieval-border">
 
         {/* Header fixe */}
         <div className="flex-shrink-0 p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
@@ -290,6 +293,7 @@ export function MapCreationModal({ sessionId, onClose, onSubmit, initialData }: 
           Prévisualisation du rendu final
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

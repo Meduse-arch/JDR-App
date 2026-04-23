@@ -85,49 +85,41 @@ export default function MapHub({
                 }
               </div>
               
-              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <p className={`text-[11px] font-cinzel truncate leading-tight tracking-wide transition-all duration-300
-                  ${channelActif === c.id ? 'text-[#c8a84b]' : 'text-[rgba(220,200,150,0.65)]'}
-                  ${isMJ ? 'group-hover:pr-2' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <p className={`text-[11px] font-cinzel truncate leading-tight tracking-wide
+                  ${channelActif === c.id ? 'text-[#c8a84b]' : 'text-[rgba(220,200,150,0.65)]'}`}>
                   {c.nom}
                 </p>
-                {isMJ && (
-                   <div className="overflow-hidden h-auto max-h-0 group-hover:max-h-4 transition-all duration-300 opacity-0 group-hover:opacity-100">
-                    <p className={`text-[7px] font-cinzel tracking-widest uppercase
-                      ${c.active ? 'text-[rgba(93,232,158,0.5)]' : 'text-[rgba(232,122,122,0.4)]'}`}>
-                      {c.active ? 'Ouverte' : 'Verrouillée'}
-                    </p>
-                   </div>
-                )}
               </div>
               
-              {isMJ && (
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0 flex-shrink-0">
+              {isMJ ? (
+                <div className="flex items-center gap-0 max-w-0 group-hover:max-w-[100px] group-hover:gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 overflow-hidden flex-shrink-0">
                   <button
                     onClick={e => { e.stopPropagation(); onEditChannel(c.id); }}
                     className="w-5 h-5 rounded flex items-center justify-center text-[rgba(200,168,75,0.35)] hover:text-[#c8a84b] hover:bg-[rgba(200,168,75,0.1)] transition-all"
-                    title="Modifier"
                   >
                     <PencilLine size={10} />
                   </button>
                   <button
                     onClick={e => { e.stopPropagation(); onToggleChannel(c.id, !c.active); }}
-                    className={`w-5 h-5 rounded flex items-center justify-center transition-all ${c.active ? 'text-[rgba(93,232,158,0.5)] hover:text-[rgba(93,232,158,0.8)]' : 'text-[rgba(255,255,255,0.2)] hover:text-white'}`}
-                    title={c.active ? "Verrouiller pour les joueurs" : "Rendre visible aux joueurs"}
+                    className={`w-5 h-5 rounded flex items-center justify-center transition-all ${c.active ? 'text-[rgba(93,232,158,0.5)]' : 'text-[rgba(255,255,255,0.2)]'}`}
                   >
                     {c.active ? <Unlock size={10} /> : <Lock size={10} />}
                   </button>
                   <button
                     onClick={e => handleDelete(e, c.id)}
-                    className={`w-5 h-5 rounded flex items-center justify-center transition-all ${confirmDeleteId === c.id ? 'text-red-500 bg-red-500/10' : 'text-[rgba(180,50,50,0.35)] hover:text-[#e87a7a] hover:bg-red-500/5'}`}
-                    title="Supprimer"
+                    className="w-5 h-5 flex items-center justify-center text-[rgba(180,50,50,0.35)] hover:text-[#e87a7a]"
                   >
                     <Trash2 size={10} />
                   </button>
                 </div>
+              ) : (
+                channelActif === c.id && <LogIn size={9} className="text-[rgba(200,168,75,0.5)] ml-0.5" />
               )}
               
-              {channelActif === c.id && !isMJ && <LogIn size={9} className="text-[rgba(200,168,75,0.5)] ml-0.5" />}
+              {isMJ && channelActif === c.id && (
+                <LogIn size={9} className="text-[rgba(200,168,75,0.5)] ml-0.5 group-hover:hidden" />
+              )}
             </div>
           ))}
         </div>
