@@ -44,7 +44,6 @@ export default function App() {
     sessionActive, 
     pageCourante, 
     roleEffectif, 
-    theme, 
     mode, 
     navigationMode,
     showImmersiveNavButton,
@@ -134,10 +133,28 @@ export default function App() {
 
   // ÉCRAN 1 : PORTE DES MONDES (SESSIONS)
   if (!sessionActive) return (
-    <div className={`flex flex-col h-screen ${theme} ${mode} bg-app text-primary relative overflow-hidden`}>
+    <div className={`flex flex-col h-screen ${mode} bg-app text-primary relative overflow-hidden`}>
+      {navigationMode === 'basic' && <Header />}
+      
       <div className="flex-1 overflow-y-auto custom-scrollbar bg-black/5">
         <Sessions />
       </div>
+
+      {navigationMode === 'immersive' && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setNavigationOpen(true)}
+          className="fixed bottom-6 left-6 z-[200] w-12 h-12 rounded-full bg-black/40 border border-theme-main/30 backdrop-blur-md flex items-center justify-center text-theme-main shadow-[0_0_20px_rgba(var(--color-main-rgb),0.2)] hover:border-theme-main hover:shadow-[0_0_30_rgba(var(--color-main-rgb),0.4)] transition-all group"
+          title="Ouvrir le menu (Echap)"
+        >
+          <div className="absolute inset-0 rounded-full border border-theme-main/10 animate-ping opacity-20" />
+          <Layout size={20} className="group-hover:rotate-90 transition-transform duration-500" />
+        </motion.button>
+      )}
+
       <div className="absolute inset-0 vignette-effect pointer-events-none z-50" />
       {enteringSession && (
         <SessionTransitionPortal 
@@ -145,12 +162,17 @@ export default function App() {
           onComplete={handlePortalComplete} 
         />
       )}
+
+      <Navigation
+        open={navigationOpen}
+        onClose={() => setNavigationOpen(false)}
+      />
     </div>
   )
 
   // ÉCRAN 2 : LE CODEX DE L'ORACLE (SÉLECTION PERSONNAGE)
   if (roleEffectif === 'joueur' && !personnage) return (
-    <div className={`h-screen w-full overflow-y-auto ${theme} ${mode} bg-app`}>
+    <div className={`h-screen w-full overflow-y-auto ${mode} bg-app`}>
       <SelectionPersonnage />
     </div>
   )
@@ -179,7 +201,7 @@ export default function App() {
   }
 
   return (
-    <div className={`flex flex-col h-screen overflow-hidden ${theme} ${mode} bg-app text-primary relative`}>
+    <div className={`flex flex-col h-screen overflow-hidden ${mode} bg-app text-primary relative`}>
       {navigationMode === 'basic' && <Header />}
       
       <div className="flex flex-1 overflow-hidden">

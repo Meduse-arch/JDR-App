@@ -6,10 +6,10 @@ type Props = {
 }
 
 export default function Accueil({ allerVers }: Props) {
-  const { theme, mode } = useStore()
+  const { mode } = useStore()
 
   return (
-    <div className={`flex flex-col items-center justify-center h-screen relative overflow-hidden transition-colors duration-500 ${theme} ${mode} bg-app text-primary p-6`}>
+    <div className={`flex flex-col items-center justify-center h-screen relative overflow-hidden transition-colors duration-500 ${mode} bg-app text-primary p-6`}>
       {/* LA RUNE GÉANTE EN FOND */}
       <div className="fixed inset-0 flex items-center justify-center text-[30rem] md:text-[50rem] opacity-[0.03] pointer-events-none select-none font-cinzel">ᛟ</div>
 

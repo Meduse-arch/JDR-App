@@ -10,7 +10,7 @@ import { User, Key, Check, ArrowLeft } from 'lucide-react'
 type Props = { retour: () => void }
 
 export default function Connexion({ retour }: Props) {
-  const { theme, mode } = useStore()
+  const { mode } = useStore()
   const [pseudo, setPseudo]           = useState('')
   const [motDePasse, setMotDePasse]   = useState('')
   const [seSouvenir, setSeSouvenir]   = useState(false)
@@ -49,7 +49,7 @@ export default function Connexion({ retour }: Props) {
   }
 
   return (
-    <div className={`flex flex-col items-center justify-center h-screen p-4 relative overflow-hidden transition-colors duration-500 ${theme} ${mode} bg-app text-primary`}>
+    <div className={`flex flex-col items-center justify-center h-screen p-4 relative overflow-hidden transition-colors duration-500 ${mode} bg-app text-primary`}>
       {/* RUNE DE FOND RÉDUITE */}
       <div className="absolute inset-0 flex items-center justify-center text-[20rem] opacity-[0.02] pointer-events-none font-cinzel">ᛗ</div>
 

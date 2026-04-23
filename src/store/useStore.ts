@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { broadcastService } from '../services/broadcastService'
 
 export type RoleId = 'admin' | 'mj' | 'joueur'
-export type ThemeId = 'theme-violet' | 'theme-default'
 export type ModeId = 'mode-dark' | 'mode-light'
 export type NavigationMode = 'basic' | 'immersive'
 
@@ -38,7 +37,6 @@ interface JdrState {
   pageCourante: string
   pnjControle: Personnage | null
   personnageJoueur: Personnage | null
-  theme: ThemeId
   mode: ModeId
   navigationMode: NavigationMode
   showImmersiveNavButton: boolean
@@ -53,7 +51,6 @@ interface JdrState {
   setPageCourante: (p: string) => void
   setPnjControle: (pnj: Personnage | null) => void
   setPersonnageJoueur: (pj: Personnage | null) => void
-  setTheme: (t: ThemeId) => void
   setMode: (m: ModeId) => void
   setNavigationMode: (m: NavigationMode) => void
   setShowImmersiveNavButton: (show: boolean) => void
@@ -71,7 +68,6 @@ export const useStore = create<JdrState>((set, get) => ({
   pageCourante: 'sessions',
   pnjControle: JSON.parse(localStorage.getItem('sigil-pnj-controle') || 'null'),
   personnageJoueur: JSON.parse(localStorage.getItem('sigil-personnage-joueur') || 'null'),
-  theme: (localStorage.getItem('sigil-theme') as ThemeId) || 'theme-violet',
   mode: (localStorage.getItem('sigil-mode') as ModeId) || 'mode-dark',
   navigationMode: (localStorage.getItem('sigil-nav-mode') as NavigationMode) || 'basic',
   showImmersiveNavButton: localStorage.getItem('sigil-immersive-nav-btn') !== 'false',
@@ -113,7 +109,6 @@ export const useStore = create<JdrState>((set, get) => ({
     else localStorage.removeItem('sigil-personnage-joueur')
     set({ personnageJoueur: pj })
   },
-  setTheme: (theme) => { localStorage.setItem('sigil-theme', theme); set({ theme }) },
   setMode: (mode) => { localStorage.setItem('sigil-mode', mode); set({ mode }) },
   setNavigationMode: (navigationMode) => { localStorage.setItem('sigil-nav-mode', navigationMode); set({ navigationMode }) },
   setShowImmersiveNavButton: (showImmersiveNavButton) => { 

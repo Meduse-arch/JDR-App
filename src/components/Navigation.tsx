@@ -162,47 +162,59 @@ export default function Navigation({ open, onClose }: Props) {
             </div>
 
             <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start pb-12">
-              
-              {/* Branche Ouest (ou Haut sur mobile) */}
-              <motion.div initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="flex flex-col gap-6">
-                <div className="flex items-center gap-3 border-b border-theme/10 pb-3">
-                  <span className="text-theme-main opacity-40">{branches.find(b => b.id === 'ouest')?.icon}</span>
-                  <h3 className="font-cinzel text-[10px] uppercase tracking-widest text-theme-main font-bold">{branches.find(b => b.id === 'ouest')?.label}</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
-                  {branches.find(b => b.id === 'ouest')?.items.map(id => <NavButton key={id} itemId={id} />)}
-                </div>
-              </motion.div>
-
-              {/* Centre (Nord & Hub) */}
-              <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="flex flex-col gap-8 lg:gap-12 items-center order-first lg:order-none">
-                <div className="w-full flex flex-col gap-4 items-center">
-                   <div className="flex items-center gap-3 border-b border-theme/10 pb-3 w-full justify-center">
-                    <span className="text-theme-main opacity-40">{branches.find(b => b.id === 'nord')?.icon}</span>
-                    <h3 className="font-cinzel text-[10px] uppercase tracking-widest text-theme-main font-bold">{branches.find(b => b.id === 'nord')?.label}</h3>
+              {!sessionActive ? (
+                <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
+                  <div className="w-24 h-24 rounded-full border-2 border-dashed border-theme-main/20 flex items-center justify-center mb-6 animate-pulse">
+                    <Globe size={40} className="text-theme-main opacity-20" />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 w-full">
-                    {branches.find(b => b.id === 'nord')?.items.map(id => <NavButton key={id} itemId={id} />)}
-                  </div>
+                  <h3 className="font-cinzel text-xl text-theme-main tracking-[0.2em] mb-2 uppercase font-black">Codex Scellé</h3>
+                  <p className="font-garamond italic text-primary opacity-40 max-w-sm">
+                    Rejoignez un monde depuis la Porte des Sessions pour éveiller les fonctionnalités du Codex.
+                  </p>
                 </div>
+              ) : (
+                <>
+                  {/* Branche Ouest (ou Haut sur mobile) */}
+                  <motion.div initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="flex flex-col gap-6">
+                    <div className="flex items-center gap-3 border-b border-theme/10 pb-3">
+                      <span className="text-theme-main opacity-40">{branches.find(b => b.id === 'ouest')?.icon}</span>
+                      <h3 className="font-cinzel text-[10px] uppercase tracking-widest text-theme-main font-bold">{branches.find(b => b.id === 'ouest')?.label}</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+                      {branches.find(b => b.id === 'ouest')?.items.map(id => <NavButton key={id} itemId={id} />)}
+                    </div>
+                  </motion.div>
 
-                <div className="relative group w-full lg:w-auto">
-                   <div className="absolute -inset-4 bg-theme-main/5 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                   <NavButton itemId="dashboard" />
-                </div>
-              </motion.div>
+                  {/* Centre (Nord & Hub) */}
+                  <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="flex flex-col gap-8 lg:gap-12 items-center order-first lg:order-none">
+                    <div className="w-full flex flex-col gap-4 items-center">
+                      <div className="flex items-center gap-3 border-b border-theme/10 pb-3 w-full justify-center">
+                        <span className="text-theme-main opacity-40">{branches.find(b => b.id === 'nord')?.icon}</span>
+                        <h3 className="font-cinzel text-[10px] uppercase tracking-widest text-theme-main font-bold">{branches.find(b => b.id === 'nord')?.label}</h3>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 w-full">
+                        {branches.find(b => b.id === 'nord')?.items.map(id => <NavButton key={id} itemId={id} />)}
+                      </div>
+                    </div>
 
-              {/* Branche Est */}
-              <motion.div initial={{ x: 30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="flex flex-col gap-6">
-                <div className="flex items-center gap-3 border-b border-theme/10 pb-3">
-                  <span className="text-theme-main opacity-40">{branches.find(b => b.id === 'est')?.icon}</span>
-                  <h3 className="font-cinzel text-[10px] uppercase tracking-widest text-theme-main font-bold">{branches.find(b => b.id === 'est')?.label}</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
-                  {branches.find(b => b.id === 'est')?.items.map(id => <NavButton key={id} itemId={id} />)}
-                </div>
-              </motion.div>
+                    <div className="relative group w-full lg:w-auto">
+                      <div className="absolute -inset-4 bg-theme-main/5 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <NavButton itemId="dashboard" />
+                    </div>
+                  </motion.div>
 
+                  {/* Branche Est */}
+                  <motion.div initial={{ x: 30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="flex flex-col gap-6">
+                    <div className="flex items-center gap-3 border-b border-theme/10 pb-3">
+                      <span className="text-theme-main opacity-40">{branches.find(b => b.id === 'est')?.icon}</span>
+                      <h3 className="font-cinzel text-[10px] uppercase tracking-widest text-theme-main font-bold">{branches.find(b => b.id === 'est')?.label}</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+                      {branches.find(b => b.id === 'est')?.items.map(id => <NavButton key={id} itemId={id} />)}
+                    </div>
+                  </motion.div>
+                </>
+              )}
             </div>
 
             {/* Espacement bas pour compenser le footer sur Desktop */}

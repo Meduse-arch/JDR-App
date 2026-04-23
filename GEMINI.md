@@ -7,7 +7,7 @@ This is **Sigil**, a desktop application designed to manage role-playing game (J
 - **Core:** Electron, Vite, React, TypeScript.
 - **State Management:** Zustand (`src/store/useStore.ts`).
 - **Backend:** Supabase (Database, Auth, Realtime).
-- **Styling:** Tailwind CSS v4 (with dynamic theme support).
+- **Styling:** Tailwind CSS v4 (with dark/light mode support).
 - **Key Libraries:** `@supabase/supabase-js`, `bcryptjs`, `crypto-js`.
 
 ## Architecture
@@ -29,7 +29,7 @@ The project follows a modular React architecture:
 - **TypeScript:** Rigorous typing is expected. Key types are exported from `src/store/useStore.ts`.
 - **State:** Use the Zustand store (`useStore`) for global state like user profile, active session, and controlled characters.
 - **Database:** All data persistence is handled via Supabase services in `src/services/`.
-- **Styling:** Use Tailwind utility classes. Themes are applied via CSS variables defined in `index.css` and controlled by classes on the root element (e.g., `.theme-violet .mode-dark`).
+- **Styling:** Use Tailwind utility classes. Modes are applied via classes on the root element (e.g., `.mode-dark` or `.mode-light`).
 - **Component Style:** Functional components with React hooks.
 - **File Naming:** PascalCase for components/pages, camelCase for hooks, services, and utils.
 
@@ -44,4 +44,4 @@ The application requires the following environment variables (typically in a `.e
 - `src/App.tsx`: Main React entry point with role-based routing.
 - `src/store/useStore.ts`: Central state and shared types.
 - `src/supabase.ts`: Supabase client initialization.
-- `src/index.css`: Global styles and theme variable definitions.
+- `src/index.css`: Global styles and mode variable definitions.
