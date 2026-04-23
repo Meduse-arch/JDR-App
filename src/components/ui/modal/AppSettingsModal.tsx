@@ -13,7 +13,8 @@ import {
   Monitor, 
   Compass,
   Info,
-  ChevronRight
+  ChevronRight,
+  UserCircle
 } from 'lucide-react'
 
 interface AppSettingsModalProps {
@@ -26,7 +27,8 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
   const { 
     navigationMode, setNavigationMode, 
     showImmersiveNavButton, setShowImmersiveNavButton,
-    itemDisplayMode, setItemDisplayMode
+    itemDisplayMode, setItemDisplayMode,
+    characterSheetMode, setCharacterSheetMode
   } = useStore()
 
   const [activeTab, setActiveTab] = useState<TabId>('navigation')
@@ -224,6 +226,15 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
                         onClick={() => setItemDisplayMode('codex')}
                       />
                     </ControlGroup>
+
+                    <ControlGroup label="Immersion du Personnage">
+                      <SwitchRow 
+                        label="Mode Héros Immersif"
+                        desc="Active le portrait central et les jauges circulaires sur votre fiche."
+                        active={characterSheetMode === 'hero'}
+                        onToggle={() => setCharacterSheetMode(characterSheetMode === 'hero' ? 'classic' : 'hero')}
+                      />
+                    </ControlGroup>
                   </div>
                 )}
 
@@ -273,5 +284,3 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
     </ModalContainer>
   )
 }
-
-

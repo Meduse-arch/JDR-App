@@ -5,6 +5,7 @@ export type RoleId = 'admin' | 'mj' | 'joueur'
 export type ModeId = 'mode-dark' | 'mode-light'
 export type NavigationMode = 'basic' | 'immersive'
 export type ItemViewMode = 'grid' | 'codex'
+export type CharacterSheetMode = 'classic' | 'hero'
 
 export type Compte = { id: string; pseudo: string; role: RoleId }
 export type Session = { id: string; nom: string; description: string; cree_par: string; created_at?: string; parametres?: any }
@@ -42,6 +43,7 @@ interface JdrState {
   navigationMode: NavigationMode
   showImmersiveNavButton: boolean
   itemDisplayMode: ItemViewMode
+  characterSheetMode: CharacterSheetMode
   diceResult: DiceResult[] | null
   diceSharingEnabled: boolean
   buffRolls: Record<string, number>
@@ -57,6 +59,7 @@ interface JdrState {
   setNavigationMode: (m: NavigationMode) => void
   setShowImmersiveNavButton: (show: boolean) => void
   setItemDisplayMode: (mode: ItemViewMode) => void
+  setCharacterSheetMode: (mode: CharacterSheetMode) => void
   setDiceResult: (diceResult: DiceResult[] | null, broadcast?: boolean) => void
   setDiceSharingEnabled: (enabled: boolean) => void
   setBuffRoll: (key: string, val: number) => void
@@ -75,6 +78,7 @@ export const useStore = create<JdrState>((set, get) => ({
   navigationMode: (localStorage.getItem('sigil-nav-mode') as NavigationMode) || 'basic',
   showImmersiveNavButton: localStorage.getItem('sigil-immersive-nav-btn') !== 'false',
   itemDisplayMode: (localStorage.getItem('sigil-item-display-mode') as ItemViewMode) || 'grid',
+  characterSheetMode: (localStorage.getItem('sigil-char-sheet-mode') as CharacterSheetMode) || 'classic',
   diceResult: null,
   diceSharingEnabled: false,
   buffRolls: {},
@@ -122,6 +126,10 @@ export const useStore = create<JdrState>((set, get) => ({
   setItemDisplayMode: (itemDisplayMode) => {
     localStorage.setItem('sigil-item-display-mode', itemDisplayMode);
     set({ itemDisplayMode });
+  },
+  setCharacterSheetMode: (characterSheetMode) => {
+    localStorage.setItem('sigil-char-sheet-mode', characterSheetMode);
+    set({ characterSheetMode });
   },
   setDiceResult: (diceResult, broadcast = true) => {
     const { sessionActive, diceSharingEnabled, compte } = get();
