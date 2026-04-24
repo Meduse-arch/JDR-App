@@ -7,14 +7,12 @@ import {
   Settings, 
   Layout, 
   Zap, 
-  MousePointer2, 
   Grid, 
   BookOpen, 
   Monitor, 
   Compass,
   Info,
-  ChevronRight,
-  UserCircle
+  ChevronRight
 } from 'lucide-react'
 
 interface AppSettingsModalProps {
@@ -107,7 +105,7 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
           <div className="p-4 lg:p-8 border-b border-theme-main/10 bg-theme-main/5 shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-theme-main/10 rounded-sm">
-                <Settings className="text-theme-main" size={18} lg:size={20} />
+                <Settings className="text-theme-main" size={20} />
               </div>
               <h2 className="text-base lg:text-lg font-cinzel font-black text-primary tracking-[0.2em] uppercase">
                 Paramètres
@@ -127,7 +125,7 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
                 }`}
               >
                 <div className="flex items-center gap-2 lg:gap-4">
-                  <tab.icon size={16} lg:size={18} className={activeTab === tab.id ? 'text-theme-main' : 'opacity-40 group-hover:opacity-100'} />
+                  <tab.icon size={18} className={activeTab === tab.id ? 'text-theme-main' : 'opacity-40 group-hover:opacity-100'} />
                   <div className="flex flex-col items-start hidden sm:flex">
                     <span className="font-cinzel text-[10px] lg:text-xs font-bold uppercase tracking-[0.15em]">{tab.label}</span>
                     <span className="text-[8px] lg:text-[9px] font-garamond italic opacity-50 lowercase hidden lg:block">{tab.desc}</span>

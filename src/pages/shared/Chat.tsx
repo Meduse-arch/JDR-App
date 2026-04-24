@@ -9,7 +9,7 @@ import {
 import { ConfirmButton } from '../../components/ui/ConfirmButton'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
-import { formatHeure, formatDate, getCanalLabel, getCanalIcon, getInitiales } from '../../components/chat/ChatUtils'
+import { formatHeure, formatDate, getCanalLabel, getCanalIcon } from '../../components/chat/ChatUtils'
 import { NouvelleConvModal, ModifierCanalModal } from '../../components/chat/ChatModals'
 import RunicDecoder from '../../components/ui/RunicDecoder'
 
@@ -21,7 +21,7 @@ export default function Chat() {
     envoyerMessage, ouvrirConversation, renommerCanal, supprimerCanal, chargerMembres,
   } = useChat()
 
-  const { navigationMode, mode } = useStore()
+  const { mode } = useStore()
   const [texte, setTexte]                             = useState('')
   const [imageUrl, setImageUrl]                       = useState('')
   const [showImageInput, setShowImageInput]           = useState(false)
@@ -122,19 +122,18 @@ export default function Chat() {
   return (
     <div className={`absolute inset-0 flex overflow-hidden bg-app ${mode}`}>
       
-      {/* 1. SIDEBAR : L'INDEX DES ARCHIVES */}
-      <aside className="w-16 md:w-64 lg:w-72 flex-shrink-0 flex flex-col bg-black/40 border-r border-white/5 backdrop-blur-2xl relative z-20">
-        <div className="p-4 md:p-6 border-b border-white/5 flex items-center justify-center md:justify-between bg-black/20">
-           {/* Rune ᛇ en tête de sidebar */}
+      {/* 1. SIDEBAR : L'INDEX DES ARCHIVES (Cachée sur mobile si canal actif) */}
+      <aside className={`${canalActifId ? 'hidden md:flex' : 'flex'} w-full md:w-64 lg:w-72 flex-shrink-0 flex-col bg-black/40 border-r border-white/5 backdrop-blur-2xl relative z-20 transition-all duration-300`}>
+        <div className="p-4 md:p-6 border-b border-white/5 flex items-center justify-between bg-black/20">
            <div className="flex items-center gap-3">
              <div className="w-8 h-8 flex items-center justify-center bg-theme-main/10 rounded-sm">
                 <span className="font-cinzel text-theme-main font-black text-lg drop-shadow-[0_0_8px_rgba(var(--color-main-rgb),0.5)]">ᛇ</span>
              </div>
-             <span className="font-cinzel text-xs font-black tracking-[0.2em] text-primary uppercase hidden md:block">Chroniques</span>
+             <span className="font-cinzel text-xs font-black tracking-[0.2em] text-primary uppercase">Chroniques</span>
            </div>
            <button 
             onClick={handleNouvelleConv}
-            className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-sm bg-theme-main/5 border border-theme-main/20 text-theme-main hover:bg-theme-main hover:text-white transition-all duration-300 hidden md:flex"
+            className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-sm bg-theme-main/5 border border-theme-main/20 text-theme-main hover:bg-theme-main hover:text-white transition-all duration-300"
             title="Nouveau Récit"
            >
              <Plus size={16} />
@@ -158,8 +157,8 @@ export default function Chat() {
                   ${isActive ? 'bg-theme-main/20 border-theme-main/40' : 'bg-black/20 border-white/5'}`}>
                   {getCanalIcon(canal.type, isActive ? 16 : 14)}
                 </div>
-                <div className="hidden md:flex flex-col items-start min-w-0">
-                  <span className="font-cinzel text-[10px] font-bold tracking-widest uppercase truncate w-full">{label}</span>
+                <div className="flex flex-col items-start min-w-0">
+                  <span className="font-cinzel text-[10px] font-bold tracking-widest uppercase truncate w-full text-left">{label}</span>
                   <span className="text-[7px] font-cinzel tracking-[.2em] text-theme-main/40 uppercase">{canal.type}</span>
                 </div>
                 {isActive && <motion.div layoutId="active-aura" className="absolute inset-0 bg-theme-main/5 blur-xl -z-10" />}
@@ -171,46 +170,46 @@ export default function Chat() {
         <div className="p-4 border-t border-white/5 bg-black/20 hidden md:block">
            <div className="flex items-center gap-3 opacity-20">
               <Sparkles size={14} className="text-theme-main" />
-              <span className="font-cinzel text-[9px] tracking-widest uppercase">Sigil Chronicles v2.4</span>
+              <span className="font-cinzel text-[9px] tracking-widest uppercase truncate">Sigil Chronicles v2.4</span>
            </div>
         </div>
       </aside>
 
-      {/* 2. MAIN AREA : LE PARCHEMIN DES MONDES */}
-      <main className="flex-1 flex flex-col min-w-0 relative">
+      {/* 2. MAIN AREA : LE PARCHEMIN DES MONDES (Cachée sur mobile si pas de canal actif) */}
+      <main className={`${!canalActifId ? 'hidden md:flex' : 'flex'} flex-1 flex flex-col min-w-0 relative transition-all duration-300`}>
         
         {/* FILIGRANE RUNIQUE CENTRAL */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
-          <span className="font-cinzel text-theme-main opacity-[0.015] text-[30rem] md:text-[50rem] blur-[1px]">ᛇ</span>
+          <span className="font-cinzel text-theme-main opacity-[0.015] text-[20rem] md:text-[50rem] blur-[1px]">ᛇ</span>
         </div>
 
         {/* HEADER DU CANAL */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-black/20 backdrop-blur-md relative z-10">
-          <div className="flex items-center gap-4">
+        <div className="h-16 flex items-center justify-between px-4 md:px-6 border-b border-white/5 bg-black/20 backdrop-blur-md relative z-10">
+          <div className="flex items-center gap-4 min-w-0">
             {canalActifId && (
               <button 
                 onClick={() => setCanalActifId(null)} 
-                className="flex items-center gap-3 text-theme-main/40 hover:text-theme-main transition-all group/back"
+                className="flex items-center gap-2 md:gap-3 text-theme-main/40 hover:text-theme-main transition-all group/back shrink-0"
               >
                 <ArrowLeft size={18} className="group-hover/back:-translate-x-1 transition-transform" />
                 <span className="font-cinzel text-theme-main font-black text-sm">ᛇ</span>
                 <span className="font-cinzel text-[10px] tracking-[0.3em] uppercase hidden sm:inline">Chroniques</span>
               </button>
             )}
-            <div className="w-px h-6 bg-white/5 mx-2 hidden sm:block" />
-            <div className="flex flex-col">
-              <h2 className="font-cinzel text-base font-black tracking-[0.3em] text-primary uppercase leading-tight">
+            <div className="w-px h-6 bg-white/5 mx-1 hidden sm:block shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <h2 className="font-cinzel text-xs md:text-base font-black tracking-[0.2em] md:tracking-[0.3em] text-primary uppercase leading-tight truncate">
                 {canalActif ? <RunicDecoder text={getCanalLabel(canalActif, compte?.id || '')} /> : 'Sélectionnez un récit'}
               </h2>
-              {canalActifId && <span className="text-[9px] font-cinzel tracking-[.3em] text-theme-main/40 uppercase mt-1">Chronique Scellée</span>}
+              {canalActifId && <span className="text-[8px] font-cinzel tracking-[.3em] text-theme-main/40 uppercase mt-0.5 truncate">Chronique Scellée</span>}
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
              {canalActifId && isMJ && canalActif!.type !== 'general' && (
-               <div className="flex items-center gap-2">
+               <div className="flex items-center gap-1 md:gap-3">
                  <button onClick={(e) => handleModifierCanal(e, canalActif!)} className="p-2 rounded-full hover:bg-white/5 text-theme-main/30 hover:text-theme-main transition-all"><Pencil size={14} /></button>
-                 <ConfirmButton onConfirm={() => { supprimerCanal(canalActif!.id); setCanalActifId(null) }} variant="danger" className="h-8 px-3 border-red-900/20 text-red-500/60 hover:bg-red-900/10"><Trash2 size={14} /></ConfirmButton>
+                 <ConfirmButton onConfirm={() => { supprimerCanal(canalActif!.id); setCanalActifId(null) }} variant="danger" className="h-8 px-2 md:px-3 border-red-900/20 text-red-500/60 hover:bg-red-900/10"><Trash2 size={14} /></ConfirmButton>
                </div>
              )}
           </div>
@@ -221,30 +220,30 @@ export default function Chat() {
           <div 
             ref={messagesAreaRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto custom-scrollbar px-6 md:px-16 py-8 flex flex-col gap-6 relative z-10"
+            className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-16 py-6 md:py-10 flex flex-col gap-5 md:gap-8 relative z-10"
           >
             {chargementMessages ? (
-              <div className="flex-1 flex items-center justify-center opacity-10"><span className="font-cinzel text-sm tracking-[0.6em] animate-pulse uppercase">Invoquation du récit...</span></div>
+              <div className="flex-1 flex items-center justify-center opacity-10"><span className="font-cinzel text-sm tracking-[0.6em] animate-pulse uppercase">Invoquation...</span></div>
             ) : !canalActifId ? (
               <div className="flex-1 flex flex-col items-center justify-center opacity-10 gap-6">
-                <Scroll size={100} strokeWidth={0.5} className="text-theme-main" />
-                <p className="font-cinzel text-xl font-bold tracking-[0.5em] uppercase text-center max-w-md leading-relaxed">
-                  Consultez les archives pour éveiller la mémoire du monde.
+                <Scroll size={80} strokeWidth={0.5} className="text-theme-main" />
+                <p className="font-cinzel text-lg font-bold tracking-[0.4em] uppercase text-center max-w-xs leading-relaxed">
+                  Éveillez la mémoire du monde.
                 </p>
               </div>
             ) : messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center opacity-5 gap-4">
-                 <MessageSquare size={80} strokeWidth={0.5} />
-                 <span className="font-cinzel tracking-[0.4em] uppercase">Le grimoire est encore vierge</span>
+                 <MessageSquare size={60} strokeWidth={0.5} />
+                 <span className="font-cinzel text-xs tracking-[0.4em] uppercase text-center">Le grimoire est vierge</span>
               </div>
             ) : (
               <div className="max-w-4xl mx-auto w-full flex flex-col">
                 {items.map(item => {
                   if (item.kind === 'separator') {
                     return (
-                      <div key={item.key} className="flex items-center gap-6 my-12 opacity-30 px-8">
+                      <div key={item.key} className="flex items-center gap-4 md:gap-6 my-8 md:my-12 opacity-30 px-4">
                         <div className="flex-1 h-px bg-gradient-to-r from-transparent via-theme-main/30 to-transparent" />
-                        <span className="font-cinzel text-[10px] tracking-[0.5em] text-theme-main uppercase">{item.label}</span>
+                        <span className="font-cinzel text-[9px] md:text-[10px] tracking-[0.4em] md:tracking-[0.5em] text-theme-main uppercase whitespace-nowrap">{item.label}</span>
                         <div className="flex-1 h-px bg-gradient-to-r from-transparent via-theme-main/30 to-transparent" />
                       </div>
                     )
@@ -257,25 +256,25 @@ export default function Chat() {
                   return (
                     <motion.div 
                       key={item.key} 
-                      initial={{ opacity: 0, x: estMoi ? 20 : -20 }} 
+                      initial={{ opacity: 0, x: estMoi ? 10 : -10 }} 
                       animate={{ opacity: 1, x: 0 }} 
-                      className={`flex flex-col ${msg.isFirst ? 'mt-10' : 'mt-1'} ${estMoi ? 'items-end' : 'items-start'}`}
+                      className={`flex flex-col ${msg.isFirst ? 'mt-8 md:mt-10' : 'mt-1'} ${estMoi ? 'items-end' : 'items-start'}`}
                     >
                       {msg.isFirst && (
-                        <div className={`flex items-baseline gap-4 mb-3 px-2 ${estMoi ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div className={`flex items-baseline gap-3 md:gap-4 mb-2 md:mb-3 px-2 ${estMoi ? 'flex-row-reverse' : 'flex-row'}`}>
                           <div className="flex items-center gap-2">
                              <div className={`w-1.5 h-1.5 rounded-full ${isOOC ? 'bg-white/20' : 'bg-theme-main/40'}`} />
-                             <span className={`font-cinzel text-[11px] font-black uppercase tracking-[0.25em] ${isOOC ? 'text-primary/40' : 'text-theme-main/70'}`}>
+                             <span className={`font-cinzel text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.25em] ${isOOC ? 'text-primary/40' : 'text-theme-main/70'}`}>
                                {msg.nom_affiche}
                                {isOOC && <span className="ml-2 text-[8px] opacity-40 font-garamond italic lowercase tracking-normal">(hrp)</span>}
                              </span>
                           </div>
-                          <span className="font-mono text-[9px] opacity-10 tracking-widest">{formatHeure(msg.created_at)}</span>
+                          <span className="font-mono text-[8px] md:text-[9px] opacity-10 tracking-widest">{formatHeure(msg.created_at)}</span>
                         </div>
                       )}
-                      <div className={`group/msg flex flex-col gap-2 ${estMoi ? 'items-end' : 'items-start'}`} style={{ maxWidth: '85%' }}>
+                      <div className={`group/msg flex flex-col gap-2 ${estMoi ? 'items-end' : 'items-start'}`} style={{ maxWidth: '90%' }}>
                         {msg.contenu && (
-                          <div className={`px-6 py-4 text-[15px] leading-relaxed transition-all border shadow-2xl relative
+                          <div className={`px-4 md:px-6 py-3 md:py-4 text-[13px] md:text-[15px] leading-relaxed transition-all border shadow-2xl relative
                             ${estMoi 
                               ? `${isOOC ? 'bg-white/5 border-white/10' : 'bg-theme-main/5 border-theme-main/30'} text-primary rounded-l-2xl rounded-tr-sm rounded-br-2xl` 
                               : 'bg-black/40 border-white/10 text-primary/80 rounded-r-2xl rounded-tl-sm rounded-bl-2xl hover:border-white/20'}`}
@@ -307,7 +306,6 @@ export default function Chat() {
             )}
           </div>
 
-          {/* BOUTON SCROLL VERS BAS */}
           <AnimatePresence>
             {showScrollBtn && (
               <motion.button
@@ -315,7 +313,7 @@ export default function Chat() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 onClick={() => { setIsAtBottom(true); messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }}
-                className="absolute bottom-32 right-10 w-12 h-12 rounded-full bg-theme-main text-white shadow-2xl flex items-center justify-center transition-all z-30 shadow-[0_0_20px_rgba(var(--color-main-rgb),0.4)]"
+                className="absolute bottom-28 md:bottom-32 right-6 md:right-10 w-10 md:w-12 h-10 md:h-12 rounded-full bg-theme-main text-white shadow-2xl flex items-center justify-center transition-all z-30 shadow-[0_0_20px_rgba(var(--color-main-rgb),0.4)]"
               >
                 <ChevronDown size={20} />
               </motion.button>
@@ -324,37 +322,37 @@ export default function Chat() {
 
           {/* ZONE DE SAISIE : L'ENCRIER DU DESTIN */}
           {canalActifId && (
-            <div className="flex-shrink-0 px-6 py-6 border-t border-white/5 bg-black/60 backdrop-blur-3xl relative z-20">
-              <div className="max-w-4xl mx-auto flex flex-col gap-4">
+            <div className="flex-shrink-0 px-4 md:px-6 py-4 md:py-6 border-t border-white/5 bg-black/60 backdrop-blur-3xl relative z-20">
+              <div className="max-w-4xl mx-auto flex flex-col gap-3 md:gap-4">
                 <AnimatePresence>
                   {showImageInput && (
                     <motion.div 
                       initial={{ height: 0, opacity: 0 }} 
                       animate={{ height: 'auto', opacity: 1 }} 
                       exit={{ height: 0, opacity: 0 }} 
-                      className="overflow-hidden bg-black/40 rounded-sm border border-theme-main/10 p-3 mb-2"
+                      className="overflow-hidden bg-black/40 rounded-sm border border-theme-main/10 p-2 md:p-3 mb-1"
                     >
-                      <div className="flex items-center gap-4">
-                         <ImageIcon size={16} className="text-theme-main opacity-40" />
+                      <div className="flex items-center gap-3 md:gap-4">
+                         <ImageIcon size={14} className="text-theme-main opacity-40 shrink-0" />
                          <input 
-                           placeholder="Parchemin d'image (URL)..." 
+                           placeholder="Lien d'image (URL)..." 
                            value={imageUrl} 
                            onChange={e => setImageUrl(e.target.value)} 
-                           className="flex-1 bg-transparent text-xs font-garamond italic text-theme-main outline-none placeholder:text-theme-main/20" 
+                           className="flex-1 bg-transparent text-[11px] font-garamond italic text-theme-main outline-none placeholder:text-theme-main/20" 
                          />
-                         <button onClick={() => { setImageUrl(''); setShowImageInput(false) }} className="text-white/20 hover:text-white"><X size={16} /></button>
+                         <button onClick={() => { setImageUrl(''); setShowImageInput(false) }} className="text-white/20 hover:text-white shrink-0"><X size={14} /></button>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                <div className="flex items-end gap-4">
+                <div className="flex items-end gap-2 md:gap-4">
                   <button 
                     onClick={() => setShowImageInput(!showImageInput)} 
-                    className={`w-12 h-12 flex items-center justify-center rounded-full border transition-all shrink-0 
-                      ${showImageInput ? 'bg-theme-main/20 border-theme-main/40 text-theme-main shadow-[0_0_15px_rgba(var(--color-main-rgb),0.3)]' : 'bg-white/5 border-white/10 text-white/20 hover:text-theme-main'}`}
+                    className={`w-10 md:w-12 h-10 md:h-12 flex items-center justify-center rounded-full border transition-all shrink-0 
+                      ${showImageInput ? 'bg-theme-main/20 border-theme-main/40 text-theme-main' : 'bg-white/5 border-white/10 text-white/20 hover:text-theme-main'}`}
                   >
-                    <ImageIcon size={20} />
+                    <ImageIcon size={18} />
                   </button>
 
                   <div className="flex-1 relative group">
@@ -363,22 +361,19 @@ export default function Chat() {
                       value={texte} 
                       onChange={e => setTexte(e.target.value)} 
                       onKeyDown={handleKeyDown} 
-                      placeholder="Inscrire un fragment de récit..." 
+                      placeholder="Votre récit..." 
                       rows={1} 
-                      className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-[15px] text-primary outline-none focus:border-theme-main/40 transition-all resize-none min-h-[56px] max-h-[180px] custom-scrollbar shadow-inner" 
+                      className="w-full bg-black/60 border border-white/10 rounded-2xl px-4 md:px-6 py-2.5 md:py-4 text-[13px] md:text-[15px] text-primary outline-none focus:border-theme-main/40 transition-all resize-none min-h-[42px] md:min-h-[56px] max-h-[120px] md:max-h-[180px] custom-scrollbar shadow-inner" 
                       style={{ fontFamily: 'var(--font-garamond, serif)' }} 
                     />
-                    <div className="absolute bottom-2 right-4 pointer-events-none opacity-0 group-focus-within:opacity-20 transition-opacity">
-                       <span className="font-cinzel text-[8px] tracking-widest uppercase">Gravure en cours</span>
-                    </div>
                   </div>
 
                   {!isMJ && (
                     <button
                       onClick={() => setModeIC(v => !v)}
-                      className={`w-12 h-12 rounded-full font-cinzel text-[11px] font-black border transition-all flex items-center justify-center shrink-0
+                      className={`w-10 md:w-12 h-10 md:h-12 rounded-full font-cinzel text-[10px] md:text-[11px] font-black border transition-all flex items-center justify-center shrink-0
                         ${modeIC
-                          ? 'bg-theme-main/20 border-theme-main/40 text-theme-main shadow-[0_0_20px_rgba(var(--color-main-rgb),0.3)]'
+                          ? 'bg-theme-main/20 border-theme-main/40 text-theme-main shadow-[0_0_15px_rgba(var(--color-main-rgb),0.3)]'
                           : 'bg-white/5 border-white/10 text-white/20 hover:text-theme-main'}`}
                     >
                       {modeIC ? 'IC' : 'OOC'}
@@ -388,7 +383,7 @@ export default function Chat() {
                   <button 
                     onClick={handleEnvoyer} 
                     disabled={envoi || (!texte.trim() && !imageUrl.trim())} 
-                    className="w-12 h-12 flex items-center justify-center rounded-full bg-theme-main text-white shadow-2xl hover:scale-110 active:scale-95 transition-all disabled:opacity-10 disabled:grayscale shrink-0 shadow-[0_0_25px_rgba(var(--color-main-rgb),0.4)]"
+                    className="w-12 h-12 flex items-center justify-center rounded-full bg-theme-main text-white shadow-xl hover:scale-110 active:scale-95 transition-all disabled:opacity-10 disabled:grayscale shrink-0 shadow-[0_0_25px_rgba(var(--color-main-rgb),0.4)]"
                   >
                     <Send size={20} />
                   </button>
@@ -418,7 +413,7 @@ export default function Chat() {
             className={`fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 md:p-10 cursor-zoom-out ${mode}`}
           >
             {/* Header */}
-            <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-10">
+            <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-10">
                <div className="flex items-center gap-3">
                   <div className="p-2 bg-theme-main/10 rounded-sm">
                     <ImageIcon className="text-theme-main" size={20} />
@@ -445,11 +440,11 @@ export default function Chat() {
               <img 
                 src={viewedImageUrl} 
                 alt="Archive" 
-                className="max-w-full max-h-[85vh] object-contain rounded-sm border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.9)]"
+                className="max-w-full max-h-[80vh] md:max-h-[85vh] object-contain rounded-sm border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.9)]"
               />
-              <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-40 pointer-events-none">
-                <div className="h-px w-32 bg-gradient-to-r from-transparent via-theme-main to-transparent" />
-                <span className="font-garamond italic text-sm text-primary/80">Fragment scellé dans les annales du Sigil</span>
+              <div className="absolute -bottom-12 md:-bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-40 pointer-events-none w-full text-center">
+                <div className="h-px w-24 md:w-32 bg-gradient-to-r from-transparent via-theme-main to-transparent" />
+                <span className="font-garamond italic text-[10px] md:text-sm text-primary/80">Fragment scellé dans les annales du Sigil</span>
               </div>
             </motion.div>
           </motion.div>

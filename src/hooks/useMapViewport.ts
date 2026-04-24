@@ -15,6 +15,7 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
   
   // Sauvegarder la taille du viewport pour détecter les changements
   const viewportSize = useRef({ w: 0, h: 0 });
+  const lastPinchDistance = useRef<number | null>(null);
 
   const getMapNatSize = useCallback(() => {
     if (!activeChannelData) return { w: 0, h: 0 };
@@ -24,7 +25,7 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     };
   }, [activeChannelData]);
 
-  const clampPan = useCallback((px: number, py: number, z: number, bypassClamp = false) => {
+  const clampPan = useCallback((px: number, py: number, z: number) => {
     if (!activeChannelData || !canvasRef.current) return { x: px, y: py };
     const vW = canvasRef.current.clientWidth;
     const vH = canvasRef.current.clientHeight;

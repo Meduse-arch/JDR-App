@@ -71,7 +71,7 @@ export default function CarteMap() {
     zoom, pan, isPanning,
     handleWheel, handleCanvasMouseDown, handleCanvasMouseMove, handleCanvasMouseUp,
     handleCanvasTouchStart, handleCanvasTouchMove, handleCanvasTouchEnd,
-    handleFocusToken, handleZoomIn, handleZoomOut, handleFitMap, handleCenterMap
+    handleFocusToken, handleZoomIn, handleZoomOut, handleFitMap
   } = useMapViewport({ activeChannelData, canvasRef, channelActif });
 
   const [vue, setVue] = useState<'hub' | 'map'>('hub');
