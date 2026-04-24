@@ -201,6 +201,12 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
                           active={showImmersiveNavButton}
                           onToggle={() => setShowImmersiveNavButton(!showImmersiveNavButton)}
                         />
+                        <SwitchRow 
+                          label="Multi-écran"
+                          desc="Permet de détacher des fenêtres indépendantes pour le Chat, la Map, etc."
+                          active={useStore.getState().multiScreenEnabled}
+                          onToggle={() => useStore.getState().setMultiScreenEnabled(!useStore.getState().multiScreenEnabled)}
+                        />
                       </ControlGroup>
                     )}
                   </div>

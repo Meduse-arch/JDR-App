@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '../store/useStore'
 import { menuMJ, menuJoueur } from '../config/menus'
-import { LogOut, X, User, Compass, Zap, Scroll, Globe, ChevronRight, Moon, Sun, Settings } from 'lucide-react'
+import { LogOut, X, User, Compass, Zap, Scroll, Globe, ChevronRight, Moon, Sun, Settings, Monitor, ExternalLink } from 'lucide-react'
 import { TITRES_LEGENDE } from '../config/titres'
 import { AppSettingsModal } from './ui/modal'
 
@@ -16,7 +16,7 @@ export default function Navigation({ open, onClose }: Props) {
   const { 
     pageCourante, setPageCourante, roleEffectif, pnjControle, 
     setPnjControle, deconnexion, sessionActive, setSessionActive,
-    mode, setMode, navigationMode
+    mode, setMode, navigationMode, multiScreenEnabled
   } = useStore()
 
   // Si on change le mode vers 'basic' depuis les paramètres internes, 
@@ -59,32 +59,57 @@ export default function Navigation({ open, onClose }: Props) {
     const isActive = pageCourante === itemId
 
     return (
-      <button
-        onClick={() => handleNav(itemId)}
-        className={`
-          relative flex items-center gap-4 p-4 rounded-sm border transition-all duration-300 group w-full
-          ${isActive 
-            ? 'bg-theme-main border-theme-main shadow-[0_0_30px_rgba(var(--color-main-rgb),0.2)]' 
-            : 'bg-surface/40 border-theme/10 hover:border-theme-main/40 hover:bg-surface/80'}
-        `}
-      >
-        <div className={`
-          w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full border font-cinzel text-xl transition-all
-          ${isActive 
-            ? 'bg-app text-theme-main border-app' 
-            : 'bg-app/40 text-theme-main border-theme/10 group-hover:border-theme-main/30'}
-        `}>
-          {item.rune}
-        </div>
-        <div className="flex flex-col items-start min-w-0">
-          <span className={`font-cinzel text-[10px] uppercase tracking-[0.2em] font-bold truncate w-full ${isActive ? 'text-app' : 'text-theme-main'}`}>
-            {TITRES_LEGENDE[itemId] || item.label.toUpperCase()}
-          </span>
-          <span className={`font-garamond italic text-[11px] opacity-60 truncate w-full ${isActive ? 'text-app/80' : 'text-text-secondary'}`}>
-            {item.label}
-          </span>
-        </div>
-      </button>
+      <div className="relative group w-full">
+        <button
+          onClick={() => handleNav(itemId)}
+          className={`
+            relative flex items-center gap-4 p-4 rounded-sm border transition-all duration-300 w-full
+            ${isActive 
+              ? 'bg-theme-main border-theme-main shadow-[0_0_30px_rgba(var(--color-main-rgb),0.2)]' 
+              : 'bg-surface/40 border-theme/10 hover:border-theme-main/40 hover:bg-surface/80'}
+          `}
+        >
+          <div className={`
+            w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full border font-cinzel text-xl transition-all
+            ${isActive 
+              ? 'bg-app text-theme-main border-app' 
+              : 'bg-app/40 text-theme-main border-theme/10 group-hover:border-theme-main/30'}
+          `}>
+            {item.rune}
+          </div>
+          <div className="flex flex-col items-start min-w-0">
+            <span className={`font-cinzel text-[10px] uppercase tracking-[0.2em] font-bold truncate w-full ${isActive ? 'text-app' : 'text-theme-main'}`}>
+              {TITRES_LEGENDE[itemId] || item.label.toUpperCase()}
+            </span>
+            <span className={`font-garamond italic text-[11px] opacity-60 truncate w-full ${isActive ? 'text-app/80' : 'text-text-secondary'}`}>
+              {item.label}
+            </span>
+          </div>
+        </button>
+
+        {/* Bouton Pop-out (Multi-écran) */}
+        {multiScreenEnabled && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // Utilisation de l'IPC Electron si disponible
+              if (window.ipcRenderer) {
+                window.ipcRenderer.send('popout-window', itemId);
+              } else {
+                // Fallback version Web : ouvre dans un nouvel onglet/fenêtre
+                const url = window.location.origin + window.location.pathname + '#/popout/' + itemId;
+                window.open(url, '_blank', 'width=1000,height=800');
+              }
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-sm bg-black/60 border border-theme-main/20 text-theme-main opacity-0 group-hover:opacity-100 transition-all hover:bg-theme-main hover:text-app hover:border-theme-main hover:scale-110 active:scale-90 z-50 cursor-pointer shadow-xl"
+            title="Ouvrir dans une nouvelle fenêtre"
+          >
+            <ExternalLink size={16} />
+          </button>
+        )}
+      </div>
     )
   }
 

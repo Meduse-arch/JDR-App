@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -23,6 +23,48 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 let win: BrowserWindow | null
+const popouts = new Map<string, BrowserWindow>()
+
+function createPopoutWindow(pageId: string) {
+  if (popouts.has(pageId)) {
+    popouts.get(pageId)?.focus()
+    return
+  }
+
+  const preloadPath = path.join(__dirname, 'preload.mjs')
+
+  const popout = new BrowserWindow({
+    title: `Sigil : ${pageId.toUpperCase()}`,
+    icon: path.join(process.env.VITE_PUBLIC, 'logo.png'),
+    width: 1000,
+    height: 800,
+    autoHideMenuBar: true,
+    backgroundColor: '#050505', // Fond sombre par défaut pour éviter le flash blanc
+    webPreferences: {
+      preload: preloadPath,
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  popouts.set(pageId, popout)
+
+  popout.on('closed', () => {
+    popouts.delete(pageId)
+  })
+
+  if (VITE_DEV_SERVER_URL) {
+    popout.loadURL(`${VITE_DEV_SERVER_URL}#/popout/${pageId}`)
+  } else {
+    // En prod, on charge le fichier et on ajoute le hash après
+    popout.loadFile(path.join(RENDERER_DIST, 'index.html'), { hash: `/popout/${pageId}` })
+  }
+}
+
+ipcMain.on('popout-window', (_event, pageId: string) => {
+  createPopoutWindow(pageId)
+})
 
 function createWindow() {
   win = new BrowserWindow({

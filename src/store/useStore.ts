@@ -42,6 +42,7 @@ interface JdrState {
   personnageJoueur: Personnage | null
   mode: ModeId
   navigationMode: NavigationMode
+  multiScreenEnabled: boolean
   showImmersiveNavButton: boolean
   itemDisplayMode: ItemViewMode
   characterSheetMode: CharacterSheetMode
@@ -59,6 +60,7 @@ interface JdrState {
   setPersonnageJoueur: (pj: Personnage | null) => void
   setMode: (m: ModeId) => void
   setNavigationMode: (m: NavigationMode) => void
+  setMultiScreenEnabled: (enabled: boolean) => void
   setShowImmersiveNavButton: (show: boolean) => void
   setItemDisplayMode: (mode: ItemViewMode) => void
   setCharacterSheetMode: (mode: CharacterSheetMode) => void
@@ -72,13 +74,14 @@ interface JdrState {
 
 export const useStore = create<JdrState>((set, get) => ({
   compte: JSON.parse(localStorage.getItem('sigil-compte') || 'null'),
-  sessionActive: null,
-  roleEffectif: null,
+  sessionActive: JSON.parse(localStorage.getItem('sigil-session-active') || 'null'),
+  roleEffectif: localStorage.getItem('sigil-role-effectif') as RoleId | null,
   pageCourante: 'sessions',
   pnjControle: JSON.parse(localStorage.getItem('sigil-pnj-controle') || 'null'),
   personnageJoueur: JSON.parse(localStorage.getItem('sigil-personnage-joueur') || 'null'),
   mode: (localStorage.getItem('sigil-mode') as ModeId) || 'mode-dark',
   navigationMode: (localStorage.getItem('sigil-nav-mode') as NavigationMode) || 'basic',
+  multiScreenEnabled: localStorage.getItem('sigil-multi-screen') === 'true',
   showImmersiveNavButton: localStorage.getItem('sigil-immersive-nav-btn') !== 'false',
   itemDisplayMode: (localStorage.getItem('sigil-item-display-mode') as ItemViewMode) || 'grid',
   characterSheetMode: (localStorage.getItem('sigil-char-sheet-mode') as CharacterSheetMode) || 'classic',
@@ -95,9 +98,13 @@ export const useStore = create<JdrState>((set, get) => ({
   },
   setSessionActive: (session) => {
     if (!session) {
+      localStorage.removeItem('sigil-session-active')
+      localStorage.removeItem('sigil-role-effectif')
       localStorage.removeItem('sigil-pnj-controle')
       localStorage.removeItem('sigil-personnage-joueur')
       sessionStorage.removeItem('sigil-selection-visitee')
+    } else {
+      localStorage.setItem('sigil-session-active', JSON.stringify(session))
     }
     const savedPnj = JSON.parse(localStorage.getItem('sigil-pnj-controle') || 'null')
     const savedPj = JSON.parse(localStorage.getItem('sigil-personnage-joueur') || 'null')
@@ -108,6 +115,8 @@ export const useStore = create<JdrState>((set, get) => ({
     set({ sessionActive: session, pnjControle, personnageJoueur })
   },
   setRoleEffectif: (role) => {
+    if (role) localStorage.setItem('sigil-role-effectif', role)
+    else localStorage.removeItem('sigil-role-effectif')
     set({ roleEffectif: role })
   },
   setPageCourante: (page) => { set({ pageCourante: page }) },
@@ -123,6 +132,10 @@ export const useStore = create<JdrState>((set, get) => ({
   },
   setMode: (mode) => { localStorage.setItem('sigil-mode', mode); set({ mode }) },
   setNavigationMode: (navigationMode) => { localStorage.setItem('sigil-nav-mode', navigationMode); set({ navigationMode }) },
+  setMultiScreenEnabled: (multiScreenEnabled) => {
+    localStorage.setItem('sigil-multi-screen', String(multiScreenEnabled));
+    set({ multiScreenEnabled });
+  },
   setShowImmersiveNavButton: (showImmersiveNavButton) => { 
     localStorage.setItem('sigil-immersive-nav-btn', String(showImmersiveNavButton)); 
     set({ showImmersiveNavButton }) 

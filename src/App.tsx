@@ -39,6 +39,12 @@ import { TITRES_LEGENDE } from './config/titres'
 
 export default function App() {
   const [navigationOpen, setNavigationOpen] = useState(false)
+  
+  // Gestion du mode Pop-out (fenêtre détachée)
+  const fullUrl = window.location.href
+  const isPopout = fullUrl.includes('/popout/')
+  const popoutPage = isPopout ? fullUrl.split('/popout/')[1]?.split('?')[0]?.split('#')[0] : null
+
   const { 
     compte, 
     sessionActive, 
@@ -54,28 +60,12 @@ export default function App() {
     setRoleEffectif,
     setPnjControle
     } = useStore()
-  useEffect(() => {
-    const panicPage = sessionStorage.getItem('sigil-panic-page')
-    const panicSession = sessionStorage.getItem('sigil-panic-session')
-    const panicRole = sessionStorage.getItem('sigil-panic-role')
-    const panicPnj = sessionStorage.getItem('sigil-panic-pnj')
-    
-    if (panicPage) {
-      sessionStorage.removeItem('sigil-panic-page')
-      sessionStorage.removeItem('sigil-panic-session')
-      sessionStorage.removeItem('sigil-panic-role')
-      sessionStorage.removeItem('sigil-panic-pnj')
-      
-      if (panicSession) setSessionActive(JSON.parse(panicSession))
-      if (panicRole) setRoleEffectif(panicRole as any)
-      if (panicPnj) setPnjControle(JSON.parse(panicPnj))
-      setPageCourante(panicPage)
-    }
-  }, [])
-
+  
+  const currentMode = mode || localStorage.getItem('sigil-mode') || 'mode-dark'
+  
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
+      // Ne pas déclencher si l'utilisateur écrit dans un input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       
       if (e.key === 'Escape') {
@@ -87,19 +77,55 @@ export default function App() {
   }, [])
 
   const { personnage } = usePersonnage()
-  
   const roleActuel = (compte?.role === 'admin') ? 'admin' : (roleEffectif || 'joueur');
   const isLocked = roleActuel === 'joueur' && !personnage;
   const showCenteredHeader = isLocked;
 
-  if (!compte) {
-    if (pageCourante === 'inscription') {
-      return <Inscription retour={() => setPageCourante('accueil')} allerVersConnexion={() => setPageCourante('connexion')} />
+  const renderPageContent = (page = pageCourante) => {
+    // On récupère les rôles depuis le store ou le localStorage pour les popouts
+    const role = roleEffectif || localStorage.getItem('sigil-role-effectif')
+    const isMJ = role === 'admin' || role === 'mj'
+
+    switch (page) {
+      case 'dashboard':      return isMJ ? <DashboardAdmin /> : <DashboardJoueur />
+      case 'selection-personnage': return <SelectionPersonnage />
+      case 'mon-personnage': return <MonPersonnage />
+      case 'mon-inventaire': return <MonInventaire />
+      case 'mes-competences':return <MesCompetences />
+      case 'mes-quetes':     return <MesQuetes />
+      case 'lancer-des':     return <LancerDes />
+      case 'map':            return <CarteMap />
+      case 'joueurs':        return <Joueurs />
+      case 'items':          return <Items />
+      case 'tags':           return <Tags />
+      case 'logs':           return <Logs />
+      case 'competences':    return <Competences />
+      case 'quetes':         return <Quetes />
+      case 'possession':     return <Possession />
+      case 'gerer-mj':       return <GererMj />
+      case 'chat':           return <Chat />
+      default:               return isMJ ? <DashboardAdmin /> : <DashboardJoueur />
     }
-    if (pageCourante === 'connexion') {
-      return <Connexion retour={() => setPageCourante('accueil')} />
+  }
+
+  // Rendu immédiat pour le mode Pop-out
+  if (isPopout && popoutPage) {
+    const activeSession = sessionActive || JSON.parse(localStorage.getItem('sigil-session-active') || 'null')
+    if (activeSession) {
+      return (
+        <div className={`h-screen w-full overflow-hidden ${currentMode} bg-app text-primary relative`}>
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
+            <span className="font-cinzel text-theme-main opacity-[0.03] text-[20rem] blur-[1px]">
+              {RUNES_PAGES[popoutPage] || 'ᛟ'}
+            </span>
+          </div>
+          <div className="relative z-10 h-full overflow-y-auto custom-scrollbar p-4 md:p-8">
+             {renderPageContent(popoutPage)}
+          </div>
+          <div className="absolute inset-0 vignette-effect pointer-events-none z-50" />
+        </div>
+      )
     }
-    return <Accueil allerVers={(p) => setPageCourante(p)} />
   }
 
   const handlePortalComplete = async () => {
@@ -175,29 +201,6 @@ export default function App() {
       <SelectionPersonnage />
     </div>
   )
-
-  const renderPageContent = () => {
-    switch (pageCourante) {
-      case 'dashboard':      return (roleEffectif === 'admin' || roleEffectif === 'mj') ? <DashboardAdmin /> : <DashboardJoueur />
-      case 'selection-personnage': return <SelectionPersonnage />
-      case 'mon-personnage': return <MonPersonnage />
-      case 'mon-inventaire': return <MonInventaire />
-      case 'mes-competences':return <MesCompetences />
-      case 'mes-quetes':     return <MesQuetes />
-      case 'lancer-des':     return <LancerDes />
-      case 'map':            return <CarteMap />
-      case 'joueurs':        return <Joueurs />
-      case 'items':          return <Items />
-      case 'tags':           return <Tags />
-      case 'logs':           return <Logs />
-      case 'competences':    return <Competences />
-      case 'quetes':         return <Quetes />
-      case 'possession':     return <Possession />
-      case 'gerer-mj':       return <GererMj />
-      case 'chat':           return <Chat />
-      default:               return (roleEffectif === 'admin' || roleEffectif === 'mj') ? <DashboardAdmin /> : <DashboardJoueur />
-    }
-  }
 
   return (
     <div className={`flex flex-col h-screen overflow-hidden ${mode} bg-app text-primary relative`}>
