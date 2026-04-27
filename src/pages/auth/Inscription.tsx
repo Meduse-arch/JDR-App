@@ -44,7 +44,7 @@ export default function Inscription({ retour, allerVersConnexion }: Props) {
           <Input
             icon={<User size={18} />}
             type="text"
-            placeholder="Pseudo choisi"
+            placeholder="Pseudo"
             value={pseudo}
             onChange={e => setPseudo(e.target.value)}
             className="font-garamond font-bold"
@@ -52,7 +52,7 @@ export default function Inscription({ retour, allerVersConnexion }: Props) {
           <Input
             icon={<Key size={18} />}
             type="password"
-            placeholder="Mot de passe secret"
+            placeholder="Mot de passe"
             value={motDePasse}
             onChange={e => setMotDePasse(e.target.value)}
             className="font-garamond font-bold"
@@ -66,7 +66,7 @@ export default function Inscription({ retour, allerVersConnexion }: Props) {
           onClick={sInscrire}
           className="mt-6 font-cinzel uppercase tracking-widest font-black"
         >
-          <Sparkles size={18} className="mr-2" /> Créer mon Destin
+          <Sparkles size={18} className="mr-2" /> Créer Compte
         </Button>
         
         <Button

@@ -17,7 +17,7 @@ export const verifierCoutsFixes = (
     const jauge = e.cible_jauge?.toLowerCase();
     if (!jauge || !labels[jauge]) continue;
 
-    let coutValue = Math.abs(e.valeur || 0);
+    const coutValue = Math.abs(e.valeur || 0);
     
     // On ne vérifie que les coûts fixes (pas de dés)
     if (!e.des_nb && !e.des_stat_id) {

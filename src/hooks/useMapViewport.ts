@@ -254,6 +254,23 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     setPan(clampPan((vW - mapW) / 2, (vH - mapH) / 2, zoom));
   }, [activeChannelData, getMapNatSize, zoom, clampPan, canvasRef]);
 
+  const getViewportCenter = useCallback(() => {
+    if (!canvasRef.current || !activeChannelData) return { x: 0, y: 0 };
+    const vW = canvasRef.current.clientWidth;
+    const vH = canvasRef.current.clientHeight;
+    const { grille_taille } = activeChannelData;
+
+    // Le centre du viewport par rapport au coin haut-gauche de la carte
+    const centerX = (vW / 2 - pan.x) / zoom;
+    const centerY = (vH / 2 - pan.y) / zoom;
+
+    // Snapper sur la grille
+    const snappedX = Math.floor(centerX / grille_taille) * grille_taille;
+    const snappedY = Math.floor(centerY / grille_taille) * grille_taille;
+
+    return { x: snappedX, y: snappedY };
+  }, [canvasRef, activeChannelData, pan, zoom]);
+
   return {
     zoom,
     setZoom,
@@ -272,6 +289,7 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     handleZoomOut,
     handleFitMap,
     handleCenterMap,
+    getViewportCenter,
     applyFit
   };
 }

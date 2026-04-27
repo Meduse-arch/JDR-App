@@ -67,7 +67,7 @@ export default function Connexion({ retour }: Props) {
           <Input
             icon={<User size={18} />}
             type="text"
-            placeholder="Pseudo de l'aventurier"
+            placeholder="Pseudo"
             value={pseudo}
             onChange={e => setPseudo(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && seConnecter()}
@@ -76,7 +76,7 @@ export default function Connexion({ retour }: Props) {
           <Input
             icon={<Key size={18} />}
             type="password"
-            placeholder="Sceau de sécurité"
+            placeholder="Mot de passe"
             value={motDePasse}
             onChange={e => setMotDePasse(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && seConnecter()}
@@ -106,7 +106,7 @@ export default function Connexion({ retour }: Props) {
           onClick={seConnecter}
           className="mt-6 font-cinzel uppercase tracking-widest font-black"
         >
-          Pénétrer dans l'univers
+          Valider
         </Button>
         
         <Button

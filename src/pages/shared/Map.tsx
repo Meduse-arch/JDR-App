@@ -71,7 +71,7 @@ export default function CarteMap() {
     zoom, pan, isPanning,
     handleWheel, handleCanvasMouseDown, handleCanvasMouseMove, handleCanvasMouseUp,
     handleCanvasTouchStart, handleCanvasTouchMove, handleCanvasTouchEnd,
-    handleFocusToken, handleZoomIn, handleZoomOut, handleFitMap
+    handleFocusToken, handleZoomIn, handleZoomOut, handleFitMap, getViewportCenter
   } = useMapViewport({ activeChannelData, canvasRef, channelActif });
 
   const [vue, setVue] = useState<'hub' | 'map'>('hub');
@@ -155,11 +155,12 @@ export default function CarteMap() {
       const p = personnages.find(p => p.id === newToken.id_personnage);
       if (p) { nom = p.nom; image_url = p.image_url || ''; couleur = p.couleur || newToken.couleur; }
     }
+    const center = getViewportCenter();
     await ajouterToken({
       id_channel: channelActif,
       nom, image_url, couleur,
       taille: newToken.taille,
-      x: 0, y: 0, visible: true,
+      x: center.x, y: center.y, visible: true,
       id_personnage: newToken.id_personnage || null,
     });
     setNewToken({ nom: '', image_url: '', couleur: '#c8a84b', taille: 1, id_personnage: '' });
@@ -168,12 +169,13 @@ export default function CarteMap() {
 
   const handleAjouterMonToken = async () => {
     if (!channelActif || !personnageLocal || hasMyToken) return;
+    const center = getViewportCenter();
     await ajouterToken({
       id_channel: channelActif,
       nom: personnageLocal.nom,
       image_url: personnageLocal.image_url || '',
       couleur: personnageLocal.couleur || '#c8a84b',
-      taille: 1, x: 0, y: 0, visible: true,
+      taille: 1, x: center.x, y: center.y, visible: true,
       id_personnage: personnageLocal.id,
     });
   };

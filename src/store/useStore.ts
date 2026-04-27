@@ -31,7 +31,15 @@ export type Personnage = {
   couleur?: string | null
 }
 
-export type DiceResult = { rolls: number[], total: number, bonus: number, diceString: string, label: string, color: string, secret?: boolean }
+export type DiceResult = { 
+  rolls: number[];
+  total: number;
+  bonus: number;
+  diceString: string;
+  label: string;
+  color: string;
+  secret?: boolean 
+}
 
 interface JdrState {
   compte: Compte | null
@@ -52,6 +60,7 @@ interface JdrState {
   buffRolls: Record<string, number>
   clearBuffRolls: () => void
   enteringSession: { id: string, nom: string } | null
+  authPage: 'accueil' | 'connexion' | 'inscription'
   setCompte: (c: Compte | null) => void
   setSessionActive: (s: Session | null) => void
   setRoleEffectif: (r: RoleId | null) => void
@@ -69,6 +78,7 @@ interface JdrState {
   setDiceSharingEnabled: (enabled: boolean) => void
   setBuffRoll: (key: string, val: number) => void
   setEnteringSession: (s: { id: string, nom: string } | null) => void
+  setAuthPage: (p: 'accueil' | 'connexion' | 'inscription') => void
   deconnexion: () => void
 }
 
@@ -90,6 +100,7 @@ export const useStore = create<JdrState>((set, get) => ({
   diceSharingEnabled: false,
   buffRolls: {},
   enteringSession: null,
+  authPage: 'accueil',
 
   setCompte: (compte) => {
     if (compte) localStorage.setItem('sigil-compte', JSON.stringify(compte))
@@ -169,8 +180,19 @@ export const useStore = create<JdrState>((set, get) => ({
   setBuffRoll: (key, val) => set((state) => ({ buffRolls: { ...state.buffRolls, [key]: val } })),
   clearBuffRolls: () => set({ buffRolls: {} }),
   setEnteringSession: (enteringSession) => set({ enteringSession }),
+  setAuthPage: (authPage) => set({ authPage }),
   deconnexion: () => {
     localStorage.clear()
-    set({ compte: null, sessionActive: null, roleEffectif: null, pageCourante: 'sessions', pnjControle: null, personnageJoueur: null, buffRolls: {}, diceSharingEnabled: false })
+    set({ 
+      compte: null, 
+      sessionActive: null, 
+      roleEffectif: null, 
+      pageCourante: 'sessions', 
+      pnjControle: null, 
+      personnageJoueur: null, 
+      buffRolls: {}, 
+      diceSharingEnabled: false,
+      authPage: 'accueil'
+    })
   },
 }))

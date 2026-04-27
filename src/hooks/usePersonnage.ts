@@ -84,7 +84,7 @@ export function usePersonnage() {
     } finally {
       if (!isRealtime) setChargement(false)
     }
-  }, [compte?.id, pnjControle?.id, personnageJoueur?.id, sessionActive?.id])
+  }, [compte, pnjControle, personnageJoueur, sessionActive, setPersonnageJoueur])
 
   useEffect(() => {
     chargerPersonnage()

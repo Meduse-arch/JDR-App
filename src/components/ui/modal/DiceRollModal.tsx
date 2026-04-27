@@ -100,7 +100,14 @@ export const DiceRollModal: React.FC = () => {
   }, [diceResult]);
 
   useEffect(() => {
-    if (!diceResult) { setPhase('rolling'); return; }
+    if (!diceResult) { 
+      setPhase('rolling'); 
+      return; 
+    }
+    
+    // Forcer la phase de roulement à chaque nouveau jet
+    setPhase('rolling');
+    
     const interval = setInterval(() => { setDisplayRune(RUNES[Math.floor(Math.random() * RUNES.length)]); }, 40);
     const runeTimeout = setTimeout(() => {
       clearInterval(interval);

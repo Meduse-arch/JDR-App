@@ -81,15 +81,16 @@ export function useMapDrag({
       const keyMap: Record<string, [number, number]> = {
         z: [0, -1], q: [-1, 0], s: [0, 1], d: [1, 0],
         Z: [0, -1], Q: [-1, 0], S: [0, 1], D: [1, 0],
+        ArrowUp: [0, -1], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowRight: [1, 0],
       };
 
       const delta = keyMap[e.key];
       if (!delta) return;
 
-      e.preventDefault();
-
       const token = tokensRef.current.find((t) => t.id === selectedTokenId);
-      if (!token) return;
+      if (!token || !canDragToken(token)) return;
+
+      e.preventDefault();
 
       const { grille_taille, largeur, hauteur } = activeData;
       const newX = Math.max(0, Math.min(token.x + delta[0] * grille_taille, largeur * grille_taille));

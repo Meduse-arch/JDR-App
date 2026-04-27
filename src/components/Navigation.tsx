@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '../store/useStore'
 import { menuMJ, menuJoueur } from '../config/menus'
-import { LogOut, X, User, Compass, Zap, Scroll, Globe, ChevronRight, Moon, Sun, Settings, Monitor, ExternalLink } from 'lucide-react'
+import { LogOut, X, User, Compass, Zap, Scroll, Globe, ChevronRight, Moon, Sun, Settings, ExternalLink } from 'lucide-react'
 import { TITRES_LEGENDE } from '../config/titres'
 import { AppSettingsModal } from './ui/modal'
 

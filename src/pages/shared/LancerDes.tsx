@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useStats } from '../../hooks/useStats'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { useStore } from '../../store/useStore'
@@ -56,9 +56,12 @@ export default function LancerDes() {
   // Historique = logs Supabase filtrés sur ce personnage, type 'des'
   const { logs: logsActivite } = useLogs(sessionActive?.id, personnage?.id)
   
-  const historique = (isMJ && !personnage) 
-    ? historiqueMJ 
-    : logsActivite.filter(l => l.type === 'des').slice(0, 20)
+  const historique = useMemo(() => {
+    const raw = (isMJ && !personnage) 
+      ? historiqueMJ 
+      : logsActivite.filter(l => l.type === 'des')
+    return raw.slice(0, 20)
+  }, [isMJ, personnage, historiqueMJ, logsActivite])
 
   const getNum = (v: any, def: number) => {
     if (v === '' || v === null || v === undefined || v === '-') return def
@@ -66,8 +69,8 @@ export default function LancerDes() {
     return isNaN(n) ? def : n
   }
 
-  const executerLancer = (labelPerso: string, facesForcees?: number) => {
-    const nb    = Math.max(1, getNum(nbDesInput, 1))
+  const executerLancer = (labelPerso: string, facesForcees?: number, nbForce?: number) => {
+    const nb    = Math.max(1, nbForce || getNum(nbDesInput, 1))
     const mod   = getNum(modInput, 0)
     const faces = Math.max(2, getNum(facesForcees, 0) || getNum(facesDeInput, 20))
     const res   = lancerDes(nb, faces, mod)
@@ -80,21 +83,17 @@ export default function LancerDes() {
       diceString: `${nb}d${faces}`,
       label: labelPerso || 'Jet Manuel',
       color: 'var(--color-main)',
-      secret: false // Géré par setDiceResult
+      secret: false 
     }]
 
     setDiceResult(results)
 
-    const currentRoleEffectif = useStore.getState().roleEffectif;
-    const currentSessionActive = useStore.getState().sessionActive;
-    const currentPnjControle = useStore.getState().pnjControle;
-
-    if (currentSessionActive) {
+    if (sessionActive) {
       if (personnage) {
-        const shouldLog = currentRoleEffectif === 'joueur' ? !currentPnjControle : true;
+        const shouldLog = roleEffectif === 'joueur' ? !useStore.getState().pnjControle : true;
         if (shouldLog) {
           logService.logAction({
-            id_session: currentSessionActive.id,
+            id_session: sessionActive.id,
             id_personnage: personnage.id,
             nom_personnage: personnage.nom,
             type: 'des',
@@ -103,16 +102,17 @@ export default function LancerDes() {
           }).catch(console.error);
         }
       } else if (isMJ) {
-        // Log local privé pour le MJ sans personnage
         const newLog = {
           id: Date.now().toString(),
           type: 'des',
           action: `Lance ${label}`,
           details: { resultat: res.des, total: res.total }
         }
-        const newHistory = [newLog, ...historiqueMJ].slice(0, 20)
-        setHistoriqueMJ(newHistory)
-        localStorage.setItem(`sigil-history-mj-${currentSessionActive.id}`, JSON.stringify(newHistory))
+        setHistoriqueMJ(prev => {
+          const up = [newLog, ...prev].slice(0, 20)
+          localStorage.setItem(`sigil-history-mj-${sessionActive.id}`, JSON.stringify(up))
+          return up
+        })
       }
     }
   }
@@ -286,7 +286,6 @@ export default function LancerDes() {
                     const estDernier = i === 0
                     const des: number[] = log.details?.resultat || []
                     const total: number = log.details?.total ?? 0
-                    // Extraire le label depuis l'action "Lance 2d6+1" → "2d6+1"
                     const label = log.action.replace(/^Lance\s+/, '')
 
                     return (
@@ -298,7 +297,6 @@ export default function LancerDes() {
                           estDernier ? 'bg-theme-main/5 border-l-2 border-l-theme-main shadow-[0_0_15px_rgba(var(--color-main-rgb),0.1)]' : 'opacity-60'
                         }`}
                       >
-                        {/* Gauche : Le Récit */}
                         <div className="flex-1 flex flex-col gap-1 overflow-hidden min-w-0 pr-4">
                           <span className={`font-cinzel text-xs font-black uppercase tracking-widest truncate ${estDernier ? 'text-theme-main' : 'text-primary'}`}>
                             {label}
@@ -310,7 +308,6 @@ export default function LancerDes() {
                           )}
                         </div>
 
-                        {/* Droite : Le Résultat Sacré */}
                         <div className="w-16 flex-shrink-0 text-right">
                           <span className={`font-cinzel text-4xl font-black ${estDernier ? 'text-theme-main drop-shadow-[0_0_15px_rgba(var(--color-main-rgb),0.4)]' : 'text-primary opacity-60'}`}>
                             {total}

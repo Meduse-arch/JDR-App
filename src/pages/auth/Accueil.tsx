@@ -46,7 +46,7 @@ export default function Accueil({ allerVers }: Props) {
             onClick={() => allerVers('connexion')}
             className="bg-gradient-to-r from-theme-main to-theme-accent2 text-white font-cinzel font-black tracking-widest px-8 py-3 rounded-sm hover:scale-105 transition-all shadow-xl shadow-theme-main/20 min-w-[180px]"
           >
-            S'ÉVEILLER
+            Connexion
           </button>
           <button
             onClick={() => allerVers('inscription')}

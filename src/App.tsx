@@ -5,9 +5,6 @@ import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import DashboardAdmin from './pages/admin/DashboardAdmin'
 import DashboardJoueur from './pages/joueur/DashboardJoueur'
-import Connexion from './pages/auth/Connexion'
-import Inscription from './pages/auth/Inscription'
-import Accueil from './pages/auth/Accueil'
 import Sessions from './pages/shared/Sessions'
 import MonPersonnage from './pages/shared/MonPersonnage'
 import MonInventaire from './pages/joueur/MonInventaire'
@@ -35,6 +32,10 @@ import Logs from './pages/admin/Logs'
 import CarteMap from './pages/shared/Map'
 import Chat from './pages/shared/Chat'
 
+import Accueil from './pages/auth/Accueil'
+import Connexion from './pages/auth/Connexion'
+import Inscription from './pages/auth/Inscription'
+
 import { TITRES_LEGENDE } from './config/titres'
 
 export default function App() {
@@ -58,9 +59,9 @@ export default function App() {
     setEnteringSession, 
     setSessionActive, 
     setRoleEffectif,
-    setPnjControle
+    authPage,
+    setAuthPage
     } = useStore()
-  
   const currentMode = mode || localStorage.getItem('sigil-mode') || 'mode-dark'
   
   useEffect(() => {
@@ -80,6 +81,20 @@ export default function App() {
   const roleActuel = (compte?.role === 'admin') ? 'admin' : (roleEffectif || 'joueur');
   const isLocked = roleActuel === 'joueur' && !personnage;
   const showCenteredHeader = isLocked;
+
+  // ÉCRAN 0 : AUTHENTIFICATION (ACCUEIL / CONNEXION / INSCRIPTION)
+  if (!compte) {
+    if (authPage === 'connexion') {
+      return <Connexion retour={() => setAuthPage('accueil')} />
+    }
+    if (authPage === 'inscription') {
+      return <Inscription 
+        retour={() => setAuthPage('accueil')} 
+        allerVersConnexion={() => setAuthPage('connexion')} 
+      />
+    }
+    return <Accueil allerVers={(page) => setAuthPage(page)} />
+  }
 
   const renderPageContent = (page = pageCourante) => {
     // On récupère les rôles depuis le store ou le localStorage pour les popouts

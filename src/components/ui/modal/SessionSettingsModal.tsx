@@ -21,10 +21,10 @@ export function SessionSettingsModal({ onClose }: SessionSettingsModalProps) {
 
   useEffect(() => {
     if (sessionActive?.parametres) {
-      setParams({
-        ...params,
+      setParams((prev: any) => ({
+        ...prev,
         ...sessionActive.parametres
-      })
+      }))
     }
   }, [sessionActive])
 

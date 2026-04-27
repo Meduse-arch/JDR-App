@@ -51,8 +51,8 @@ export function useCompetenceUsage(
     equipInv?.forEach((inv: any) => inv.items?.item_tags?.forEach((it: any) => activeItemTags.add(it.id_tag)));
 
     // 3. Bonus de stats temporaires pour les jets de dés
-    let bonusFixesStats: Record<string, number> = {};
-    let bonusPctStats: Record<string, number> = {};
+    const bonusFixesStats: Record<string, number> = {};
+    const bonusPctStats: Record<string, number> = {};
 
     if (compTags.length > 0) {
       const { data: personnageComps } = await supabase.from('personnage_competences').select('id_competence, is_active').eq('id_personnage', personnage.id);
@@ -92,7 +92,7 @@ export function useCompetenceUsage(
     }
 
     const diceResults: any[] = [];
-    let coutsTotaux: Record<string, number> = { hp: 0, mana: 0, stam: 0 };
+    const coutsTotaux: Record<string, number> = { hp: 0, mana: 0, stam: 0 };
 
     // 4. Appliquer les effets directs
     for (const e of effets) {
@@ -246,8 +246,8 @@ export function useCompetenceUsage(
         }
 
         // Bonus temporaires (similaire à utiliserCompetence)
-        let bonusFixesStats: Record<string, number> = {};
-        let bonusPctStats: Record<string, number> = {};
+        const bonusFixesStats: Record<string, number> = {};
+        const bonusPctStats: Record<string, number> = {};
         const { data: usedCompTags } = await supabase.from('competence_tags').select('id_tag').eq('id_competence', comp.id);
         const compTags = usedCompTags?.map((ct: any) => ct.id_tag) || [];
 
@@ -401,10 +401,7 @@ export function useCompetenceUsage(
       if (nouveauStatut) {
         afficherToast(`${comp.nom} activée !`);
         if (diceResults.length > 0) {
-          setDiceResult(null);
-          setTimeout(() => {
-            setDiceResult(diceResults);
-          }, 10);
+          setDiceResult(diceResults);
         }
       } else {
         afficherToast(`${comp.nom} désactivée`);

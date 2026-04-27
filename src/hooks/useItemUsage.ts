@@ -101,10 +101,7 @@ export function useItemUsage(
     }
 
     if (diceResults.length > 0) {
-      setDiceResult(null);
-      setTimeout(() => {
-        setDiceResult(diceResults);
-      }, 10);
+      setDiceResult(diceResults);
     }
 
     // 2. Appliquer les changements (si soin par exemple)
