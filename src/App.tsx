@@ -151,23 +151,39 @@ export default function App() {
   const handlePortalComplete = async () => {
     if (!enteringSession || !compte) return
     const { supabase } = await import('./supabase')
+    const { sessionService, generateMJPeerId } = await import('./services/sessionService')
+    const { peerService } = await import('./services/peerService')
 
     const { data: session } = await supabase.from('sessions').select('*').eq('id', enteringSession.id).single()
     
     if (session) {
-      let role: 'admin' | 'mj' | 'joueur' = 'joueur'
-      if (compte.role === 'admin') {
-        role = 'admin'
-      } else {
-        const { data: mjData } = await supabase.from('session_mj').select('*').eq('id_session', session.id).eq('id_compte', compte.id).single();
-        if (mjData) role = 'mj'
-      }
+      const role = await sessionService.getRoleDansSession(session.id, compte.id, compte.role)
+      const mjPeerId = generateMJPeerId(session.id)
       
+      try {
+        if (role === 'mj' || role === 'admin') {
+          // INITIALISATION MJ (Hôte)
+          await peerService.initAsMJ(mjPeerId)
+          console.log("Peer MJ initialisé:", mjPeerId)
+        } else {
+          // INITIALISATION JOUEUR
+          const monId = `joueur-${compte.id}-${Date.now().toString().slice(-4)}`
+          await peerService.initAsJoueur(mjPeerId, monId)
+          console.log("Peer Joueur connecté au MJ:", mjPeerId)
+        }
+      } catch (err) {
+        console.error("Erreur initialisation Peer:", err)
+        if (role === 'joueur') {
+          alert("Impossible de se connecter au Maître du Jeu. Est-il en ligne ?")
+          setEnteringSession(null)
+          return
+        }
+      }
+
       setRoleEffectif(role)
       setSessionActive(session)
       setPageCourante('dashboard')
       
-      // Si navigation immersive, on ouvre le portail tout de suite
       if (navigationMode === 'immersive') {
         setNavigationOpen(true)
       }

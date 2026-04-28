@@ -90,16 +90,13 @@ export default function Sessions() {
     if (!peerIdInput || !compte) return
     setIsJoining(true)
     try {
-      const monPeerId = `joueur-${compte.id}-${Date.now().toString().slice(-6)}`
       const { peerService } = await import('../../services/peerService')
+      const monPeerId = `joueur-${compte.id}-${Date.now().toString().slice(-4)}`
       
       await peerService.initAsJoueur(peerIdInput, monPeerId)
       
-      // Demander le resync qui mettra à jour le store
-      setTimeout(() => {
-        peerService.requestResync(compte.id)
-        setEnteringSession({ id: 'remote-session', nom: 'Connexion en cours...' })
-      }, 1000)
+      // On simule une entrée en session
+      setEnteringSession({ id: 'remote-session', nom: 'Session Distante' })
     } catch (e) {
       console.error("Erreur de connexion P2P:", e)
       alert("Impossible de rejoindre le MJ. Vérifiez le code de connexion.")
@@ -210,15 +207,31 @@ export default function Sessions() {
               "Choisissez la réalité où votre légende doit s'écrire."
             </p>
           </div>
-          {(compte?.role === 'admin' || compte?.role === 'mj') && (
-            <Button
-              variant={afficherFormulaire ? 'secondary' : 'primary'}
-              onClick={() => setAfficherFormulaire(v => !v)}
-              className="w-full sm:w-auto font-cinzel font-black tracking-widest px-8 py-4 shadow-xl shadow-theme-main/10"
-            >
-              {afficherFormulaire ? <><X size={18} className="mr-2" /> ANNULER</> : <><PlusCircle size={18} className="mr-2" /> FORGER UN HORIZON</>}
-            </Button>
-          )}
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+            {(compte?.role === 'admin' || compte?.role === 'mj') && (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={async () => {
+                    const { generateMJPeerId } = await import('../../services/sessionService');
+                    // On prend une session au hasard ou on demande à l'utilisateur d'entrer dans une session d'abord ?
+                    // Plus simple : si on clique ici, on affiche le code de la dernière session créée ou on explique.
+                    alert("Entrez dans une session pour que votre code soit actif. Le code sera : sigil-[ID_DE_SESSION]");
+                  }}
+                  className="font-cinzel text-[10px] opacity-60 hover:opacity-100"
+                >
+                  MON CODE DE CONNEXION
+                </Button>
+                <Button
+                  variant={afficherFormulaire ? 'secondary' : 'primary'}
+                  onClick={() => setAfficherFormulaire(v => !v)}
+                  className="w-full sm:w-auto font-cinzel font-black tracking-widest px-8 py-4 shadow-xl shadow-theme-main/10"
+                >
+                  {afficherFormulaire ? <><X size={18} className="mr-2" /> ANNULER</> : <><PlusCircle size={18} className="mr-2" /> FORGER UN HORIZON</>}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Filtres */}
