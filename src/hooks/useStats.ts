@@ -45,6 +45,9 @@ export function useStats() {
           '4': 'Intelligence', '5': 'Sagesse', '6': 'Charisme', '7': 'Perception'
         };
 
+        const SYSTEM_STAT_IDS = ['101', '102', '103'];
+        const SYSTEM_STAT_NAMES = ['PV Max', 'Mana Max', 'Stamina Max', 'hp_max', 'mana_max', 'stam_max', 'HP Max'];
+
         const formattedStats = rawStats.map((s: any) => {
           const sid = String(s.id_stat);
           const ref = allStats.find((r: any) => String(r.id) === sid);
@@ -58,7 +61,7 @@ export function useStats() {
             bonus: s.bonus ?? 0,
             description: ref?.description || ""
           };
-        });
+        }).filter(s => !SYSTEM_STAT_IDS.includes(String(s.id)) && !SYSTEM_STAT_NAMES.includes(s.nom));
         
         const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme'];
         const sorted = statsEngine.trierStats(formattedStats, ORDRE_STATS);
