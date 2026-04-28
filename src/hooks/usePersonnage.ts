@@ -17,7 +17,8 @@ export function usePersonnage() {
   const lastUpdateRef = useRef<number>(0)
 
   const chargerPersonnage = useCallback(async (isRealtime = false) => {
-    if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return
+    // Throttle important : pas plus d'un rechargement toutes les 2 secondes en temps réel
+    if (isRealtime && Date.now() - lastUpdateRef.current < 2000) return
 
     if (!sessionActive) {
       setPersonnage(null)
@@ -48,12 +49,20 @@ export function usePersonnage() {
       }
 
       if (targetId) {
-        const fullPerso = await personnageService.recalculerStats(targetId);
-        if (fullPerso) {
-          setPersonnage(fullPerso as Personnage);
-          // Synchro store si besoin
-          if (personnageJoueur && personnageJoueur.id === fullPerso.id) setPersonnageJoueur(fullPerso as Personnage);
-          if (pnjControle && pnjControle.id === fullPerso.id) setPnjControle(fullPerso as Personnage);
+        // On n'appelle recalculerStats qu'en mode non-temps réel pour éviter les boucles
+        // En temps réel, on se contente de ce qu'il y a en base
+        const resP = await db.personnages.getById(targetId);
+        if (resP.success && resP.data) {
+          const fullPerso = isRealtime 
+            ? (await personnageService.hydraterPersonnages([resP.data]))[0]
+            : await personnageService.recalculerStats(targetId);
+            
+          if (fullPerso) {
+            setPersonnage(fullPerso as Personnage);
+            // Synchro store si besoin
+            if (personnageJoueur && personnageJoueur.id === fullPerso.id) setPersonnageJoueur(fullPerso as Personnage);
+            if (pnjControle && pnjControle.id === fullPerso.id) setPnjControle(fullPerso as Personnage);
+          }
         }
       } else {
         setPersonnage(null);

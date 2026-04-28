@@ -11,12 +11,7 @@ export const bestiaireService = {
     const res = await db.personnages.getAll();
     if (!res.success) return [];
     const raw = res.data.filter((p: any) => p.id_session === sessionId && p.is_template === 1 && p.type === type);
-    const hydrated = [];
-    for (const p of raw) {
-      const h = await personnageService.recalculerStats(p.id);
-      hydrated.push(h || p);
-    }
-    return hydrated;
+    return await personnageService.hydraterPersonnages(raw);
   },
 
   /**
@@ -30,12 +25,7 @@ export const bestiaireService = {
       if (Array.isArray(type)) return type.includes(p.type);
       return p.type === type;
     });
-    const hydrated = [];
-    for (const p of raw) {
-      const h = await personnageService.recalculerStats(p.id);
-      hydrated.push(h || p);
-    }
-    return hydrated;
+    return await personnageService.hydraterPersonnages(raw);
   },
 
   /**

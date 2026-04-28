@@ -62,12 +62,7 @@ export default function GererPersonnage() {
     // Joueurs & Comptes
     const resPersos = await db.personnages.getAll();
     const persosRaw = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 0 && p.type === 'Joueur') : [];
-    
-    const persosData = [];
-    for (const p of persosRaw) {
-      const h = await personnageService.recalculerStats(p.id);
-      persosData.push(h || p);
-    }
+    const persosData = await personnageService.hydraterPersonnages(persosRaw);
     
     const resMj = await db.session_mj.getAll();
     const mjData = resMj.success ? resMj.data.filter((m: any) => m.id_session === sessionActive.id) : [];

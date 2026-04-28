@@ -51,12 +51,7 @@ export default function DashboardAdmin() {
     ]);
 
     const persosRaw = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id) : [];
-    
-    const persos = [];
-    for (const p of persosRaw) {
-      const h = await personnageService.recalculerStats(p.id);
-      persos.push(h || p);
-    }
+    const persos = await personnageService.hydraterPersonnages(persosRaw);
     
     const countItems = resItems.success ? resItems.data.filter((i: any) => i.id_session === sessionActive.id).length : 0;
     const countComps = resComps.success ? resComps.data.filter((c: any) => c.id_session === sessionActive.id).length : 0;

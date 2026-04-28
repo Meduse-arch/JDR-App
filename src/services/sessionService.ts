@@ -60,12 +60,7 @@ export const sessionService = {
     const res = await db.personnages.getAll();
     if (!res.success) return { joueurs: [], pnjs: [], monstres: [] };
     const persosRaw = res.data.filter((p: any) => p.id_session === sessionId);
-    
-    const persos = [];
-    for (const p of persosRaw) {
-      const h = await personnageService.recalculerStats(p.id);
-      persos.push(h || p);
-    }
+    const persos = await personnageService.hydraterPersonnages(persosRaw);
     
     return {
       joueurs:  persos.filter((p: any) => p.type === 'Joueur'),
