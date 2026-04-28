@@ -6,7 +6,9 @@ import { statsService, type StatValeur } from '../services/statsService'
 export function useStats() {
   const pnjControle = useStore(s => s.pnjControle)
   const personnageJoueur = useStore(s => s.personnageJoueur)
+  const allStats = useStore(s => s.allStats) // Watch the library
   const sessionActive = useStore(s => s.sessionActive)
+  const roleEffectif = useStore(s => s.roleEffectif)
   const setBuffRoll = useStore(s => s.setBuffRoll)
   const clearBuffRolls = useStore(s => s.clearBuffRolls)
 
@@ -15,10 +17,8 @@ export function useStats() {
   const lastUpdateRef = useRef<number>(0)
   const lastCharacterIdRef = useRef<string | null>(null)
 
-  // L'ID du personnage est soit celui contrôlé par le MJ, soit celui du Joueur
   const characterId = pnjControle?.id || personnageJoueur?.id
 
-  // On ne vide le cache QUE si on change réellement de personnage
   useEffect(() => {
     if (characterId && characterId !== lastCharacterIdRef.current) {
       clearBuffRolls()
@@ -33,13 +33,12 @@ export function useStats() {
       return
     }
 
-    // --- LOGIQUE JOUEUR (Source: personnage de secours/store) ---
-    const { roleEffectif, allStats } = useStore.getState()
+    // --- LOGIQUE JOUEUR (Source: Store WebRTC) ---
     if (roleEffectif === 'joueur') {
       const perso = pnjControle || personnageJoueur;
       if (perso && perso.id === characterId && perso.stats) {
-        // Le MJ nous a déjà envoyé les stats calculées
-        // On les formate pour l'UI en utilisant la bibliothèque allStats du store
+        console.log(`[useStats] Hydratation stats pour le joueur (${perso.stats.length} stats reçues, bibliothèque de ${allStats.length} noms)`);
+        
         const formattedStats = perso.stats.map((s: any) => {
           const ref = allStats.find((r: any) => r.id === s.id_stat);
           return {
@@ -50,56 +49,44 @@ export function useStats() {
             bonus: s.bonus ?? 0,
             description: ref?.description || ""
           };
-        });
+        }).filter(s => s.nom !== "Stat" || allStats.length === 0); // Éviter d'afficher des stats anonymes si la lib est chargée
         
-        // Tri constant pour l'UI
         const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme'];
         const sorted = statsEngine.trierStats(formattedStats, ORDRE_STATS);
         
         setStats(sorted);
         setChargement(false);
         return;
+      } else {
+        console.log("[useStats] En attente des stats du MJ...");
       }
     }
 
     // --- LOGIQUE MJ (Calcul complexe SQLite) ---
-    setChargement(true)
-    lastUpdateRef.current = Date.now()
-    try {
-      // 1. Charger les buff_rolls persistés en base (source de vérité partagée)
-      const buffRollsBase = await statsService.getBuffRolls(characterId)
-      
-      // 2. Fusionner avec le cache Zustand local (la base est prioritaire)
-      const currentBuffRolls = useStore.getState().buffRolls
-      const buffRollsEffectifs = { ...currentBuffRolls, ...buffRollsBase }
+    if (roleEffectif !== 'joueur') {
+      setChargement(true)
+      try {
+        const buffRollsBase = await statsService.getBuffRolls(characterId)
+        const currentBuffRolls = useStore.getState().buffRolls
+        const buffRollsEffectifs = { ...currentBuffRolls, ...buffRollsBase }
+        const estMjSpectateur = roleEffectif === 'mj' && !pnjControle?.id
 
-      // 3. Calculer toutes les stats via le service
-      // Récupère le rôle au moment de l'exécution (pas dans les deps)
-      const { roleEffectif, pnjControle } = useStore.getState()
-
-      // Le MJ qui surveille un personnage qu'il ne contrôle pas ne doit pas écrire en BDD
-      const estMjSpectateur = roleEffectif === 'mj' && !pnjControle?.id
-
-      const calculatedStats = await statsService.calculateAllStats(
-        characterId, 
-        buffRollsEffectifs,
-        async (cacheKey, val) => {
-          if (!estMjSpectateur) {
-            // Joueur ou MJ qui contrôle un PNJ : il est l'auteur du jet, il sauvegarde
-            await statsService.saveBuffRoll(characterId, cacheKey, val)
+        const calculatedStats = await statsService.calculateAllStats(
+          characterId, 
+          buffRollsEffectifs,
+          async (cacheKey, val) => {
+            if (!estMjSpectateur) await statsService.saveBuffRoll(characterId, cacheKey, val)
+            setBuffRoll(cacheKey, val)
           }
-          // Dans tous les cas on met à jour le cache local pour l'affichage immédiat
-          setBuffRoll(cacheKey, val)
-        }
-      )
-
-      setStats(calculatedStats)
-    } catch (error) {
-      console.error("[useStats] Erreur lors du chargement des stats:", error)
-    } finally {
-      setChargement(false)
+        )
+        setStats(calculatedStats)
+      } catch (error) {
+        console.error("[useStats] Erreur MJ stats:", error)
+      } finally {
+        setChargement(false)
+      }
     }
-  }, [characterId, sessionActive?.id, setBuffRoll, pnjControle, personnageJoueur]) // Dépendances étendues
+  }, [characterId, sessionActive?.id, setBuffRoll, pnjControle, personnageJoueur, allStats, roleEffectif])
 
   useEffect(() => {
     chargerStats()
