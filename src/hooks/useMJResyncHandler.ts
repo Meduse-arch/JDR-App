@@ -23,10 +23,11 @@ export function useMJResyncHandler() {
           
           // 2. Lier le compte à la session active (sessionDb)
           if (sessionActive) {
+            // Utiliser l'ID REEL de la session du MJ, pas celui envoyé par le joueur si possible
             await db.session_comptes.create({ id_session: sessionActive.id, id_compte: id }).catch(() => {});
           }
           
-          console.log(`👤 Joueur '${pseudo}' identifié et lié à la session.`);
+          console.log(`👤 Joueur '${pseudo}' identifié et lié à la session ${sessionActive?.id}.`);
         } catch (e) {}
       }
 
@@ -82,10 +83,13 @@ export function useMJResyncHandler() {
       
       if (msg.kind === 'create_character') {
         const payload = msg.payload;
+        if (!sessionActive) return;
+
         try {
+          // FORCE l'ID de session du MJ pour éviter le bug du "remote-session"
           const res = await db.personnages.create({
             id: payload.id,
-            id_session: payload.id_session,
+            id_session: sessionActive.id, 
             nom: payload.nom,
             type: payload.type,
             is_template: payload.is_template,
@@ -112,12 +116,12 @@ export function useMJResyncHandler() {
             // Lien session/joueur
             if (payload.type === 'Joueur') {
               await db.session_joueurs.create({ 
-                id_session: payload.id_session, 
+                id_session: sessionActive.id, // FORCE l'ID du MJ
                 id_personnage: payload.id 
-              });
+              }).catch(() => {});
             }
 
-            console.log(`✅ Personnage '${payload.nom}' créé pour ${fromPeerId}`);
+            console.log(`✅ Personnage '${payload.nom}' créé et lié à la session ${sessionActive.id}`);
             
             // On signale au joueur de se rafraîchir
             peerService.sendToJoueur(fromPeerId, {
@@ -170,11 +174,26 @@ export function useMJResyncHandler() {
       console.log(`Requête LIST_CHARACTERS reçue de ${fromPeerId} pour le compte ${compteId}`);
       try {
         const sessionActive = useStore.getState().sessionActive;
+        if (!sessionActive) return;
+
         const res = await db.personnages.getAll();
         
-        if (res.success && sessionActive) {
+        if (res.success) {
+          // REPARATION AUTO : Si des persos sont en "remote-session", on les remet dans la session active
+          // (Seulement s'ils appartiennent au compte qui demande et qu'ils ne sont pas dans une autre session valide)
+          const needsRepair = res.data.filter((p: any) => p.id_session === 'remote-session' && p.lie_au_compte === compteId);
+          for (const p of needsRepair) {
+            console.log(`🔧 Réparation du personnage ${p.nom} (remote-session -> ${sessionActive.id})`);
+            await db.personnages.update(p.id, { id_session: sessionActive.id });
+            await db.session_joueurs.create({ id_session: sessionActive.id, id_personnage: p.id }).catch(() => {});
+          }
+
+          // On rafraîchit les données après réparation potentielle
+          const resUpdated = await db.personnages.getAll();
+          const allPersos = resUpdated.success ? resUpdated.data : [];
+
           // Filtrer par compte ET par session active
-          const raw = res.data.filter((p: any) => 
+          const raw = allPersos.filter((p: any) => 
             p.lie_au_compte === compteId && 
             p.id_session === sessionActive.id && 
             p.is_template === 0

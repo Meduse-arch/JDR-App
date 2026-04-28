@@ -1,4 +1,4 @@
-export type ActionKind = 'use_item' | 'update_resource' | 'move_token' | 'chat_message' | 'request_settings' | 'dice_roll' | 'toggle_spectateur' | 'settings_update';
+export type ActionKind = 'use_item' | 'update_resource' | 'move_token' | 'chat_message' | 'request_settings' | 'dice_roll' | 'toggle_spectateur' | 'settings_update' | 'create_character' | 'player_identity';
 
 export interface ActionMessage {
   type: 'ACTION';
