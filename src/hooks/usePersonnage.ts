@@ -28,21 +28,23 @@ export function usePersonnage() {
       // Les joueurs utilisent le personnage déjà présent dans le store (mis à jour par WebRTC)
       const currentPerso = pnjControle || personnageJoueur;
       
-      // LENIENCE SESSION ID : Si le joueur est en remote-session, on accepte le perso
-      const isCorrectSession = !currentPerso || 
-                               sessionActive.id === 'remote-session' || 
-                               currentPerso.id_session === sessionActive.id;
+      if (currentPerso) {
+        // LENIENCE SESSION ID : On accepte si c'est la même session OU si le joueur est en mode distant
+        const isCorrectSession = sessionActive.id === 'remote-session' || 
+                                 currentPerso.id_session === sessionActive.id;
 
-      if (currentPerso && isCorrectSession) {
-        setPersonnage(currentPerso);
-        
-        // DEMANDER LES STATS AU MJ si elles sont absentes ou au chargement initial
-        if (!isRealtime && currentPerso.id) {
-          console.log("[usePersonnage] Demande de resync stats au MJ...");
-          peerService.requestResync(currentPerso.id);
+        if (isCorrectSession) {
+          setPersonnage(currentPerso);
+          // DEMANDER LES STATS AU MJ si elles sont absentes ou au chargement initial
+          if (!isRealtime) {
+            console.log("[usePersonnage] Demande de resync stats au MJ pour", currentPerso.id);
+            peerService.requestResync(currentPerso.id);
+          }
+        } else {
+          console.warn("[usePersonnage] Perso ignoré car session mismatch:", currentPerso.id_session, "vs", sessionActive.id);
+          setPersonnage(null);
         }
       } else {
-        console.warn("[usePersonnage] Perso ignoré car session mismatch:", currentPerso?.id_session, "vs", sessionActive.id);
         setPersonnage(null);
       }
       setChargement(false);
