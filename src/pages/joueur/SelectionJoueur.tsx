@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useStore, type Personnage } from '../../store/useStore'
 import { Card } from '../../components/ui/card'
 import { User, Plus } from 'lucide-react'
@@ -11,6 +11,7 @@ export default function SelectionJoueur() {
   const [mesPersonnages, setMesPersonnages] = useState<Personnage[]>([])
   const [isForging, setIsForging] = useState(false)
   const [chargement, setChargement] = useState(true)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const chargerPersonnages = useCallback(async () => {
     if (!compte || !sessionActive) return
@@ -30,21 +31,26 @@ export default function SelectionJoueur() {
       // LOGIQUE JOUEUR : via WebRTC uniquement
       console.log("Joueur : Tentative de récupération des personnages via WebRTC...");
       
-      const interval = setInterval(() => {
+      // Nettoyer l'ancien intervalle s'il existe
+      if (intervalRef.current) clearInterval(intervalRef.current);
+
+      const fetchList = () => {
         if (peerService.peer && !peerService.isHost) {
           console.log("Envoi requête LIST_CHARACTERS...");
           peerService.requestListCharacters(compte.id);
         }
-      }, 2000);
+      };
 
-      // Sécurité : on arrête de chercher si on reçoit une réponse (géré par le listener)
-      // ou si on quitte le composant
-      return () => clearInterval(interval);
+      fetchList(); // Premier appel immédiat
+      intervalRef.current = setInterval(fetchList, 3000);
     }
   }, [compte, sessionActive])
 
   useEffect(() => {
     chargerPersonnages()
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
   }, [chargerPersonnages])
 
   // Listener pour la réponse du MJ (pour les joueurs)
@@ -52,8 +58,14 @@ export default function SelectionJoueur() {
     if (peerService.isHost) return;
 
     const unsub = peerService.onListCharactersResponse((msg) => {
+      console.log("Liste des personnages reçue !", msg.personnages);
       setMesPersonnages(msg.personnages);
       setChargement(false);
+      // On arrête de poll dès qu'on a une réponse
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     });
 
     return unsub;

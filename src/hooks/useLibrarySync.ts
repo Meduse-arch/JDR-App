@@ -21,6 +21,12 @@ export function useLibrarySync() {
         if (payload.stats) setAllStats(payload.stats);
       } else if (payload.type === 'library_update_competences') {
         if (payload.competences) setLibCompetences(payload.competences);
+      } else if (payload.type === 'character_created') {
+        // Déclencher une actualisation de la liste des personnages pour le joueur
+        const compte = useStore.getState().compte;
+        if (compte) {
+          peerService.requestListCharacters(compte.id);
+        }
       }
     });
 

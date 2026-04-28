@@ -216,8 +216,7 @@ export default function GererPersonnage() {
     />
   }
 
-  const comptesActifs = comptes.filter(c => joueursPersos.some(p => p.lie_au_compte === c.id) || mjsIds.includes(c.id))
-  const comptesFiltres = comptesActifs.filter(c => c.pseudo.toLowerCase().includes(recherche.toLowerCase()))
+  const comptesFiltres = comptes.filter(c => c.pseudo.toLowerCase().includes(recherche.toLowerCase()))
 
   const pnjsFiltres = pnjs.filter(p => {
     if (recherche && !p.nom.toLowerCase().includes(recherche.toLowerCase())) return false
