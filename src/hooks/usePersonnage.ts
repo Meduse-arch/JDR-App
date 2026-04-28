@@ -29,6 +29,12 @@ export function usePersonnage() {
       const currentPerso = pnjControle || personnageJoueur;
       if (currentPerso && currentPerso.id_session === sessionActive.id) {
         setPersonnage(currentPerso);
+        
+        // DEMANDER LES STATS AU MJ si elles sont absentes ou au chargement initial
+        if (!isRealtime && currentPerso.id) {
+          console.log("[usePersonnage] Demande de resync stats au MJ...");
+          peerService.requestResync(currentPerso.id);
+        }
       } else {
         setPersonnage(null);
       }

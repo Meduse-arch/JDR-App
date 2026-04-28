@@ -151,8 +151,16 @@ export function useMJResyncHandler() {
 
     const unsubResync = peerService.onResyncRequest(async (characterId, fromPeerId) => {
       if (characterId) {
+        console.log(`[MJ] 🔄 Resync demandée pour le personnage ${characterId} par ${fromPeerId}`);
         const fullPerso = await personnageService.recalculerStats(characterId);
         if (fullPerso) {
+          // On envoie via STATE_UPDATE car c'est mieux géré par les hooks des joueurs
+          peerService.sendToJoueur(fromPeerId, {
+            type: 'STATE_UPDATE',
+            entity: 'personnage',
+            payload: { id_personnage: characterId, type: 'full', valeur: fullPerso }
+          });
+          // Fallback compatibilité
           peerService.sendToJoueur(fromPeerId, {
             type: 'RESYNC_RESPONSE',
             payload: fullPerso
