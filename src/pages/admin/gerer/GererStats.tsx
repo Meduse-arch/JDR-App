@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../../supabase'
 import { personnageService } from '../../../services/personnageService'
 import { useStore, type Personnage } from '../../../store/useStore'
 import { StatsCard } from '../../../components/ui/card'
@@ -20,16 +19,21 @@ export default function GererStats({ personnage, onRecharger }: Props) {
   }, [personnage.id])
 
   const chargerStats = async () => {
-    const { data } = await supabase
-      .from('personnage_stats')
-      .select('id_stat, valeur, stats(nom)')
-      .eq('id_personnage', personnage.id)
+    const db = (window as any).db;
+    const res = await db.personnage_stats.getAll();
+    const resRef = await db.stats.getAll();
     
-    if (data) {
+    if (res.success && resRef.success) {
+      const pStats = res.data.filter((d: any) => d.id_personnage === personnage.id)
+      const refs = resRef.data
+
       const STATS_SYSTEME = ['PV Max', 'Mana Max', 'Stamina Max', 'HP Max', 'hp_max', 'mana_max', 'stam_max']
-      const s = data
-        .filter((d: any) => !STATS_SYSTEME.includes(d.stats.nom))
-        .map((d: any) => ({ id_stat: d.id_stat, nom: d.stats.nom, valeur: d.valeur }))
+      const s = pStats
+        .map((d: any) => {
+          const ref = refs.find((r: any) => r.id === d.id_stat)
+          return { id: d.id, id_stat: d.id_stat, nom: ref?.nom || '?', valeur: d.valeur }
+        })
+        .filter((d: any) => !STATS_SYSTEME.includes(d.nom))
       
       const sortedStats = statsEngine.trierStats(s, ORDRE_STATS)
       setStats(sortedStats)
@@ -78,73 +82,25 @@ export default function GererStats({ personnage, onRecharger }: Props) {
 
   const enregistrer = async () => {
     setSauvegardant(true)
-    console.log('Stats à sauvegarder:', JSON.stringify(stats))
+    const db = (window as any).db;
     try {
       for (const s of stats) {
         const d = parseInt(deltas[s.nom]) || 0
         const nv = (tempStats[s.nom] ?? s.valeur) + d
-        console.log('UPSERT stat:', s.nom, 'id_stat:', s.id_stat, 'nouvelle valeur:', nv)
-        const { error } = await supabase
-          .from('personnage_stats')
-          .upsert(
-            { id_personnage: personnage.id, id_stat: s.id_stat, valeur: nv },
-            { onConflict: 'id_personnage,id_stat' }
-          )
-        if (error) console.error('ERREUR upsert stat:', s.nom, error)
-      }
-
-      // Recalcul obligatoire des max après chaque save
-      const statsFinales: Record<string, number> = { ...tempStats }
-      stats.forEach(s => {
-        const d = parseInt(deltas[s.nom]) || 0
-        statsFinales[s.nom] = (tempStats[s.nom] ?? s.valeur) + d
-      })
-
-      const con_ = statsFinales['Constitution'] || 0
-      const int_ = statsFinales['Intelligence'] || 0
-      const sag_ = statsFinales['Sagesse'] || 0
-      const for_ = statsFinales['Force'] || 0
-      const agi_ = statsFinales['Agilité'] || 0
-
-      const nouveauxMax = [
-        { nom: 'PV Max',       valeur: con_ * 4 },
-        { nom: 'Mana Max',     valeur: Math.round(((int_ + sag_) / 2) * 10) },
-        { nom: 'Stamina Max',  valeur: Math.round(((for_ + agi_ + con_) / 3) * 10) }
-      ]
-
-      for (const m of nouveauxMax) {
-        const { data: statRow } = await supabase
-          .from('stats')
-          .select('id')
-          .eq('nom', m.nom)
-          .single()
-        
-        if (statRow) {
-          await supabase
-            .from('personnage_stats')
-            .upsert(
-              { id_personnage: personnage.id, id_stat: statRow.id, valeur: m.valeur },
-              { onConflict: 'id_personnage,id_stat' }
-            )
+        if (s.id) {
+          await db.personnage_stats.update(s.id, { valeur: nv })
         }
       }
-      
-      console.log('Stats sauvegardées, recalcul des jauges (clamp)...')
-      await personnageService.recalculerStats(personnage.id)
 
-      console.log('Rechargement des stats dans UI...')
+      await personnageService.recalculerStats(personnage.id)
       await chargerStats()
       
-      // Recharger le personnage depuis la vue pour avoir les max à jour dans le store parent
-      const { data } = await supabase
-        .from('v_personnages')
-        .select('*')
-        .eq('id', personnage.id)
-        .single()
-
-      if (data) {
+      const resP = await db.personnages.getById(personnage.id)
+      if (resP.success && resP.data) {
+        const hydrated = await personnageService.hydraterPersonnages([resP.data]);
+        const full = hydrated[0] as Personnage;
         if (pnjControle && pnjControle.id === personnage.id) {
-          setPnjControle(data as Personnage)
+          setPnjControle(full)
         }
         onRecharger?.()
       }

@@ -317,6 +317,12 @@ export function loadSessionDB(folderPath: string) {
     FOREIGN KEY (id_personnage) REFERENCES personnages(id)
   );
 
+  CREATE TABLE IF NOT EXISTS session_comptes (
+    id_session TEXT NOT NULL,
+    id_compte TEXT NOT NULL,
+    PRIMARY KEY (id_session, id_compte)
+  );
+
   -- Insertion des statistiques de base si elles n'existent pas
   INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('1', 'Force', 'Puissance physique et force brute');
   INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('2', 'Agilité', 'Souplesse, réflexes et équilibre');

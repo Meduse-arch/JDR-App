@@ -17,17 +17,20 @@ export default function GererMJ() {
     if (!sessionActive) return
     const db = (window as any).db;
     
+    // Charger les MJs de la session via local DB
     const resMj = await db.session_mj.getAll();
     const mjData = resMj.success ? resMj.data.filter((m: any) => m.id_session === sessionActive.id) : [];
-    
+    const mjsCompteIds = mjData.map((m: any) => m.id_compte);
+
+    // Charger les détails des comptes via local DB
     const resComptes = await db.comptes.getAll();
     const comptesData = resComptes.success ? resComptes.data : [];
 
-    const mjsCompteIds = mjData.map((m: any) => m.id_compte);
     const mjs = comptesData.filter((c: any) => mjsCompteIds.includes(c.id));
     setMjSession(mjs);
 
     if (comptesData) {
+      // Comptes disponibles = ceux qui ne sont pas déjà MJ de cette session
       const dispo = comptesData.filter((c: any) => ['joueur', 'mj'].includes(c.role) && !mjsCompteIds.includes(c.id));
       setDisponibles(dispo);
     }

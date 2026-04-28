@@ -18,8 +18,15 @@ export function useMJResyncHandler() {
       if (msg.kind === 'player_identity') {
         const { id, pseudo } = msg.payload;
         try {
+          // 1. Assurer l'existence du compte dans le masterDb
           await db.comptes.create({ id, pseudo, mot_de_passe: 'external', role: 'joueur' }).catch(() => {});
-          console.log(`👤 Joueur '${pseudo}' identifié localement.`);
+          
+          // 2. Lier le compte à la session active (sessionDb)
+          if (sessionActive) {
+            await db.session_comptes.create({ id_session: sessionActive.id, id_compte: id }).catch(() => {});
+          }
+          
+          console.log(`👤 Joueur '${pseudo}' identifié et lié à la session.`);
         } catch (e) {}
       }
 

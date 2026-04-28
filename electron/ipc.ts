@@ -16,7 +16,7 @@ export function setupIPC() {
 
   const sessionCompositeEntities = [
     'session_joueurs', 'personnage_quetes',
-    'item_tags', 'competence_tags', 'chat_participants'
+    'item_tags', 'competence_tags', 'chat_participants', 'session_comptes'
   ];
 
   // Helper function to resolve the correct database

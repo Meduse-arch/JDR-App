@@ -59,30 +59,44 @@ export default function GererPersonnage() {
 
     const db = (window as any).db;
 
-    // Joueurs & Comptes
+    // 1. Joueurs & Persos (Local SQLite)
     const resPersos = await db.personnages.getAll();
     const persosRaw = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 0 && p.type === 'Joueur') : [];
     const persosData = await personnageService.hydraterPersonnages(persosRaw);
+    setJoueursPersos(persosData);
     
+    // 2. MJs (Local SQLite)
     const resMj = await db.session_mj.getAll();
     const mjData = resMj.success ? resMj.data.filter((m: any) => m.id_session === sessionActive.id) : [];
+    const mjIds = mjData.map((m: any) => m.id_compte);
+    setMjsIds(mjIds);
     
+    // 3. Comptes liés à la session (Local SQLite)
     const resComptes = await db.comptes.getAll();
-    const comptesData = resComptes.success ? resComptes.data : [];
+    const allComptes = resComptes.success ? resComptes.data : [];
     
-    setJoueursPersos(persosData);
-    setMjsIds(mjData.map((m: any) => m.id_compte));
-    setComptes(comptesData);
+    // On récupère les IDs liés via session_comptes (nouveauté)
+    const resSessComptes = await db.session_comptes.getAll();
+    const sessComptesIds = resSessComptes.success 
+      ? resSessComptes.data.filter((sc: any) => sc.id_session === sessionActive.id).map((sc: any) => sc.id_compte)
+      : [];
 
-    // PNJ & Boss
+    // On combine avec ceux qui ont déjà des persos (sécurité) et les MJs
+    const characterAccountIds = persosData.map(p => p.lie_au_compte).filter(Boolean);
+    const relevantAccountIds = Array.from(new Set([...mjIds, ...characterAccountIds, ...sessComptesIds]));
+    
+    const relevantComptes = allComptes.filter((c: any) => relevantAccountIds.includes(c.id));
+    setComptes(relevantComptes);
+
+    // 4. PNJ & Boss (Local SQLite)
     const instancesPnj = await bestiaireService.getInstances(sessionActive.id, ['PNJ', 'Boss'])
     setPnjs(instancesPnj as Personnage[])
     
-    // Mobs
+    // 5. Mobs (Local SQLite)
     const instancesMob = await bestiaireService.getInstances(sessionActive.id, 'Monstre')
     setMobs(instancesMob as Personnage[])
 
-    // Templates
+    // 6. Templates (Local SQLite)
     const templatesRaw = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 1 && ['Monstre', 'PNJ', 'Boss'].includes(p.type)) : [];
     const allTemplates = [];
     for (const t of templatesRaw) {

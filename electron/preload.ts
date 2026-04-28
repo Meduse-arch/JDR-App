@@ -31,7 +31,7 @@ const singleIdEntities = [
 
 const compositeKeyEntities = [
   'session_mj', 'session_joueurs', 'personnage_quetes',
-  'item_tags', 'competence_tags', 'chat_participants'
+  'item_tags', 'competence_tags', 'chat_participants', 'session_comptes'
 ];
 
 const dbAPI: any = {

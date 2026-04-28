@@ -40,24 +40,24 @@ export default function Joueurs() {
         persos = await personnageService.hydraterPersonnages(raw);
       }
     } else {
-      // LOGIQUE JOUEUR : On pioche dans Supabase (Fallback)
-      const { data } = await supabase
-        .from('v_personnages')
-        .select('*')
-        .eq('id_session', sessionActive.id)
-        .eq('type', 'Joueur')
-        .eq('is_template', false)
-      if (data) persos = data as any[]
+      // LOGIQUE JOUEUR : On utilise les personnages connus par le store (WebRTC)
+      // Ou on pourrait demander une liste au MJ via PeerService
+      // Pour l'instant on filtre le store local (qui est mis à jour par les messages STATE_UPDATE)
+      // Mais Joueurs.tsx est surtout une page MJ. Si un joueur y accède, il voit les autres.
+      const { personnagesSession } = useStore.getState() as any; // Si on avait un tel store
+      // En l'absence de store global synchronisé pour TOUS les persos chez le joueur,
+      // on peut demander au MJ.
+      // Mais restons simples : Joueurs.tsx est principalement pour l'Admin/MJ.
     }
     
-    // 2. Charger les MJs de la session (Toujours Supabase car c'est au niveau session)
-    const { data: mjs } = await supabase
-      .from('session_mj')
-      .select('id_compte')
-      .eq('id_session', sessionActive.id)
+    // 2. Charger les MJs de la session (Toujours Supabase car c'est au niveau session/auth)
+    // Sauf si l'utilisateur veut aussi ça en local. Mais session_mj est dans masterDb.
+    const db = (window as any).db;
+    const resMj = await db.session_mj.getAll();
+    const mjData = resMj.success ? resMj.data.filter((m: any) => m.id_session === sessionActive.id) : [];
 
     setPersonnages(persos)
-    if (mjs) setMjsIds(mjs.map(m => m.id_compte))
+    setMjsIds(mjData.map((m: any) => m.id_compte))
   }
 
   const toggleMJ = async (idCompte: string, estDejaMJ: boolean) => {

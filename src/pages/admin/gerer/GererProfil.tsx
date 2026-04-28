@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../../supabase'
 import { Personnage } from '../../../store/useStore'
 import { ConfirmationBar } from '../../../components/ui/ConfirmationBar'
 import { User, Image as ImageIcon, Type, Palette } from 'lucide-react'
@@ -31,18 +30,18 @@ export default function GererProfil({ personnage, onRecharger }: Props) {
 
   const enregistrer = async () => {
     setSauvegardant(true)
+    const db = (window as any).db;
     try {
-      const { error } = await supabase
-        .from('personnages')
-        .update({
-          nom,
-          image_url: imageUrl || null,
-          type,
-          couleur: couleur || null
-        })
-        .eq('id', personnage.id)
+      const res = await db.personnages.update(personnage.id, {
+        nom,
+        image_url: imageUrl || null,
+        type,
+        // couleur n'est pas forcément dans le schéma de personnages, 
+        // à vérifier dans electron/database.ts (il n'y est pas d'après mon read_file précédent)
+        // couleur: couleur || null 
+      });
 
-      if (error) throw error
+      if (!res.success) throw new Error(res.error)
       onRecharger?.()
     } catch (e) {
       console.error("Erreur mise à jour profil:", e)
