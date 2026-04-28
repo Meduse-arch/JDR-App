@@ -23,25 +23,22 @@ export function usePersonnage() {
       return
     }
 
-    // Uniquement le MJ peut charger depuis SQLite
+    // --- LOGIQUE JOUEUR (WebRTC) ---
     if (!peerService.isHost) {
-      // Les joueurs utilisent le personnage déjà présent dans le store (mis à jour par WebRTC)
       const currentPerso = pnjControle || personnageJoueur;
       
       if (currentPerso) {
-        // LENIENCE SESSION ID : On accepte si c'est la même session OU si le joueur est en mode distant
+        // Lénience session pour le mode P2P
         const isCorrectSession = sessionActive.id === 'remote-session' || 
                                  currentPerso.id_session === sessionActive.id;
 
         if (isCorrectSession) {
           setPersonnage(currentPerso);
-          // DEMANDER LES STATS AU MJ si elles sont absentes ou au chargement initial
           if (!isRealtime) {
-            console.log("[usePersonnage] Demande de resync stats au MJ pour", currentPerso.id);
+            console.log("[usePersonnage] Demande de resync au MJ...");
             peerService.requestResync(currentPerso.id);
           }
         } else {
-          console.warn("[usePersonnage] Perso ignoré car session mismatch:", currentPerso.id_session, "vs", sessionActive.id);
           setPersonnage(null);
         }
       } else {
@@ -51,10 +48,9 @@ export function usePersonnage() {
       return;
     }
 
-    // Logique MJ (Hôte)
+    // --- LOGIQUE MJ (SQLite) ---
     if (isRealtime && Date.now() - lastUpdateRef.current < 2000) return
     if (!isRealtime) setChargement(true)
-    // ... rest of MJ logic ...
 
     try {
       const db = (window as any).db;
@@ -86,6 +82,7 @@ export function usePersonnage() {
             
           if (fullPerso) {
             setPersonnage(fullPerso as Personnage);
+            // Sync store global
             if (personnageJoueur && personnageJoueur.id === fullPerso.id) setPersonnageJoueur(fullPerso as Personnage);
             if (pnjControle && pnjControle.id === fullPerso.id) setPnjControle(fullPerso as Personnage);
           }
@@ -94,7 +91,7 @@ export function usePersonnage() {
         setPersonnage(null);
       }
     } catch (error) {
-      console.error("Erreur lors du chargement du personnage:", error)
+      console.error("[usePersonnage] Erreur MJ:", error)
       setPersonnage(null)
     } finally {
       if (!isRealtime) setChargement(false)
@@ -114,21 +111,15 @@ export function usePersonnage() {
       if (payload.id_personnage === currentId) {
         if (payload.type === 'full') {
           const updated = payload.valeur;
-          console.log("Mise à jour complète personnage reçue:", updated.nom, updated);
-          
           setPersonnage(updated);
-          // Mise à jour impérative du store global pour que tous les hooks voient le changement
           if (personnageJoueur && personnageJoueur.id === updated.id) setPersonnageJoueur(updated);
           if (pnjControle && pnjControle.id === updated.id) setPnjControle(updated);
         } else if (payload.type) {
            setPersonnage(prev => {
              if (!prev) return prev;
              const next = { ...prev, [payload.type]: payload.valeur };
-             
-             // Répercuter aussi dans le store global
              if (personnageJoueur && personnageJoueur.id === next.id) setPersonnageJoueur(next);
              if (pnjControle && pnjControle.id === next.id) setPnjControle(next);
-             
              return next;
            });
         }
@@ -139,68 +130,44 @@ export function usePersonnage() {
   }, [pnjControle?.id, personnageJoueur?.id, setPersonnageJoueur, setPnjControle]);
 
   useRealtimeQuery({
-    tables: [
-      { table: 'personnages', filtered: false },
-      { table: 'personnage_stats', filtered: false },
-    ],
+    tables: [{ table: 'personnages', filtered: false }, { table: 'personnage_stats', filtered: false }],
     sessionId: sessionActive?.id,
     onReload: () => chargerPersonnage(true),
-    enabled: !!sessionActive && peerService.isHost // Uniquement pour le MJ
+    enabled: !!sessionActive && peerService.isHost
   })
 
   const mettreAJourLocalement = async (updates: Partial<Personnage>) => {
     if (!personnage) return
-    const memoire = { ...personnage }
     lastUpdateRef.current = Date.now()
-
     const optimisticPerso = { ...personnage, ...updates }
     setPersonnage(optimisticPerso)
 
-    const dbUpdates = { ...updates } as any;
-    delete dbUpdates.hp_max;
-    delete dbUpdates.mana_max;
-    delete dbUpdates.stam_max;
-    delete dbUpdates.stats;
-
     try {
-      if (Object.keys(dbUpdates).length > 0) {
-        const success = await personnageService.updatePersonnage(personnage.id, dbUpdates)
-        if (!success) throw new Error("Erreur mise à jour BDD")
-      }
+      const dbUpdates = { ...updates } as any;
+      delete dbUpdates.hp_max; delete dbUpdates.mana_max; delete dbUpdates.stam_max; delete dbUpdates.stats;
 
-      const updatedPerso = await personnageService.recalculerStats(personnage.id);
-      if (updatedPerso) {
-        const up = updatedPerso as Personnage
-        setPersonnage(up)
-        if (pnjControle && pnjControle.id === up.id) setPnjControle(up)
-        if (personnageJoueur && personnageJoueur.id === up.id) setPersonnageJoueur(up)
+      if (Object.keys(dbUpdates).length > 0) {
+        await personnageService.updatePersonnage(personnage.id, dbUpdates)
+      }
+      const updated = await personnageService.recalculerStats(personnage.id);
+      if (updated) {
+        setPersonnage(updated as Personnage);
+        if (pnjControle && pnjControle.id === updated.id) setPnjControle(updated as Personnage);
+        if (personnageJoueur && personnageJoueur.id === updated.id) setPersonnageJoueur(updated as Personnage);
       }
     } catch (e) {
       console.error(e)
-      setPersonnage(memoire)
     }
   }
 
   const mettreAJourRessourceHybride = (type: 'hp' | 'mana' | 'stam', valeur: number, max: number) => {
     if (!personnage || !sessionActive) return;
-    
     lastUpdateRef.current = Date.now();
     setPersonnage(prev => prev ? { ...prev, [type]: valeur } : prev);
-
-    if (type === 'hp') {
-      personnageService.updatePVHybride(sessionActive.id, personnage.id, valeur, max);
-    } else if (type === 'mana') {
-      personnageService.updateManaHybride(sessionActive.id, personnage.id, valeur, max);
-    } else if (type === 'stam') {
-      personnageService.updateStaminaHybride(sessionActive.id, personnage.id, valeur, max);
-    }
+    if (type === 'hp') personnageService.updatePVHybride(sessionActive.id, personnage.id, valeur, max);
+    else if (type === 'mana') personnageService.updateManaHybride(sessionActive.id, personnage.id, valeur, max);
+    else if (type === 'stam') personnageService.updateStaminaHybride(sessionActive.id, personnage.id, valeur, max);
   }
 
-  return { 
-    personnage, 
-    chargement, 
-    rechargerPersonnage: chargerPersonnage,
-    mettreAJourLocalement,
-    mettreAJourRessourceHybride
-  }
+  return { personnage, chargement, rechargerPersonnage: chargerPersonnage, mettreAJourLocalement, mettreAJourRessourceHybride }
 }

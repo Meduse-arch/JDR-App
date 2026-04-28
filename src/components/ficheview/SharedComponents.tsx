@@ -4,7 +4,10 @@ import { Plus, Minus } from 'lucide-react'
 export function RadialGauge({ actuel, max, color, size, stroke }: any) {
   const radius = (size / 2) - stroke
   const circumference = 2 * Math.PI * radius
-  const progress = Math.min(100, Math.max(0, (actuel / max) * 100))
+  
+  // SÉCURITÉ : Pas de division par zéro
+  const safeMax = max > 0 ? max : 1
+  const progress = Math.min(100, Math.max(0, (actuel / safeMax) * 100))
   const dashOffset = circumference - (progress / 100) * circumference
 
   return (
@@ -13,7 +16,7 @@ export function RadialGauge({ actuel, max, color, size, stroke }: any) {
         <circle cx={size / 2} cy={size / 2} r={radius} fill="transparent" stroke="currentColor" strokeWidth={stroke} className="text-white/5" />
         <motion.circle
           initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: dashOffset }}
+          animate={{ strokeDashoffset: isNaN(dashOffset) ? circumference : dashOffset }}
           transition={{ duration: 1.5, ease: "circOut" }}
           cx={size / 2} cy={size / 2} r={radius} fill="transparent"
           stroke={color} strokeWidth={stroke} strokeDasharray={circumference} strokeLinecap="butt"
