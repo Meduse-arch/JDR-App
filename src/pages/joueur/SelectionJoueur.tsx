@@ -92,8 +92,10 @@ export default function SelectionJoueur() {
 
   const choisirInspiration = (p: Personnage) => {
     console.log("Sélection du personnage:", p.nom, p);
-    setPersonnageJoueur(p)
-    setPageCourante('dashboard')
+    // S'assurer que le personnage sélectionné est mis dans les deux emplacements possibles du store
+    setPersonnageJoueur(p);
+    setPnjControle(null); // On libère une éventuelle possession MJ
+    setPageCourante('dashboard');
   }
 
   if (isForging) return <CreerPersonnage type="Joueur" retour={() => { setIsForging(false); chargerPersonnages(); }} />

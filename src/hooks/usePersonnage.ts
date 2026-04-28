@@ -91,24 +91,29 @@ export function usePersonnage() {
   }, [chargerPersonnage])
 
   useEffect(() => {
-    if (!personnage) return;
-    
     const unsubscribe = peerService.onStateUpdate((msg) => {
       if (msg.entity !== 'personnage') return;
       const payload = msg.payload;
-      if (payload.id_personnage === (pnjControle?.id || personnageJoueur?.id)) {
+      
+      const currentId = pnjControle?.id || personnageJoueur?.id;
+      if (payload.id_personnage === currentId) {
         if (payload.type === 'full') {
           const updated = payload.valeur;
+          console.log("Mise à jour complète personnage reçue:", updated.nom, updated);
+          
           setPersonnage(updated);
+          // Mise à jour impérative du store global pour que tous les hooks voient le changement
           if (personnageJoueur && personnageJoueur.id === updated.id) setPersonnageJoueur(updated);
           if (pnjControle && pnjControle.id === updated.id) setPnjControle(updated);
         } else if (payload.type) {
            setPersonnage(prev => {
-             const next = prev ? { ...prev, [payload.type]: payload.valeur } : prev;
-             if (next) {
-               if (personnageJoueur && personnageJoueur.id === next.id) setPersonnageJoueur(next);
-               if (pnjControle && pnjControle.id === next.id) setPnjControle(next);
-             }
+             if (!prev) return prev;
+             const next = { ...prev, [payload.type]: payload.valeur };
+             
+             // Répercuter aussi dans le store global
+             if (personnageJoueur && personnageJoueur.id === next.id) setPersonnageJoueur(next);
+             if (pnjControle && pnjControle.id === next.id) setPnjControle(next);
+             
              return next;
            });
         }
@@ -116,7 +121,7 @@ export function usePersonnage() {
     });
 
     return () => unsubscribe();
-  }, [personnage?.id]);
+  }, [pnjControle?.id, personnageJoueur?.id, setPersonnageJoueur, setPnjControle]);
 
   useRealtimeQuery({
     tables: [
