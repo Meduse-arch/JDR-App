@@ -86,51 +86,60 @@ export default function CreerPersonnage({ type, isTemplate = false, lieAuCompte,
   const confirmer = async () => {
     if (!sessionActive || enCours) return
     setEnCours(true)
+    
+    const statsToSave = [
+      ...jets.map(j => ({ id_stat: j.stat.id, valeur: j.valeur })),
+      // Ajout des stats max calculées
+      { id_stat: statsMax.find(s => s.nom === 'PV Max' || s.nom === 'HP Max' || s.nom === 'hp_max')?.id, valeur: hp },
+      { id_stat: statsMax.find(s => s.nom === 'Mana Max' || s.nom === 'mana_max')?.id, valeur: mana },
+      { id_stat: statsMax.find(s => s.nom === 'Stamina Max' || s.nom === 'stam_max')?.id, valeur: stam }
+    ].filter(s => s.id_stat); // Retirer les stats non trouvées
+
+    const personnageData = {
+      id: crypto.randomUUID(),
+      id_session: sessionActive.id,
+      nom, 
+      type, 
+      is_template: isTemplate ? 1 : 0,
+      lie_au_compte: (!isTemplate && type === 'Joueur') ? (lieAuCompte || compte?.id) : null,
+      hp, mana, stam,
+      created_at: new Date().toISOString(),
+      stats: statsToSave
+    };
+
     try {
-      const db = (window as any).db;
-      const newPersoId = crypto.randomUUID();
-      const personnageData = {
-        id: newPersoId,
-        id_session: sessionActive.id,
-        nom, type, is_template: isTemplate ? 1 : 0,
-        lie_au_compte: (!isTemplate && type === 'Joueur') ? (lieAuCompte || compte?.id) : null,
-        hp: hp,
-        mana: mana,
-        stam: stam,
-        created_at: new Date().toISOString()
-      };
-
-      const resPerso = await db.personnages.create(personnageData);
-
-      if (!resPerso.success) { 
-        alert(`Erreur de création: ${resPerso.error}`); 
-        setEnCours(false);
-        return 
+      const { peerService } = await import('../../services/peerService');
+      
+      if (peerService.isHost) {
+        // LOGIQUE MJ : Sauvegarde locale directe
+        const db = (window as any).db;
+        const resPerso = await db.personnages.create(personnageData);
+        if (resPerso.success) {
+          for (const s of statsToSave) {
+            await db.personnage_stats.create({ id: crypto.randomUUID(), id_personnage: personnageData.id, id_stat: s.id_stat, valeur: s.valeur });
+          }
+          if (!isTemplate && type === 'Joueur') {
+            await db.session_joueurs.create({ id_session: sessionActive.id, id_personnage: personnageData.id });
+          }
+          await retour();
+        } else {
+          alert("Erreur MJ: " + resPerso.error);
+        }
+      } else {
+        // LOGIQUE JOUEUR : Envoi au MJ via WebRTC
+        peerService.sendToMJ({
+          type: 'ACTION',
+          kind: 'create_character',
+          payload: personnageData
+        });
+        
+        // On attend un peu que le MJ traite et nous renvoie la liste à jour
+        setTimeout(async () => {
+          await retour();
+          setEnCours(false);
+        }, 2000);
+        return;
       }
-
-      for (const j of jets) {
-        await db.personnage_stats.create({ id: crypto.randomUUID(), id_personnage: newPersoId, id_stat: j.stat.id, valeur: j.valeur });
-      }
-      
-      const maxStatsToInsert = []
-      const pvm = statsMax.find(s => s.nom === 'PV Max' || s.nom === 'HP Max' || s.nom === 'hp_max')
-      if (pvm) maxStatsToInsert.push({ id_personnage: newPersoId, id_stat: pvm.id, valeur: hp })
-      
-      const manam = statsMax.find(s => s.nom === 'Mana Max' || s.nom === 'mana_max')
-      if (manam) maxStatsToInsert.push({ id_personnage: newPersoId, id_stat: manam.id, valeur: mana })
-      
-      const stamm = statsMax.find(s => s.nom === 'Stamina Max' || s.nom === 'stam_max')
-      if (stamm) maxStatsToInsert.push({ id_personnage: newPersoId, id_stat: stamm.id, valeur: stam })
-      
-      for (const ms of maxStatsToInsert) {
-        await db.personnage_stats.create({ id: crypto.randomUUID(), id_personnage: ms.id_personnage, id_stat: ms.id_stat, valeur: ms.valeur });
-      }
-
-      if (!isTemplate && type === 'Joueur') {
-        await db.session_joueurs.create({ id_session: sessionActive.id, id_personnage: newPersoId });
-      }
-      
-      await retour()
       setEnCours(false)
     } catch (e: any) {
       alert(`Erreur inattendue: ${e.message}`)

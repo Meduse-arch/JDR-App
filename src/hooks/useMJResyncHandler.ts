@@ -14,6 +14,59 @@ export function useMJResyncHandler() {
     if (!peerService.isHost || !sessionActive) return;
 
     console.log("📡 MJ Resync Handler : Activation de l'écoute...");
+    const unsubAction = peerService.onAction(async (msg, fromPeerId) => {
+      if (msg.kind === 'create_character') {
+        const payload = msg.payload;
+        try {
+          const res = await db.personnages.create({
+            id: payload.id,
+            id_session: payload.id_session,
+            nom: payload.nom,
+            type: payload.type,
+            is_template: payload.is_template,
+            lie_au_compte: payload.lie_au_compte,
+            hp: payload.hp,
+            mana: payload.mana,
+            stam: payload.stam,
+            created_at: payload.created_at
+          });
+
+          if (res.success) {
+            // Sauvegarde des stats
+            if (payload.stats) {
+              for (const s of payload.stats) {
+                await db.personnage_stats.create({ 
+                  id: crypto.randomUUID(), 
+                  id_personnage: payload.id, 
+                  id_stat: s.id_stat, 
+                  valeur: s.valeur 
+                });
+              }
+            }
+
+            // Lien session/joueur
+            if (payload.type === 'Joueur') {
+              await db.session_joueurs.create({ 
+                id_session: payload.id_session, 
+                id_personnage: payload.id 
+              });
+            }
+
+            console.log(`✅ Personnage '${payload.nom}' créé pour ${fromPeerId}`);
+            
+            // On signale au joueur de se rafraîchir
+            peerService.sendToJoueur(fromPeerId, {
+              type: 'STATE_UPDATE',
+              entity: 'session',
+              payload: { type: 'character_created' }
+            });
+          }
+        } catch (e) {
+          console.error("Erreur création personnage via WebRTC:", e);
+        }
+      }
+    });
+
     const unsubResync = peerService.onResyncRequest(async (characterId, fromPeerId) => {
       if (characterId) {
         const fullPerso = await personnageService.recalculerStats(characterId);
@@ -87,6 +140,7 @@ export function useMJResyncHandler() {
     });
 
     return () => {
+      unsubAction();
       unsubResync();
       unsubList();
     };
