@@ -47,7 +47,20 @@ export default function MonPersonnage() {
     return () => window.removeEventListener('resize', handleResize)
   }, [personnage?.lie_au_compte])
 
-  if (!personnage) return null
+  if (!personnage) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+        <div className="w-12 h-12 border-4 border-theme-main/20 border-t-theme-main rounded-full animate-spin" />
+        <p className="font-cinzel text-theme-main animate-pulse uppercase tracking-widest text-sm">Récupération de votre âme...</p>
+        <button 
+          onClick={() => rechargerPersonnage()}
+          className="px-4 py-2 border border-theme-main/30 text-[10px] font-cinzel uppercase hover:bg-theme-main/10 transition-colors"
+        >
+          Forcer la resynchronisation
+        </button>
+      </div>
+    )
+  }
 
   const ressources = (Object.keys(CONFIG_RESSOURCES) as RessourceKey[]).map(key => ({        
     ...CONFIG_RESSOURCES[key],

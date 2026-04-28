@@ -132,8 +132,11 @@ export const useStore = create<JdrState>((set, get) => ({
     }
     const savedPnj = JSON.parse(localStorage.getItem('sigil-pnj-controle') || 'null')
     const savedPj = JSON.parse(localStorage.getItem('sigil-personnage-joueur') || 'null')
-    const pnjControle = (session && savedPnj?.id_session === session.id) ? savedPnj : null
-    const personnageJoueur = (session && savedPj?.id_session === session.id) ? savedPj : null
+    
+    // LENIENCE : Si on est en remote-session, on accepte les persos déjà chargés
+    const pnjControle = (session && (session.id === 'remote-session' || savedPnj?.id_session === session.id)) ? savedPnj : null
+    const personnageJoueur = (session && (session.id === 'remote-session' || savedPj?.id_session === session.id)) ? savedPj : null
+    
     if (!pnjControle) localStorage.removeItem('sigil-pnj-controle')
     if (!personnageJoueur) localStorage.removeItem('sigil-personnage-joueur')
     set({ sessionActive: session, pnjControle, personnageJoueur })

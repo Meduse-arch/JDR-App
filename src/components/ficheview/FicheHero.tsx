@@ -5,15 +5,17 @@ import { StatMinimal, ResourceHero, RadialGauge } from './SharedComponents'
 
 export default function FicheHero({ personnage, ressources, stats, deltas, updateDelta, adjustDelta, appliquerDelta, handleSupprimer, onEditImage, pseudoJoueur, vh }: any) {
   
-  const hp = ressources.find((r:any) => r.rKey === 'hp')!
-  const mana = ressources.find((r:any) => r.rKey === 'mana')!
-  const stam = ressources.find((r:any) => r.rKey === 'stam')!
+  const hp = ressources?.find((r:any) => r.rKey === 'hp') || { actuel: 0, max: 10, label: 'Sang', color: '#dc2626' }
+  const mana = ressources?.find((r:any) => r.rKey === 'mana') || { actuel: 0, max: 10, label: 'Souffle', color: '#2563eb' }
+  const stam = ressources?.find((r:any) => r.rKey === 'stam') || { actuel: 0, max: 10, label: 'Vigueur', color: '#f59e0b' }
 
-  const gaugeSize = Math.min(vh * 0.50, 520)
+  const safeVh = typeof vh === 'number' ? vh : 800
+  const gaugeSize = Math.max(200, Math.min(safeVh * 0.50, 520))
   
-  const physiqueStats = stats.filter((s:any) => ['Force', 'Agilité', 'Constitution'].includes(s.nom))
-  const mentalStats = stats.filter((s:any) => ['Intelligence', 'Sagesse', 'Perception'].includes(s.nom))
-  const charismeStat = stats.find((s:any) => s.nom === 'Charisme')
+  const safeStats = Array.isArray(stats) ? stats : []
+  const physiqueStats = safeStats.filter((s:any) => ['Force', 'Agilité', 'Constitution'].includes(s.nom))
+  const mentalStats = safeStats.filter((s:any) => ['Intelligence', 'Sagesse', 'Perception'].includes(s.nom))
+  const charismeStat = safeStats.find((s:any) => s.nom === 'Charisme')
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full min-h-[calc(100vh-5rem)] w-full flex flex-row items-stretch overflow-hidden relative bg-black/10">
