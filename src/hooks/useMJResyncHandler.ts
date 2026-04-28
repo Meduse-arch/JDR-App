@@ -15,6 +15,14 @@ export function useMJResyncHandler() {
 
     console.log("📡 MJ Resync Handler : Activation de l'écoute...");
     const unsubAction = peerService.onAction(async (msg, fromPeerId) => {
+      if (msg.kind === 'player_identity') {
+        const { id, pseudo } = msg.payload;
+        try {
+          await db.comptes.create({ id, pseudo, mot_de_passe: 'external', role: 'joueur' }).catch(() => {});
+          console.log(`👤 Joueur '${pseudo}' identifié localement.`);
+        } catch (e) {}
+      }
+      
       if (msg.kind === 'create_character') {
         const payload = msg.payload;
         try {
@@ -116,11 +124,19 @@ export function useMJResyncHandler() {
           );
           
           const hydrated = await personnageService.hydraterPersonnages(raw);
-          console.log(`Envoi de ${hydrated.length} personnages à ${fromPeerId}`);
+          
+          // Récupérer les stats détaillées pour chaque personnage pour le joueur
+          const fullPersos = await Promise.all(hydrated.map(async (p) => {
+            const resStats = await db.personnage_stats.getAll();
+            const stats = resStats.success ? resStats.data.filter((s: any) => s.id_personnage === p.id) : [];
+            return { ...p, stats };
+          }));
+
+          console.log(`Envoi de ${fullPersos.length} personnages complets à ${fromPeerId}`);
           
           peerService.sendToJoueur(fromPeerId, {
             type: 'LIST_CHARACTERS_RESPONSE',
-            personnages: hydrated
+            personnages: fullPersos
           });
         } else {
           // Répondre vide plutôt que de ne pas répondre

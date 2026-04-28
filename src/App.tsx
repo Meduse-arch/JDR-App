@@ -175,10 +175,16 @@ export default function App() {
             await supabase.from('sessions').update({ folder_path: mjPeerId }).eq('id', session.id)
             console.log("✅ MJ prêt (fond)");
           } else {
-            // Le joueur cherche le MJ en fond
             const { data: latest } = await supabase.from('sessions').select('folder_path').eq('id', session.id).single()
             await peerService.initAsJoueur(latest?.folder_path || mjPeerId, instanceId)
             console.log("✅ Joueur connecté (fond)");
+
+            // SE PRÉSENTER AU MJ
+            peerService.sendToMJ({
+              type: 'ACTION',
+              kind: 'player_identity',
+              payload: { id: compte.id, pseudo: compte.pseudo }
+            });
           }
         } catch (err) {
           console.error("Erreur connexion fond:", err);
