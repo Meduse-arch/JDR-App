@@ -171,34 +171,49 @@ export function useMJResyncHandler() {
 
     // Gestion de la demande de liste de personnages d'un compte
     const unsubList = peerService.onListCharactersRequest(async (compteId, fromPeerId) => {
-      console.log(`Requête LIST_CHARACTERS reçue de ${fromPeerId} pour le compte ${compteId}`);
+      console.log(`[MJ] Requête LIST_CHARACTERS de ${fromPeerId} pour le compte ${compteId}`);
       try {
         const sessionActive = useStore.getState().sessionActive;
-        if (!sessionActive) return;
+        if (!sessionActive) {
+          console.warn("[MJ] Aucune session active, impossible de répondre à LIST_CHARACTERS");
+          return;
+        }
 
         const res = await db.personnages.getAll();
         
         if (res.success) {
           // REPARATION AUTO : Si des persos sont en "remote-session", on les remet dans la session active
-          // (Seulement s'ils appartiennent au compte qui demande et qu'ils ne sont pas dans une autre session valide)
           const needsRepair = res.data.filter((p: any) => p.id_session === 'remote-session' && p.lie_au_compte === compteId);
           for (const p of needsRepair) {
-            console.log(`🔧 Réparation du personnage ${p.nom} (remote-session -> ${sessionActive.id})`);
+            console.log(`🔧 [MJ] Réparation du personnage ${p.nom} (remote-session -> ${sessionActive.id})`);
             await db.personnages.update(p.id, { id_session: sessionActive.id });
             await db.session_joueurs.create({ id_session: sessionActive.id, id_personnage: p.id }).catch(() => {});
           }
 
-          // On rafraîchit les données après réparation potentielle
           const resUpdated = await db.personnages.getAll();
           const allPersos = resUpdated.success ? resUpdated.data : [];
 
           // Filtrer par compte ET par session active
-          const raw = allPersos.filter((p: any) => 
+          let raw = allPersos.filter((p: any) => 
             p.lie_au_compte === compteId && 
             p.id_session === sessionActive.id && 
             p.is_template === 0
           );
+
+          // FALLBACK : Si on ne trouve rien dans cette session, mais qu'on trouve des persos du compte sans session (bug fix)
+          if (raw.length === 0) {
+            const extra = allPersos.filter((p: any) => p.lie_au_compte === compteId && !p.id_session && p.is_template === 0);
+            if (extra.length > 0) {
+              console.log(`🔧 [MJ] Correction de ${extra.length} personnages sans ID de session`);
+              for (const p of extra) {
+                await db.personnages.update(p.id, { id_session: sessionActive.id });
+              }
+              raw = [...raw, ...extra];
+            }
+          }
           
+          console.log(`[MJ] Trouvé ${raw.length} personnages pour ${compteId} dans la session ${sessionActive.id}`);
+
           const hydrated = await personnageService.hydraterPersonnages(raw);
           
           // Récupérer les données complètes pour chaque personnage pour le joueur
