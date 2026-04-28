@@ -1,4 +1,5 @@
 import { PersonnageType } from '../store/useStore'
+import { personnageService } from './personnageService'
 
 const db = (window as any).db;
 
@@ -7,10 +8,15 @@ export const bestiaireService = {
    * Récupère les modèles
    */
   getTemplates: async (sessionId: string, type: PersonnageType) => {
-    // MIGRATION: était une vue SQL (v_personnages)
     const res = await db.personnages.getAll();
     if (!res.success) return [];
-    return res.data.filter((p: any) => p.id_session === sessionId && p.is_template === 1 && p.type === type);
+    const raw = res.data.filter((p: any) => p.id_session === sessionId && p.is_template === 1 && p.type === type);
+    const hydrated = [];
+    for (const p of raw) {
+      const h = await personnageService.recalculerStats(p.id);
+      hydrated.push(h || p);
+    }
+    return hydrated;
   },
 
   /**
@@ -19,11 +25,17 @@ export const bestiaireService = {
   getInstances: async (sessionId: string, type: PersonnageType | PersonnageType[]) => {
     const res = await db.personnages.getAll();
     if (!res.success) return [];
-    return res.data.filter((p: any) => {
+    const raw = res.data.filter((p: any) => {
       if (p.id_session !== sessionId || p.is_template === 1) return false;
       if (Array.isArray(type)) return type.includes(p.type);
       return p.type === type;
     });
+    const hydrated = [];
+    for (const p of raw) {
+      const h = await personnageService.recalculerStats(p.id);
+      hydrated.push(h || p);
+    }
+    return hydrated;
   },
 
   /**

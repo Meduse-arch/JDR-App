@@ -61,7 +61,13 @@ export default function GererPersonnage() {
 
     // Joueurs & Comptes
     const resPersos = await db.personnages.getAll();
-    const persosData = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 0 && p.type === 'Joueur') : [];
+    const persosRaw = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 0 && p.type === 'Joueur') : [];
+    
+    const persosData = [];
+    for (const p of persosRaw) {
+      const h = await personnageService.recalculerStats(p.id);
+      persosData.push(h || p);
+    }
     
     const resMj = await db.session_mj.getAll();
     const mjData = resMj.success ? resMj.data.filter((m: any) => m.id_session === sessionActive.id) : [];
@@ -82,7 +88,12 @@ export default function GererPersonnage() {
     setMobs(instancesMob as Personnage[])
 
     // Templates
-    const allTemplates = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 1 && ['Monstre', 'PNJ', 'Boss'].includes(p.type)) : [];
+    const templatesRaw = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 1 && ['Monstre', 'PNJ', 'Boss'].includes(p.type)) : [];
+    const allTemplates = [];
+    for (const t of templatesRaw) {
+      const h = await personnageService.recalculerStats(t.id);
+      allTemplates.push(h || t);
+    }
     setTemplates(allTemplates);
   }, [sessionActive])
 

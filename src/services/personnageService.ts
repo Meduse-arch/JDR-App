@@ -1,5 +1,4 @@
 import { peerService } from './peerService'
-import { useStore } from '../store/useStore'
 
 const db = (window as any).db;
 
@@ -109,30 +108,53 @@ export const personnageService = {
   recalculerStats: async (idPersonnage: string) => {
     try {
       const resPerso = await db.personnages.getById(idPersonnage);
-      if (!resPerso.success || !resPerso.data) return false;
-      const perso = resPerso.data;
+      if (!resPerso.success || !resPerso.data) return null;
+      const perso = { ...resPerso.data };
 
-      const store = useStore.getState();
-      const personnageStore = store.personnageJoueur?.id === idPersonnage 
-        ? store.personnageJoueur 
-        : store.pnjControle?.id === idPersonnage 
-          ? store.pnjControle 
-          : null;
+      // Récupérer toutes les stats du personnage
+      const resStats = await db.personnage_stats.getAll();
+      const resStatsRef = await db.stats.getAll();
+      if (!resStats.success || !resStatsRef.success) return perso;
 
-      const hpMax = perso.hp_max ?? personnageStore?.hp_max ?? perso.hp;
-      const manaMax = perso.mana_max ?? personnageStore?.mana_max ?? perso.mana;
-      const stamMax = perso.stam_max ?? personnageStore?.stam_max ?? perso.stam;
-
-      const updates = {
-        hp: Math.min(perso.hp, hpMax),
-        mana: Math.min(perso.mana, manaMax),
-        stam: Math.min(perso.stam, stamMax)
+      const pStats = resStats.data.filter((s: any) => s.id_personnage === idPersonnage);
+      const getStatVal = (nom: string) => {
+        const sRef = resStatsRef.data.find((st: any) => st.nom === nom);
+        if (!sRef) return 0;
+        const ps = pStats.find((s: any) => s.id_stat === sRef.id);
+        return ps ? ps.valeur : 0;
       };
 
-      if (updates.hp !== perso.hp || updates.mana !== perso.mana || updates.stam !== perso.stam) {
-        const updateRes = await db.personnages.update(idPersonnage, updates);
-        return updateRes.success ? updateRes.data : null;
+      // Calcul des max théoriques (base)
+      const con = getStatVal('Constitution');
+      const int = getStatVal('Intelligence');
+      const sag = getStatVal('Sagesse');
+      const for_ = getStatVal('Force');
+      const agi = getStatVal('Agilité');
+
+      // Si les stats de base sont à 0, on garde les valeurs actuelles du perso ou 10 par défaut
+      const hpBase = con > 0 ? con * 4 : (perso.hp || 10);
+      const manaBase = (int > 0 || sag > 0) ? Math.round(((int + sag) / 2) * 10) : (perso.mana || 10);
+      const stamBase = (for_ > 0 || agi > 0 || con > 0) ? Math.round(((for_ + agi + con) / 3) * 10) : (perso.stam || 10);
+
+      // Chercher si des valeurs max sont explicitement stockées
+      const hpMaxStat = getStatVal('PV Max') || getStatVal('HP Max') || hpBase;
+      const manaMaxStat = getStatVal('Mana Max') || manaBase;
+      const stamMaxStat = getStatVal('Stamina Max') || stamBase;
+
+      perso.hp_max = hpMaxStat;
+      perso.mana_max = manaMaxStat;
+      perso.stam_max = stamMaxStat;
+
+      const updates: any = {};
+      if (perso.hp > perso.hp_max) updates.hp = perso.hp_max;
+      if (perso.mana > perso.mana_max) updates.mana = perso.mana_max;
+      if (perso.stam > perso.stam_max) updates.stam = perso.stam_max;
+
+      if (Object.keys(updates).length > 0) {
+        await db.personnages.update(idPersonnage, updates);
+        return { ...perso, ...updates };
       }
+      
       return perso;
     } catch (error) {
       console.error("Exception dans recalculerStats:", error)

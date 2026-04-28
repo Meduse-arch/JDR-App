@@ -56,9 +56,16 @@ export const sessionService = {
    */
   getSessionCharacters: async (sessionId: string) => {
     const db = (window as any).db;
+    const { personnageService } = await import('./personnageService');
     const res = await db.personnages.getAll();
     if (!res.success) return { joueurs: [], pnjs: [], monstres: [] };
-    const persos = res.data.filter((p: any) => p.id_session === sessionId);
+    const persosRaw = res.data.filter((p: any) => p.id_session === sessionId);
+    
+    const persos = [];
+    for (const p of persosRaw) {
+      const h = await personnageService.recalculerStats(p.id);
+      persos.push(h || p);
+    }
     
     return {
       joueurs:  persos.filter((p: any) => p.type === 'Joueur'),

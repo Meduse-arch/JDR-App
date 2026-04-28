@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { supabase } from '../supabase'
 import { useStore, type Personnage } from '../store/useStore'
 import { personnageService } from '../services/personnageService'
 import { useRealtimeQuery } from './useRealtimeQuery'
@@ -18,7 +17,6 @@ export function usePersonnage() {
   const lastUpdateRef = useRef<number>(0)
 
   const chargerPersonnage = useCallback(async (isRealtime = false) => {
-    // Si une mise à jour locale vient d'avoir lieu, on ignore le rechargement temps réel pendant 1s
     if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return
 
     if (!sessionActive) {
@@ -29,54 +27,36 @@ export function usePersonnage() {
 
     if (!isRealtime) setChargement(true)
     try {
-      // 1. Priorité MJ : Si un PNJ est contrôlé, on l'affiche
+      const db = (window as any).db;
+      let targetId: string | null = null;
+
       if (pnjControle && pnjControle.id_session === sessionActive.id) {
-        const { data } = await supabase
-          .from('v_personnages')
-          .select('*')
-          .eq('id', pnjControle.id)
-          .single()
-          
-        if (data) {
-          setPersonnage(data as Personnage)
-          if (!isRealtime) setChargement(false)
-          return
-        }
-      } 
-      
-      // 2. Priorité Joueur : Si un personnage joueur est sélectionné pour cette session
-      if (personnageJoueur && personnageJoueur.id_session === sessionActive.id) {
-        const { data } = await supabase
-          .from('v_personnages')
-          .select('*')
-          .eq('id', personnageJoueur.id)
-          .single()
-        
-        if (data) {
-          setPersonnage(data as Personnage)
-          if (!isRealtime) setChargement(false)
-          return
+        targetId = pnjControle.id;
+      } else if (personnageJoueur && personnageJoueur.id_session === sessionActive.id) {
+        targetId = personnageJoueur.id;
+      } else if (compte) {
+        const res = await db.personnages.getAll();
+        if (res.success) {
+          const pj = res.data.find((p: any) => 
+            p.id_session === sessionActive.id && 
+            p.lie_au_compte === compte.id && 
+            p.type === 'Joueur' && 
+            p.is_template === 0
+          );
+          if (pj) targetId = pj.id;
         }
       }
 
-      // 3. Fallback : Essayer de trouver un personnage par défaut pour le compte dans cette session
-      if (compte) {
-        const { data } = await supabase
-          .from('v_personnages')
-          .select('*')
-          .eq('id_session', sessionActive.id)
-          .eq('lie_au_compte', compte.id)
-          .eq('type', 'Joueur')
-          .eq('is_template', false)
-          .limit(1)
-          
-        if (data && data.length > 0) {
-          const pj = data[0] as Personnage
-          setPersonnage(pj)
-          setPersonnageJoueur(pj) // On le définit comme le perso par défaut
-        } else {
-          setPersonnage(null)
+      if (targetId) {
+        const fullPerso = await personnageService.recalculerStats(targetId);
+        if (fullPerso) {
+          setPersonnage(fullPerso as Personnage);
+          // Synchro store si besoin
+          if (personnageJoueur && personnageJoueur.id === fullPerso.id) setPersonnageJoueur(fullPerso as Personnage);
+          if (pnjControle && pnjControle.id === fullPerso.id) setPnjControle(fullPerso as Personnage);
         }
+      } else {
+        setPersonnage(null);
       }
     } catch (error) {
       console.error("Erreur lors du chargement du personnage:", error)
@@ -84,14 +64,12 @@ export function usePersonnage() {
     } finally {
       if (!isRealtime) setChargement(false)
     }
-  }, [compte, pnjControle, personnageJoueur, sessionActive, setPersonnageJoueur])
+  }, [compte, pnjControle, personnageJoueur, sessionActive, setPersonnageJoueur, setPnjControle])
 
   useEffect(() => {
     chargerPersonnage()
   }, [chargerPersonnage])
 
-  // Realtime Broadcasts (Ressources)
-  // MIGRATION WebRTC
   useEffect(() => {
     if (!personnage) return;
     
@@ -106,7 +84,6 @@ export function usePersonnage() {
     return () => unsubscribe();
   }, [personnage?.id]);
 
-  // Realtime
   useRealtimeQuery({
     tables: [
       { table: 'personnages', filtered: false },
@@ -122,11 +99,9 @@ export function usePersonnage() {
     const memoire = { ...personnage }
     lastUpdateRef.current = Date.now()
 
-    // 1. Optimistic Update
     const optimisticPerso = { ...personnage, ...updates }
     setPersonnage(optimisticPerso)
 
-    // Pour la BDD, on ne veut envoyer que les champs qui existent dans 'personnages'
     const dbUpdates = { ...updates } as any;
     delete dbUpdates.hp_max;
     delete dbUpdates.mana_max;
@@ -139,13 +114,7 @@ export function usePersonnage() {
         if (!success) throw new Error("Erreur mise à jour BDD")
       }
 
-      // On recharge TOUJOURS depuis la vue pour avoir les max à jour et les données consistantes
-      const { data: updatedPerso } = await supabase
-        .from('v_personnages')
-        .select('*')
-        .eq('id', personnage.id)
-        .single()
-
+      const updatedPerso = await personnageService.recalculerStats(personnage.id);
       if (updatedPerso) {
         const up = updatedPerso as Personnage
         setPersonnage(up)
@@ -154,7 +123,7 @@ export function usePersonnage() {
       }
     } catch (e) {
       console.error(e)
-      setPersonnage(memoire) // Rollback
+      setPersonnage(memoire)
     }
   }
 
@@ -162,11 +131,8 @@ export function usePersonnage() {
     if (!personnage || !sessionActive) return;
     
     lastUpdateRef.current = Date.now();
-    
-    // 1. Optimistic update local
     setPersonnage(prev => prev ? { ...prev, [type]: valeur } : prev);
 
-    // 2. Appel au service hybride (Broadcast + DB Debouncée)
     if (type === 'hp') {
       personnageService.updatePVHybride(sessionActive.id, personnage.id, valeur, max);
     } else if (type === 'mana') {

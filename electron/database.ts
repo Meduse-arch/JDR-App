@@ -316,6 +316,20 @@ export function loadSessionDB(folderPath: string) {
     PRIMARY KEY (id_session, id_personnage),
     FOREIGN KEY (id_personnage) REFERENCES personnages(id)
   );
+
+  -- Insertion des statistiques de base si elles n'existent pas
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('1', 'Force', 'Puissance physique et force brute');
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('2', 'Agilité', 'Souplesse, réflexes et équilibre');
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('3', 'Constitution', 'Santé, endurance et résistance');
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('4', 'Intelligence', 'Capacité de raisonnement et mémoire');
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('5', 'Sagesse', 'Perception, intuition et volonté');
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('6', 'Charisme', 'Force de personnalité et magnétisme');
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('7', 'Perception', 'Acuité des sens et attention aux détails');
+
+  -- Stats calculées (Max)
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('101', 'PV Max', 'Points de vie maximum');
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('102', 'Mana Max', 'Points de magie maximum');
+  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('103', 'Stamina Max', 'Points d''endurance maximum');
   `;
   sessionDb.exec(sessionInitScript);
   return sessionDb;
