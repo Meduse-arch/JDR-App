@@ -184,79 +184,45 @@ export function useMJResyncHandler() {
 
     // Gestion de la demande de liste de personnages d'un compte
     const unsubList = peerService.onListCharactersRequest(async (compteId, fromPeerId) => {
-      console.log(`[MJ] 📩 Requête LIST_CHARACTERS de ${fromPeerId} pour le compte ${compteId}`);
+      console.log(`[MJ] 📩 Requête LIST_CHARACTERS de ${fromPeerId} pour ${compteId}`);
       try {
         const sessionActive = useStore.getState().sessionActive;
-        if (!sessionActive) {
-          console.error("[MJ] ❌ Erreur : aucune session active côté MJ !");
-          return;
-        }
+        if (!sessionActive) return;
 
         const res = await db.personnages.getAll();
         if (!res.success) {
-          console.error("[MJ] ❌ Erreur : impossible de lire la table personnages :", res.error);
+          peerService.sendToJoueur(fromPeerId, { type: 'LIST_CHARACTERS_RESPONSE', personnages: [] });
           return;
         }
 
-        const allPersos = res.data;
-        console.log(`[MJ] 📊 Base de données MJ contient ${allPersos.length} personnages au total.`);
+        // Filtrage simple par compte et session (sans hydratation complexe au début)
+        const myPersosRaw = res.data.filter((p: any) => 
+          p.lie_au_compte === compteId && 
+          (p.id_session === sessionActive.id || p.id_session === 'remote-session' || !p.id_session) && 
+          p.is_template === 0
+        );
 
-        // 1. REPARATION ET SYNCHRO
-        const toRepair = allPersos.filter((p: any) => p.lie_au_compte === compteId && (p.id_session !== sessionActive.id));
-        if (toRepair.length > 0) {
-          console.log(`[MJ] 🔧 Détection de ${toRepair.length} personnages à synchroniser pour ${compteId}`);
-          for (const p of toRepair) {
-            console.log(`[MJ] 🔧 Synchro session pour ${p.nom} (${p.id_session} -> ${sessionActive.id})`);
-            await db.personnages.update(p.id, { id_session: sessionActive.id });
-            await db.session_joueurs.create({ id_session: sessionActive.id, id_personnage: p.id }).catch(() => {});
-          }
-        }
+        console.log(`[MJ] 🔍 Trouvé ${myPersosRaw.length} persos. Envoi immédiat pour débloquer le joueur.`);
 
-        // 2. RECUPERATION FINALE
-        const resUpdated = await db.personnages.getAll();
-        const myPersos = resUpdated.success 
-          ? resUpdated.data.filter((p: any) => p.lie_au_compte === compteId && p.id_session === sessionActive.id && p.is_template === 0)
-          : [];
-        
-        console.log(`[MJ] 🔍 Filtrage final : ${myPersos.length} personnages trouvés pour le compte ${compteId} dans session ${sessionActive.id}`);
-
-        if (myPersos.length === 0) {
-          console.warn(`[MJ] ⚠️ Aucun personnage trouvé pour ${compteId} malgré ${allPersos.length} totaux. Détail des comptes en base :`, allPersos.map((p: any) => ({nom: p.nom, lie: p.lie_au_compte})));
-        }
-
-        // 3. HYDRATATION ET ENVOI
-        const fullPersos = await Promise.all(myPersos.map(async (p: any) => {
-          try {
-            console.log(`[MJ] 💧 Hydratation de ${p.nom}...`);
-            const full = await personnageService.recalculerStats(p.id);
-            if (full) return full;
-            
-            console.warn(`[MJ] ⚠️ Fallback d'hydratation pour ${p.nom}`);
-            const [resStats, resComps, resInv] = await Promise.all([
-              db.personnage_stats.getAll(),
-              db.personnage_competences.getAll(),
-              db.inventaire.getAll()
-            ]);
-
-            const stats = resStats.success ? resStats.data.filter((s: any) => s.id_personnage === p.id) : [];
-            const comps = resComps.success ? resComps.data.filter((pc: any) => pc.id_personnage === p.id) : [];
-            const inv   = resInv.success ? resInv.data.filter((i: any) => i.id_personnage === p.id) : [];
-
-            return { ...p, stats, competences: comps, inventaire: inv, quetes: [] };
-          } catch (err) {
-            console.error(`[MJ] ❌ Erreur hydratation perso ${p.nom}:`, err);
-            return { ...p, stats: [], competences: [], inventaire: [], quetes: [] };
-          }
-        }));
-
-        console.log(`[MJ] 📤 Envoi de ${fullPersos.length} personnages à ${fromPeerId}`);
+        // On envoie une version "légère" immédiatement pour débloquer l'UI du joueur
         peerService.sendToJoueur(fromPeerId, {
           type: 'LIST_CHARACTERS_RESPONSE',
-          personnages: fullPersos
+          personnages: myPersosRaw
         });
 
+        // Puis on hydrate et on envoie les détails un par un (plus fiable sur réseau instable)
+        for (const p of myPersosRaw) {
+          const full = await personnageService.recalculerStats(p.id);
+          if (full) {
+            peerService.sendToJoueur(fromPeerId, {
+              type: 'STATE_UPDATE',
+              entity: 'personnage',
+              payload: { id_personnage: p.id, type: 'full', valeur: full }
+            });
+          }
+        }
       } catch (e) {
-        console.error("[MJ] ❌ Erreur critique ListCharactersRequest:", e);
+        console.error("[MJ] Erreur ListCharactersRequest:", e);
         peerService.sendToJoueur(fromPeerId, { type: 'LIST_CHARACTERS_RESPONSE', personnages: [] });
       }
     });
