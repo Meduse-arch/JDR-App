@@ -85,24 +85,47 @@ class PeerService {
       });
       
       this.peer.on('open', () => {
-        const conn = this.peer!.connect(mjPeerId);
-        this.hostConnection = conn;
+        let attempts = 0;
+        const maxAttempts = 10;
         
-        conn.on('open', () => resolve());
-        
-        conn.on('close', () => {
-          console.log('Connexion au MJ perdue');
-          this.hostConnection = null;
-        });
-        
-        conn.on('error', (err) => reject(err));
-        
-        conn.on('data', (data: unknown) => {
-          this.handleIncomingData(data as WebRTCMessage, mjPeerId);
-        });
+        const tryConnect = () => {
+          attempts++;
+          console.log(`Tentative de connexion au MJ (${attempts}/${maxAttempts})...`);
+          const conn = this.peer!.connect(mjPeerId);
+          this.hostConnection = conn;
+          
+          const timeout = setTimeout(() => {
+            conn.close();
+            if (attempts < maxAttempts) {
+              setTimeout(tryConnect, 1000); // Réessayer après 1s
+            } else {
+              reject(new Error("Impossible de trouver le MJ après plusieurs tentatives."));
+            }
+          }, 3000); // 3s d'attente par tentative
+
+          conn.on('open', () => {
+            clearTimeout(timeout);
+            console.log("Connecté au MJ avec succès !");
+            resolve();
+          });
+          
+          conn.on('error', (err) => {
+            console.error("Erreur de connexion (individuelle):", err);
+            // On laisse le timeout gérer le retry
+          });
+
+          conn.on('data', (data: unknown) => {
+            this.handleIncomingData(data as WebRTCMessage, mjPeerId);
+          });
+        };
+
+        tryConnect();
       });
       
-      this.peer.on('error', (err) => reject(err));
+      this.peer.on('error', (err) => {
+        console.error("Erreur Peer Joueur:", err);
+        reject(err);
+      });
     });
   }
 

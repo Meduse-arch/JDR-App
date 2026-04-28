@@ -160,23 +160,26 @@ export default function App() {
       const role = await sessionService.getRoleDansSession(session.id, compte.id, compte.role)
       const mjPeerId = generateMJPeerId(session.id)
       
+      console.log(`Initialisation Peer pour le rôle: ${role} avec l'ID MJ cible: ${mjPeerId}`);
+      
       try {
         if (role === 'mj' || role === 'admin') {
           // INITIALISATION MJ (Hôte)
           await peerService.initAsMJ(mjPeerId)
-          console.log("Peer MJ initialisé:", mjPeerId)
+          console.log("✅ Peer MJ initialisé et prêt à recevoir des connexions:", mjPeerId)
         } else {
           // INITIALISATION JOUEUR
           const monId = `joueur-${compte.id}-${Date.now().toString().slice(-4)}`
+          console.log(`Tentative de connexion au MJ: ${mjPeerId} depuis mon ID: ${monId}`);
           await peerService.initAsJoueur(mjPeerId, monId)
-          console.log("Peer Joueur connecté au MJ:", mjPeerId)
+          console.log("✅ Peer Joueur connecté au MJ avec succès!")
         }
       } catch (err) {
-        console.error("Erreur initialisation Peer:", err)
+        console.error("❌ ÉCHEC CRITIQUE de l'initialisation Peer:", err)
         if (role === 'mj' || role === 'admin') {
-          alert("ERREUR RÉSEAU : Impossible d'ouvrir votre session aux autres joueurs. Vérifiez votre connexion internet.")
+          alert(`ERREUR RÉSEAU : Impossible d'ouvrir la session. L'ID est peut-être déjà utilisé. Détail: ${err instanceof Error ? err.message : 'Inconnu'}`)
         } else {
-          alert("DÉCONNEXION : Impossible de rejoindre le Maître du Jeu. Assurez-vous qu'il a bien lancé la session.")
+          alert(`DÉCONNEXION : Le Maître du Jeu est introuvable. Vérifiez qu'il est bien entré dans la session. (Détail: ${err instanceof Error ? err.message : 'Inconnu'})`)
         }
         setEnteringSession(null)
         return
