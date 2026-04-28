@@ -99,7 +99,7 @@ export function useStats() {
     } finally {
       setChargement(false)
     }
-  }, [characterId, sessionActive?.id, setBuffRoll]) // Dépendances stabilisées
+  }, [characterId, sessionActive?.id, setBuffRoll, pnjControle, personnageJoueur]) // Dépendances étendues
 
   useEffect(() => {
     chargerStats()

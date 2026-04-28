@@ -195,19 +195,22 @@ export function useMJResyncHandler() {
           return;
         }
 
-        // Filtrage simple par compte et session (sans hydratation complexe au début)
+        // Filtrage simple par compte et session
         const myPersosRaw = res.data.filter((p: any) => 
           p.lie_au_compte === compteId && 
           (p.id_session === sessionActive.id || p.id_session === 'remote-session' || !p.id_session) && 
           p.is_template === 0
         );
 
-        console.log(`[MJ] 🔍 Trouvé ${myPersosRaw.length} persos. Envoi immédiat pour débloquer le joueur.`);
+        // On calcule au moins les ressources de base (HP Max etc.) pour ne pas casser l'UI du joueur
+        const basicHydrated = await personnageService.hydraterPersonnages(myPersosRaw);
 
-        // On envoie une version "légère" immédiatement pour débloquer l'UI du joueur
+        console.log(`[MJ] 🔍 Trouvé ${basicHydrated.length} persos. Envoi avec ressources MAX.`);
+
+        // On envoie la version hydratée pour que les barres HP/Mana s'affichent correctement
         peerService.sendToJoueur(fromPeerId, {
           type: 'LIST_CHARACTERS_RESPONSE',
-          personnages: myPersosRaw
+          personnages: basicHydrated
         });
 
         // Puis on hydrate et on envoie les détails un par un (plus fiable sur réseau instable)
