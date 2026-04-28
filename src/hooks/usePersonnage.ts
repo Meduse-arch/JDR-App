@@ -26,10 +26,11 @@ export function usePersonnage() {
     // Uniquement le MJ peut charger depuis SQLite
     if (!peerService.isHost) {
       // Les joueurs utilisent le personnage déjà présent dans le store (mis à jour par WebRTC)
-      if (personnageJoueur && personnageJoueur.id_session === sessionActive.id) {
-        setPersonnage(personnageJoueur);
-      } else if (pnjControle && pnjControle.id_session === sessionActive.id) {
-        setPersonnage(pnjControle);
+      const currentPerso = pnjControle || personnageJoueur;
+      if (currentPerso && currentPerso.id_session === sessionActive.id) {
+        setPersonnage(currentPerso);
+      } else {
+        setPersonnage(null);
       }
       setChargement(false);
       return;
@@ -38,6 +39,7 @@ export function usePersonnage() {
     // Logique MJ (Hôte)
     if (isRealtime && Date.now() - lastUpdateRef.current < 2000) return
     if (!isRealtime) setChargement(true)
+    // ... rest of MJ logic ...
 
     try {
       const db = (window as any).db;
