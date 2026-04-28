@@ -86,52 +86,65 @@ export function useMJResyncHandler() {
         if (!sessionActive) return;
 
         try {
-          // FORCE l'ID de session du MJ pour éviter le bug du "remote-session"
+          console.log(`[MJ] 🏗️ Création personnage pour ${fromPeerId}:`, payload.nom);
+          
+          // 1. Créer le personnage (SQLite)
           const res = await db.personnages.create({
             id: payload.id,
             id_session: sessionActive.id, 
             nom: payload.nom,
-            type: payload.type,
-            is_template: payload.is_template,
+            type: payload.type || 'Joueur',
+            is_template: payload.is_template ? 1 : 0,
             lie_au_compte: payload.lie_au_compte,
-            hp: payload.hp,
-            mana: payload.mana,
-            stam: payload.stam,
-            created_at: payload.created_at
+            hp: payload.hp || 10,
+            mana: payload.mana || 10,
+            stam: payload.stam || 10,
+            created_at: payload.created_at || new Date().toISOString()
           });
 
           if (res.success) {
-            // Sauvegarde des stats
-            if (payload.stats) {
+            // 2. Sauvegarde des stats
+            if (payload.stats && Array.isArray(payload.stats)) {
+              console.log(`[MJ] 📊 Sauvegarde de ${payload.stats.length} statistiques...`);
               for (const s of payload.stats) {
                 await db.personnage_stats.create({ 
                   id: crypto.randomUUID(), 
                   id_personnage: payload.id, 
                   id_stat: s.id_stat, 
                   valeur: s.valeur 
-                });
+                }).catch(err => console.error("[MJ] Erreur stat:", err));
               }
             }
 
-            // Lien session/joueur
+            // 3. Lien session/joueur
             if (payload.type === 'Joueur') {
               await db.session_joueurs.create({ 
-                id_session: sessionActive.id, // FORCE l'ID du MJ
+                id_session: sessionActive.id, 
                 id_personnage: payload.id 
               }).catch(() => {});
             }
 
-            console.log(`✅ Personnage '${payload.nom}' créé et lié à la session ${sessionActive.id}`);
+            console.log(`✅ [MJ] Personnage '${payload.nom}' créé avec succès.`);
             
-            // On signale au joueur de se rafraîchir
+            // 4. Recalculer les stats max et renvoyer le perso COMPLET au joueur
+            const fullPerso = await personnageService.recalculerStats(payload.id);
+            
             peerService.sendToJoueur(fromPeerId, {
               type: 'STATE_UPDATE',
               entity: 'session',
-              payload: { type: 'character_created' }
+              payload: { type: 'character_created', personnage: fullPerso }
             });
+            
+            // Re-demander la liste pour rafraîchir l'écran de sélection
+            peerService.sendToJoueur(fromPeerId, {
+              type: 'LIST_CHARACTERS_RESPONSE',
+              personnages: fullPerso ? [fullPerso] : []
+            });
+          } else {
+            console.error("[MJ] ❌ Échec création personnage SQLite:", res.error);
           }
         } catch (e) {
-          console.error("Erreur création personnage via WebRTC:", e);
+          console.error("[MJ] ❌ Erreur critique création personnage:", e);
         }
       }
     });

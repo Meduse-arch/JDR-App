@@ -84,7 +84,7 @@ export default function Sidebar() {
               <div className="mt-8 pt-6 border-t border-theme flex flex-col gap-2">
                 <p className="font-cinzel text-[10px] text-muted-theme mb-2 ml-4">Actions MJ</p>
                 <button
-                  onClick={() => handleNav('selection-personnage')}
+                  onClick={() => setPageCourante('selection-personnage')}
                   className={`flex items-center gap-3 px-4 py-2 rounded-sm text-sm font-garamond transition-all ${
                     pageCourante === 'selection-personnage' ? 'bg-card text-primary' : 'text-secondary hover:text-primary hover:bg-card-hover'
                    }`}
@@ -92,13 +92,14 @@ export default function Sidebar() {
                   <span className="font-cinzel text-theme-light">{RUNES_PAGES['selection-personnage']}</span> Gestion
                  </button>
                 <button
-                  onClick={() => { setPnjControle(null); handleNav('dashboard') }}
+                  onClick={() => { setPnjControle(null); setPageCourante('dashboard') }}
                   className="flex items-center gap-3 px-4 py-2 rounded-sm text-sm font-garamond text-red-700 hover:bg-red-950/20 transition-all mt-2 border border-transparent hover:border-red-900"
                 >
                   <LogOut size={16} strokeWidth={1.5} /> Libérer l'hôte
                 </button>
               </div>
             )}
+
           </nav>
         </div>
 

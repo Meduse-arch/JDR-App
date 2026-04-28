@@ -91,6 +91,7 @@ export default function SelectionJoueur() {
   }, [chargement, mesPersonnages, setPersonnageJoueur, setPageCourante])
 
   const choisirInspiration = (p: Personnage) => {
+    console.log("Sélection du personnage:", p.nom, p);
     setPersonnageJoueur(p)
     setPageCourante('dashboard')
   }
