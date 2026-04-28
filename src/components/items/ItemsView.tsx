@@ -188,7 +188,7 @@ export default function ItemsView({ mode, personnage = null }: Props) {
     : filteredRaw
 
   if (mode === 'forge' && vue === 'creer') {
-    return <ItemForgeForm {...forge} stats={allStats} onSave={handleSave} onCancel={() => { forge.reset(); setVue('liste') }} />
+    return <ItemForgeForm {...forge} stats={forge.stats} onSave={handleSave} onCancel={() => { forge.reset(); setVue('liste') }} />
   }
 
   const renderCodexDetail = () => {

@@ -14,13 +14,18 @@ export function useCompetences() {
   const [chargement, setChargement] = useState(false);
   const lastUpdateRef = useRef<number>(0);
 
+  // FIX Compétences boucle infinie : Retrait de libCompetences des dépendances
   const chargerCompetences = useCallback(async (isRealtime = false) => {
-    if (!sessionActive?.id || !peerService.isHost) {
+    // FIX Compétences chargement : Ne pas bloquer si pas host (pour le MJ local)
+    if (!sessionActive?.id) return;
+
+    if (!peerService.isHost && (window as any).db === undefined) {
       setCompetences(libCompetences);
       return;
     }
 
     if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return;
+    lastUpdateRef.current = Date.now();
 
     if (!isRealtime) setChargement(true);
     try {
@@ -29,23 +34,25 @@ export function useCompetences() {
       setCompetences(data);
 
       // Diffusion aux joueurs
-      peerService.broadcastToAll({
-        type: 'STATE_UPDATE',
-        entity: 'session',
-        payload: { type: 'library_update_competences', competences: data }
-      });
+      if (peerService.isHost) {
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'library_update_competences', competences: data }
+        });
+      }
     } catch (e) {
       console.error(e);
     } finally {
       if (!isRealtime) setChargement(false);
     }
-  }, [sessionActive?.id, libCompetences, setLibCompetences]);
+  }, [sessionActive?.id, setLibCompetences]);
 
   useEffect(() => {
     chargerCompetences();
   }, [chargerCompetences]);
 
-  // Sync locale quand le store change
+  // FIX Compétences chargement : Sync store -> local state séparé
   useEffect(() => {
     setCompetences(libCompetences);
   }, [libCompetences]);
@@ -58,11 +65,10 @@ export function useCompetences() {
     ],
     sessionId: sessionActive?.id,
     onReload: () => chargerCompetences(true),
-    enabled: !!sessionActive && peerService.isHost
+    enabled: !!sessionActive && (peerService.isHost || (window as any).db !== undefined)
   });
 
   const supprimerCompetence = async (id: string) => {
-    if (!peerService.isHost) return false;
     const success = await competenceService.deleteCompetence(id);
     if (success) await chargerCompetences();
     return success;
@@ -74,7 +80,6 @@ export function useCompetences() {
     effetsActifs: any[] = [],
     tagIds: string[] = []
   ) => {
-    if (!peerService.isHost) return null;
     const newComp = await competenceService.createCompetence(data, modificateurs, effetsActifs, tagIds);
     if (newComp) await chargerCompetences();
     return newComp;
@@ -87,7 +92,6 @@ export function useCompetences() {
     effetsActifs: any[] = [],
     tagIds: string[] = []
   ) => {
-    if (!peerService.isHost) return false;
     const success = await competenceService.updateCompetence(id, data, modificateurs, effetsActifs, tagIds);
     if (success) await chargerCompetences();
     return success;

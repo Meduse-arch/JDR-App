@@ -18,14 +18,18 @@ export function useItems() {
   const lastUpdateRef = useRef<number>(0);
 
   const charger = useCallback(async (isRealtime = false) => {
-    if (!sessionActive || !peerService.isHost) {
-       // Les joueurs lisent le store directement
+    // FIX Items affichage UI : Ne pas bloquer si pas host, tant qu'on a une session (pour le MJ local)
+    if (!sessionActive) return;
+    
+    // Si on est joueur (pas MJ), on se contente de lire le store synchronisé par WebRTC
+    if (!peerService.isHost && (window as any).db === undefined) {
        setItems(libItems);
        setStats(allStats);
        return;
     }
     
     if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return;
+    lastUpdateRef.current = Date.now(); // FIX boucle infinie : mise à jour du timer
     if (!isRealtime) setChargement(true);
     
     try {
@@ -40,18 +44,21 @@ export function useItems() {
       setStats(statsData);
       
       // Diffusion aux joueurs
-      peerService.broadcastToAll({
-        type: 'STATE_UPDATE',
-        entity: 'session',
-        payload: { type: 'library_update', items: itemsData, stats: statsData }
-      });
+      if (peerService.isHost) {
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'library_update', items: itemsData, stats: statsData }
+        });
+      }
 
     } catch (e) {
       console.error(e);
     } finally {
       if (!isRealtime) setChargement(false);
     }
-  }, [sessionActive, libItems, allStats, setLibItems, setAllStats]);
+  // FIX boucle infinie : libItems et allStats RETIRÉS des dépendances
+  }, [sessionActive, setLibItems, setAllStats]);
 
   useEffect(() => {
     charger();
@@ -71,18 +78,16 @@ export function useItems() {
     ],
     sessionId: sessionActive?.id,
     onReload: () => charger(true),
-    enabled: !!sessionActive && peerService.isHost
+    enabled: !!sessionActive && (peerService.isHost || (window as any).db !== undefined)
   });
 
   const supprimerItem = async (id: string) => {
-    if (!peerService.isHost) return false;
     const success = await itemsService.deleteItem(id)
     if (success) charger()
     return success
   }
 
   const modifierItem = async (id: string, data: any, modifs: any[], effets: any[]) => {
-    if (!peerService.isHost) return false;
     const success = await itemsService.updateItem(id, data, modifs, effets)
     if (success) await charger()
     return success

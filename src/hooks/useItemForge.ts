@@ -3,10 +3,11 @@ import { useStore } from '../store/useStore'
 import { useItems } from './useItems'
 import { itemsService } from '../services/itemsService'
 import { tagsService } from '../services/tagsService'
-import { Item, Modificateur, EffetActif, Tag, CategorieItem } from '../types'
+import { Item, Modificateur, EffetActif, Tag, CategorieItem, Stat } from '../types'
 
 export function useItemForge() {
-  const sessionActive = useStore(s => s.sessionActive)
+  // FIX stats sessionId primitif : dépendre de l'ID (string) pour la stabilité du useEffect
+  const sessionActiveId = useStore(s => s.sessionActive?.id)
   const compte = useStore(s => s.compte)
   const { charger, supprimerItem } = useItems()
 
@@ -17,19 +18,27 @@ export function useItemForge() {
   const [enCours, setEnCours] = useState(false)
   const [tags, setTags] = useState<Tag[]>([])
   const [tagsChoisis, setTagsChoisis] = useState<string[]>([])
+  const [stats, setStats] = useState<Stat[]>([])
 
+  // FIX stats sessionId primitif : Chargement forcé avec ID stable
   useEffect(() => {
-    if (sessionActive) {
-      tagsService.getTags(sessionActive.id).then(setTags)
+    if (sessionActiveId) {
+      itemsService.getStats().then(result => {
+        console.log('[DEBUG] stats chargées dans useItemForge:', result);
+        setStats(result);
+      });
+      // Récupération de l'objet complet via state pour les tags si nécessaire
+      const { sessionActive } = useStore.getState();
+      if (sessionActive) {
+        tagsService.getTags(sessionActive.id).then(setTags)
+      }
     }
-  }, [sessionActive])
+  }, [sessionActiveId])
 
   const reset = () => {
     setIdEdition(null)
     setForm({ nom: '', description: '', categorie: 'Divers', image_url: '' })
-    setModifs([])
-    setEffets([])
-    setTagsChoisis([])
+    setModifs([]); setEffets([]); setTagsChoisis([])
   }
 
   const chargerPourEdition = (item: Item) => {
@@ -41,22 +50,30 @@ export function useItemForge() {
   }
 
   const sauvegarder = async () => {
+    const { sessionActive } = useStore.getState();
     if (!sessionActive || !form.nom || enCours) return false
     setEnCours(true)
     
-    let success = false
-    if (idEdition) {
-      success = await itemsService.updateItem(idEdition, form, modifs as Modificateur[], effets as EffetActif[], tagsChoisis)
-    } else {
-      const newItem = await itemsService.createItem(sessionActive.id, compte?.id, form, modifs, effets, tagsChoisis)
-      success = !!newItem
-    }
+    // FIX update item : log temporaire
+    console.log('[DEBUG update] idEdition:', idEdition, 'form:', form);
 
-    if (success) {
-      await charger()
-      reset()
+    let success = false
+    try {
+      if (idEdition) {
+        success = await itemsService.updateItem(idEdition, form, modifs as Modificateur[], effets as EffetActif[], tagsChoisis)
+      } else {
+        success = !!(await itemsService.createItem(sessionActive.id, compte?.id, form, modifs, effets, tagsChoisis))
+      }
+
+      if (success) {
+        await charger()
+        reset()
+      }
+    } catch (e) {
+      console.error("Erreur forge sauvegarde:", e)
+    } finally {
+      setEnCours(false)
     }
-    setEnCours(false)
     return success
   }
 
@@ -66,9 +83,10 @@ export function useItemForge() {
   }
 
   const toggleStatModif = (idStat: string) => {
-    const exists = modifs.find(m => m.id_stat === idStat)
-    if (exists) setModifs(modifs.filter(m => m.id_stat !== idStat))
-    else setModifs([...modifs, { id_stat: idStat, type_calcul: 'fixe', valeur: 1 }])
+    const sid = String(idStat);
+    const exists = modifs.find(m => String(m.id_stat) === sid)
+    if (exists) setModifs(modifs.filter(m => String(m.id_stat) !== sid))
+    else setModifs([...modifs, { id_stat: sid, type_calcul: 'fixe', valeur: 1 }])
   }
 
   const toggleResModif = (type: string) => {
@@ -101,6 +119,7 @@ export function useItemForge() {
     idEdition,
     tags,
     tagsChoisis,
+    stats, 
     reset,
     chargerPourEdition,
     sauvegarder,

@@ -141,21 +141,27 @@ export default function ItemForgeForm(props: Props) {
             <h3 className="font-cinzel font-black uppercase tracking-[0.2em] text-xs text-theme-main flex items-center gap-3 border-b border-theme/20 pb-4">
               <BarChart2 size={18} /> Statistiques & Attributs
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {sortedStats.map(s => (
-                <button 
-                  key={s.id} 
-                  onClick={() => props.toggleStatModif(s.id)} 
-                  className={`p-3 rounded-sm border transition-all text-[9px] font-cinzel font-black uppercase ${
-                    props.modifs.find(m => m.id_stat === s.id) 
-                    ? 'bg-theme-main/20 border-theme-main text-theme-main shadow-sm' 
-                    : 'bg-black/20 border-theme/20 opacity-30 text-primary hover:opacity-100'
-                  }`}
-                >
-                  {s.nom}
-                </button>
-              ))}
-            </div>
+            {sortedStats.length === 0 ? (
+              <div className="py-4 text-center opacity-30 font-garamond italic text-[10px]">
+                Chargement des archives runiques...
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-in fade-in duration-500">
+                {sortedStats.map(s => (
+                  <button 
+                    key={s.id} 
+                    onClick={() => props.toggleStatModif(s.id)} 
+                    className={`p-3 rounded-sm border transition-all text-[9px] font-cinzel font-black uppercase ${
+                      props.modifs.find(m => String(m.id_stat) === String(s.id)) 
+                      ? 'bg-theme-main/20 border-theme-main text-theme-main shadow-sm' 
+                      : 'bg-black/20 border-theme/20 opacity-30 text-primary hover:opacity-100'
+                    }`}
+                  >
+                    {s.nom}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-6">
