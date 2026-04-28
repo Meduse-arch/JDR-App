@@ -36,29 +36,31 @@ export function useStats() {
     // --- LOGIQUE JOUEUR (Source: Store WebRTC) ---
     if (roleEffectif === 'joueur') {
       const perso = pnjControle || personnageJoueur;
-      if (perso && perso.id === characterId && perso.stats) {
-        console.log(`[useStats] Hydratation stats pour le joueur (${perso.stats.length} stats reçues, bibliothèque de ${allStats.length} noms)`);
+      // On accepte soit perso.stats (nouvelle version), soit on attend le MJ
+      if (perso && perso.id === characterId) {
+        const rawStats = perso.stats || [];
+        console.log(`[useStats] Hydratation stats pour le joueur (${rawStats.length} stats reçues, bibliothèque de ${allStats.length} noms)`);
         
-        const formattedStats = perso.stats.map((s: any) => {
+        const formattedStats = rawStats.map((s: any) => {
           const ref = allStats.find((r: any) => r.id === s.id_stat);
           return {
             id: s.id_stat,
             nom: ref?.nom || "Stat",
-            valeur: s.valeur,
-            base: s.base ?? s.valeur,
+            valeur: s.valeur ?? 0,
+            base: s.base ?? s.valeur ?? 0,
             bonus: s.bonus ?? 0,
             description: ref?.description || ""
           };
-        }).filter(s => s.nom !== "Stat" || allStats.length === 0); // Éviter d'afficher des stats anonymes si la lib est chargée
+        }).filter(s => s.nom !== "Stat" || allStats.length === 0);
         
         const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme'];
         const sorted = statsEngine.trierStats(formattedStats, ORDRE_STATS);
         
         setStats(sorted);
-        setChargement(false);
+        if (rawStats.length > 0 || allStats.length > 0) {
+          setChargement(false);
+        }
         return;
-      } else {
-        console.log("[useStats] En attente des stats du MJ...");
       }
     }
 
