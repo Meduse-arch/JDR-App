@@ -158,21 +158,31 @@ export default function App() {
     
     if (session) {
       const role = await sessionService.getRoleDansSession(session.id, compte.id, compte.role)
-      const mjPeerId = generateMJPeerId(session.id)
-      
-      console.log(`Initialisation Peer pour le rôle: ${role} avec l'ID MJ cible: ${mjPeerId}`);
+      // On génère un ID unique pour cette instance précise (évite les conflits d'ID déjà pris)
+      const instanceId = `${role}-${compte.id}-${Date.now().toString().slice(-4)}`
       
       try {
         if (role === 'mj' || role === 'admin') {
           // INITIALISATION MJ (Hôte)
+          // Le MJ utilise un ID fixe basé sur la session pour être trouvable, 
+          // MAIS on va d'abord tenter de nettoyer si possible.
+          const mjPeerId = generateMJPeerId(session.id)
           await peerService.initAsMJ(mjPeerId)
-          console.log("✅ Peer MJ initialisé et prêt à recevoir des connexions:", mjPeerId)
+          
+          // SIGNALISATION : Le MJ dit à tout le monde "Je suis là avec cet ID"
+          await supabase.from('sessions').update({ folder_path: mjPeerId }).eq('id', session.id)
+          console.log("✅ MJ Signalé dans Supabase:", mjPeerId)
         } else {
           // INITIALISATION JOUEUR
-          const monId = `joueur-${compte.id}-${Date.now().toString().slice(-4)}`
-          console.log(`Tentative de connexion au MJ: ${mjPeerId} depuis mon ID: ${monId}`);
-          await peerService.initAsJoueur(mjPeerId, monId)
-          console.log("✅ Peer Joueur connecté au MJ avec succès!")
+          // On attend que le MJ ait publié son ID
+          console.log("Recherche du MJ dans Supabase...")
+          const { data: latestSession } = await supabase.from('sessions').select('folder_path').eq('id', session.id).single()
+          
+          const targetMJId = latestSession?.folder_path || generateMJPeerId(session.id)
+          console.log(`Tentative de connexion au MJ via l'ID signalé: ${targetMJId}`);
+          
+          await peerService.initAsJoueur(targetMJId, instanceId)
+          console.log("✅ Connecté au MJ!")
         }
       } catch (err) {
         console.error("❌ ÉCHEC CRITIQUE de l'initialisation Peer:", err)
