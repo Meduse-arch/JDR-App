@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import { useRealtimeQuery } from './useRealtimeQuery'
 import { statsService, type StatValeur } from '../services/statsService'
+import { statsEngine } from '../utils/statsEngine'
 
 export function useStats() {
+  const compte = useStore(s => s.compte) // AJOUTÉ : manquait au tour précédent
   const pnjControle = useStore(s => s.pnjControle)
   const personnageJoueur = useStore(s => s.personnageJoueur)
-  const allStats = useStore(s => s.allStats) // Watch the library
+  const allStats = useStore(s => s.allStats)
   const sessionActive = useStore(s => s.sessionActive)
   const roleEffectif = useStore(s => s.roleEffectif)
   const setBuffRoll = useStore(s => s.setBuffRoll)
@@ -14,7 +16,6 @@ export function useStats() {
 
   const [stats, setStats] = useState<StatValeur[]>([])
   const [chargement, setChargement] = useState(true)
-  const lastUpdateRef = useRef<number>(0)
   const lastCharacterIdRef = useRef<string | null>(null)
 
   const characterId = pnjControle?.id || personnageJoueur?.id
@@ -32,12 +33,12 @@ export function useStats() {
       setChargement(false)
       return
     }
+
     // --- LOGIQUE JOUEUR (Source: Store WebRTC) ---
     if (roleEffectif === 'joueur') {
       const perso = pnjControle || personnageJoueur;
       if (perso && perso.id === characterId) {
         const rawStats = perso.stats || [];
-        console.log(`[useStats] Joueur ${compte?.pseudo} - ${rawStats.length} stats reçues pour ${perso.nom}`);
         
         const FALLBACK_NAMES: Record<string, string> = {
           '1': 'Force', '2': 'Agilité', '3': 'Constitution', 
@@ -68,7 +69,6 @@ export function useStats() {
       }
     }
 
-
     // --- LOGIQUE MJ (Calcul complexe SQLite) ---
     if (roleEffectif !== 'joueur') {
       setChargement(true)
@@ -93,28 +93,11 @@ export function useStats() {
         setChargement(false)
       }
     }
-  }, [characterId, sessionActive?.id, setBuffRoll, pnjControle, personnageJoueur, allStats, roleEffectif])
+  }, [characterId, sessionActive?.id, setBuffRoll, pnjControle, personnageJoueur, allStats, roleEffectif, compte])
 
   useEffect(() => {
     chargerStats()
   }, [chargerStats])
-
-  useRealtimeQuery({
-    tables: [
-      { table: 'personnage_stats', filtered: false },
-      { table: 'modificateurs', filtered: false },
-      { table: 'effets_actifs', filtered: false },
-      { table: 'personnage_competences', filtered: false },
-      { table: 'inventaire', filtered: false },
-      { table: 'personnage_buff_rolls', filtered: false },
-    ],
-    sessionId: sessionActive?.id,
-    onReload: () => {
-      // Rechargement inconditionnel pour assurer la synchro BDD
-      chargerStats()
-    },
-    enabled: !!sessionActive && !!characterId
-  })
 
   return { stats, chargement, rechargerStats: chargerStats }
 }

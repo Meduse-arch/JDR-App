@@ -107,19 +107,23 @@ export function usePersonnage() {
       if (msg.entity !== 'personnage') return;
       const payload = msg.payload;
       
-      const currentId = pnjControle?.id || personnageJoueur?.id;
+      const state = useStore.getState();
+      const currentId = state.pnjControle?.id || state.personnageJoueur?.id;
+
       if (payload.id_personnage === currentId) {
         if (payload.type === 'full') {
           const updated = payload.valeur;
+          console.log("[usePersonnage] Mise à jour complète reçue:", updated.nom);
+          
           setPersonnage(updated);
-          if (personnageJoueur && personnageJoueur.id === updated.id) setPersonnageJoueur(updated);
-          if (pnjControle && pnjControle.id === updated.id) setPnjControle(updated);
+          if (state.personnageJoueur && state.personnageJoueur.id === updated.id) state.setPersonnageJoueur(updated);
+          if (state.pnjControle && state.pnjControle.id === updated.id) state.setPnjControle(updated);
         } else if (payload.type) {
            setPersonnage(prev => {
              if (!prev) return prev;
              const next = { ...prev, [payload.type]: payload.valeur };
-             if (personnageJoueur && personnageJoueur.id === next.id) setPersonnageJoueur(next);
-             if (pnjControle && pnjControle.id === next.id) setPnjControle(next);
+             if (state.personnageJoueur && state.personnageJoueur.id === next.id) state.setPersonnageJoueur(next);
+             if (state.pnjControle && state.pnjControle.id === next.id) state.setPnjControle(next);
              return next;
            });
         }
@@ -127,7 +131,7 @@ export function usePersonnage() {
     });
 
     return () => unsubscribe();
-  }, [pnjControle?.id, personnageJoueur?.id, setPersonnageJoueur, setPnjControle]);
+  }, []);
 
   useRealtimeQuery({
     tables: [{ table: 'personnages', filtered: false }, { table: 'personnage_stats', filtered: false }],
