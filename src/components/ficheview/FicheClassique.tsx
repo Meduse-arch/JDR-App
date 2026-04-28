@@ -15,12 +15,15 @@ const STAT_ICONS: Record<string, any> = {
 }
 
 export default function FicheClassique({ personnage, ressources, stats, deltas, updateDelta, adjustDelta, appliquerDelta, handleSupprimer, onEditImage, pseudoJoueur }: any) {
+  const safeRessources = Array.isArray(ressources) ? ressources : []
+  const safeStats = Array.isArray(stats) ? stats : []
+
   return (
     <motion.div key="classic-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10 mt-2">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className="font-cinzel text-[10px] tracking-[0.2em] border-theme-main/30 text-theme-main bg-black/40">{personnage.type === 'Joueur' ? 'AVENTURIER' : 'ENTITÉ'}</Badge>
+            <Badge variant="outline" className="font-cinzel text-[10px] tracking-[0.2em] border-theme-main/30 text-theme-main bg-black/40">{personnage?.type === 'Joueur' ? 'AVENTURIER' : 'ENTITÉ'}</Badge>
             <span className="text-xs font-garamond italic opacity-40 uppercase tracking-widest">Lié à l'âme de : {pseudoJoueur || '...'}</span>
           </div>
         </div>
@@ -29,19 +32,19 @@ export default function FicheClassique({ personnage, ressources, stats, deltas, 
       
       <div className="flex flex-col items-center mb-6">
         <span className="font-cinzel text-[10px] font-black text-theme-main tracking-[0.4em] opacity-40 uppercase">[ HÉROS INCARNÉ ]</span>
-        <h2 className="text-xl md:text-2xl font-cinzel font-black text-primary mt-1 uppercase tracking-widest drop-shadow-sm">{personnage?.nom}</h2>
+        <h2 className="text-xl md:text-2xl font-cinzel font-black text-primary mt-1 uppercase tracking-widest drop-shadow-sm">{personnage?.nom || 'Inconnu'}</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         <div className="lg:col-span-4 flex flex-col gap-8">
           <Card className="medieval-border p-8 flex flex-col items-center gap-6 bg-card/20 backdrop-blur-sm">
             <button onClick={onEditImage} className="group w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-theme/30 p-1 relative overflow-hidden bg-black/20 hover:border-theme-main/60 transition-all duration-300 focus:outline-none" title="Modifier l'image de profil">
-              {personnage.image_url ? <img src={personnage.image_url} alt={personnage.nom} className="w-full h-full object-cover rounded-full" /> : <><UserCircle size="100%" className="text-theme-main opacity-20 absolute inset-0 scale-110" /><div className="absolute inset-0 flex items-center justify-center"><span className="font-cinzel text-4xl font-black text-theme-main opacity-40">{personnage.nom[0]}</span></div></>}
+              {personnage?.image_url ? <img src={personnage.image_url} alt={personnage.nom} className="w-full h-full object-cover rounded-full" /> : <><UserCircle size="100%" className="text-theme-main opacity-20 absolute inset-0 scale-110" /><div className="absolute inset-0 flex items-center justify-center"><span className="font-cinzel text-4xl font-black text-theme-main opacity-40">{personnage?.nom?.[0] || '?'}</span></div></>}
               <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/50 flex items-center justify-center transition-all duration-300"><Camera size={22} className="text-[#c8a84b] opacity-0 group-hover:opacity-100 transition-opacity duration-300" /></div>
             </button>
             <h3 className="font-cinzel font-black uppercase tracking-widest text-xs text-theme-main">État Vital</h3>
             <div className="flex flex-col gap-4 w-full">
-              {ressources.map((r: any) => (
+              {safeRessources.map((r: any) => (
                 <BarreRessource 
                   key={r.rKey} 
                   label={r.label} 
@@ -51,7 +54,7 @@ export default function FicheClassique({ personnage, ressources, stats, deltas, 
                   gradient={r.gradient} 
                   actuel={r.actuel} 
                   max={r.max} 
-                  delta={deltas[r.rKey]} 
+                  delta={deltas[r.rKey] || ''} 
                   onDeltaChange={(v: string) => updateDelta(r.rKey, v)} 
                   onDeltaDecrement={() => adjustDelta(r.rKey, -1)} 
                   onDeltaIncrement={() => adjustDelta(r.rKey, 1)} 
@@ -65,7 +68,7 @@ export default function FicheClassique({ personnage, ressources, stats, deltas, 
           <Card className="medieval-border p-8 bg-card/20 backdrop-blur-sm">
             <h3 className="text-xl font-cinzel font-black uppercase tracking-widest mb-8 flex items-center gap-3 text-theme-main border-b border-theme/20 pb-4"><Swords size={24} />Attributs & Statistiques</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-6">
-              {stats.map((stat: any) => {
+              {safeStats.map((stat: any) => {
                 const Icon = STAT_ICONS[stat.nom] || Shield;
                 return (
                   <Card key={stat.nom} className="bg-card/40 border border-theme/20 p-6 flex flex-col items-center justify-center gap-2 hover:border-theme-main hover:bg-card transition-all duration-300 group rounded-sm">
