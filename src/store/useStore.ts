@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { broadcastService } from '../services/broadcastService'
+import { peerService } from '../services/peerService'
 
 export type RoleId = 'admin' | 'mj' | 'joueur'
 export type ModeId = 'mode-dark' | 'mode-light'
@@ -172,7 +172,12 @@ export const useStore = create<JdrState>((set, get) => ({
       const partagesDes = sessionActive.parametres?.partagesDes || {};
       const allowedViewers = partagesDes[senderId] || [];
       const payload = { diceResult, isSecret, senderId, allowedViewers };
-      broadcastService.send(sessionActive.id, 'dice-roll', payload);
+      // MIGRATION WebRTC
+      if (peerService.isHost) {
+        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'dice', payload });
+      } else {
+        peerService.sendToMJ({ type: 'ACTION', kind: 'dice_roll', payload });
+      }
     }
     set({ diceResult });
   },

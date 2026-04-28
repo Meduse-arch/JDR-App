@@ -8,7 +8,7 @@ import { useLogs } from '../../hooks/useLogs'
 import { Button } from '../../components/ui/Button'
 import { History, Share2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { broadcastService } from '../../services/broadcastService'
+import { peerService } from '../../services/peerService'
 import { DiceSharingModal } from '../../components/ui/modal/DiceSharingModal'
 
 const DIE_TYPES = [4, 6, 8, 10, 12, 20, 100];
@@ -38,19 +38,24 @@ export default function LancerDes() {
   })
 
   // Écouter le changement de mode spectateur diffusé par le MJ
+  // MIGRATION WebRTC
   useEffect(() => {
-    if (!sessionActive) return
-    const unsubscribe = broadcastService.subscribe(sessionActive.id, 'toggle-spectateur', (val: boolean) => {
-      setDiceSharingEnabled(val)
-    })
-    return () => unsubscribe()
-  }, [sessionActive, setDiceSharingEnabled])
+    const unsubscribe = peerService.onStateUpdate((msg) => {
+      if (msg.entity === 'session' && msg.payload.action === 'toggle-spectateur') {
+        setDiceSharingEnabled(msg.payload.valeur);
+      }
+    });
+    return () => unsubscribe();
+  }, [setDiceSharingEnabled]);
 
   const toggleSpectateur = () => {
     if (!isMJ || !sessionActive) return
     const nouveauStatut = !diceSharingEnabled
     setDiceSharingEnabled(nouveauStatut)
-    broadcastService.send(sessionActive.id, 'toggle-spectateur', nouveauStatut)
+    // MIGRATION WebRTC
+    if (peerService.isHost) {
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { action: 'toggle-spectateur', valeur: nouveauStatut } });
+    }
   }
 
   // Historique = logs Supabase filtrés sur ce personnage, type 'des'

@@ -3,12 +3,13 @@ import { supabase } from '../../supabase'
 import { useStore, type Personnage } from '../../store/useStore'
 import { motion } from 'framer-motion'
 import { 
-  ClipboardList, ScrollText, Package, Sparkles, BookOpen, Users, 
+  ClipboardList, ScrollText, Package, Sparkles, BookOpen, Users, Copy
 } from 'lucide-react'
 import { Card } from '../../components/ui/card'
 import { QueteDetailModal } from '../../components/ui/modal'
 import { DashboardJoueurs } from './dashboard/DashboardJoueurs'
 import { DashboardEntites } from './dashboard/DashboardEntites'
+import { generateMJPeerId } from '../../services/sessionService'
 
 type Quete = {
   id: string
@@ -58,15 +59,18 @@ export default function DashboardAdmin() {
     })
   }, [sessionActive])
 
+  // MIGRATION WebRTC — remplacé par peerService.onStateUpdate
   useEffect(() => {
     if (sessionActive) {
       chargerDonnees()
-      const channel = supabase
-        .channel('dashboard-admin-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'personnages', filter: `id_session=eq.${sessionActive.id}` }, chargerDonnees)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'quetes', filter: `id_session=eq.${sessionActive.id}` }, chargerDonnees)
-        .subscribe()
-      return () => { supabase.removeChannel(channel) }
+      import('../../services/peerService').then(({ peerService }) => {
+        peerService.onStateUpdate(() => {
+          chargerDonnees();
+        });
+        peerService.onAction(() => {
+          chargerDonnees();
+        });
+      });
     }
   }, [sessionActive, chargerDonnees])
 
@@ -96,6 +100,23 @@ export default function DashboardAdmin() {
           <span className="font-cinzel text-[10px] font-black text-theme-main tracking-[0.4em] opacity-60 uppercase">[ MAÎTRE DU JEU ]</span>
           <div className="h-px w-12 bg-theme-main/30" />
         </div>
+
+        {/* MJ Connection Code */}
+        {sessionActive && (
+          <div className="mt-2 flex flex-col items-center gap-2 bg-black/40 border border-theme-main/20 p-4 rounded-lg backdrop-blur-sm">
+            <span className="font-cinzel text-xs text-primary/60 uppercase tracking-widest">Code de connexion (Joueurs)</span>
+            <div className="flex items-center gap-4">
+              <code className="font-mono text-lg text-theme-main font-bold px-3 py-1 bg-black/50 rounded">{sessionActive.id}</code>
+              <button 
+                onClick={() => navigator.clipboard.writeText(generateMJPeerId(sessionActive.id))}
+                className="flex items-center gap-2 text-xs font-cinzel tracking-widest uppercase bg-theme-main/10 hover:bg-theme-main/20 text-theme-main px-3 py-2 rounded transition-all"
+                title="Copier le Peer ID de connexion"
+              >
+                <Copy size={14} /> Copier
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-4">

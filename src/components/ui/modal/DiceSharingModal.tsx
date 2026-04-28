@@ -121,9 +121,11 @@ export function DiceSharingModal({ onClose }: DiceSharingModalProps) {
         parametres: nouveauxParams
       })
 
-      // Diffuser les nouveaux paramètres
-      import('../../../services/broadcastService').then(({ broadcastService }) => {
-        broadcastService.send(sessionActive.id, 'settings-update', nouveauxParams)
+      // MIGRATION WebRTC
+      import('../../../services/peerService').then(({ peerService }) => {
+        if (peerService.isHost) {
+          peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { action: 'settings-update', params: nouveauxParams } })
+        }
       })
 
       onClose()

@@ -1,6 +1,7 @@
-import { supabase } from '../supabase'
 import { rollDice, rollStatDice } from '../utils/rollDice'
 import { statsEngine } from '../utils/statsEngine'
+
+const db = (window as any).db;
 
 export interface StatValeur {
   id: string
@@ -12,228 +13,195 @@ export interface StatValeur {
 }
 
 export const statsService = {
-  /**
-   * Charge les buff_rolls persistés en base pour un personnage
-   */
   getBuffRolls: async (idPersonnage: string): Promise<Record<string, number>> => {
     if (!idPersonnage) return {}
-    const { data, error } = await supabase
-      .from('personnage_buff_rolls')
-      .select('cache_key, valeur')
-      .eq('id_personnage', idPersonnage)
-
-    if (error) {
-      console.error("[StatsService] Erreur getBuffRolls:", error)
-      return {}
-    }
+    const res = await db.personnage_buff_rolls.getAll();
+    if (!res.success) return {};
 
     const map: Record<string, number> = {}
-    data?.forEach((row: any) => { map[row.cache_key] = row.valeur })
+    res.data.filter((r: any) => r.id_personnage === idPersonnage).forEach((row: any) => { map[row.cache_key] = row.valeur })
     return map
   },
 
-  /**
-   * Sauvegarde un buff roll en base
-   */
-saveBuffRoll: async (idPersonnage: string, cacheKey: string, valeur: number) => {
-  console.log("=== saveBuffRoll APPELÉ ===", { idPersonnage, cacheKey, valeur })
-  
-  if (!idPersonnage || !cacheKey) {
-    console.error("=== saveBuffRoll ABANDON : paramètres manquants ===", { idPersonnage, cacheKey })
-    return
-  }
+  saveBuffRoll: async (idPersonnage: string, cacheKey: string, valeur: number) => {
+    if (!idPersonnage || !cacheKey) return;
+    const res = await db.personnage_buff_rolls.getAll();
+    if (!res.success) return;
+    const existing = res.data.find((r: any) => r.id_personnage === idPersonnage && r.cache_key === cacheKey);
 
-  const { data, error, status, statusText } = await supabase
-    .from('personnage_buff_rolls')
-    .upsert(
-      { id_personnage: idPersonnage, cache_key: cacheKey, valeur },
-      { onConflict: 'id_personnage,cache_key' }
-    )
-    .select()
-
-  console.log("=== saveBuffRoll RÉSULTAT ===", { data, error, status, statusText })
-},
-
-  /**
-   * Nettoie les buff_rolls obsolètes
-   */
-  cleanupObsoleteBuffRolls: async (idPersonnage: string, activeKeys: Set<string>) => {
-    const { data } = await supabase
-      .from('personnage_buff_rolls')
-      .select('id, cache_key')
-      .eq('id_personnage', idPersonnage)
-
-    const obsoletes = (data || [])
-      .filter((row: any) => !activeKeys.has(row.cache_key))
-      .map((row: any) => row.id)
-
-    if (obsoletes.length > 0) {
-      await supabase
-        .from('personnage_buff_rolls')
-        .delete()
-        .in('id', obsoletes)
+    if (existing) {
+      await db.personnage_buff_rolls.update(existing.id, { valeur });
+    } else {
+      await db.personnage_buff_rolls.create({
+        id: crypto.randomUUID(),
+        id_personnage: idPersonnage,
+        cache_key: cacheKey,
+        valeur,
+        created_at: new Date().toISOString()
+      });
     }
   },
 
-  /**
-   * Calcule toutes les stats d'un personnage avec tous ses modificateurs
-   */
+  cleanupObsoleteBuffRolls: async (idPersonnage: string, activeKeys: Set<string>) => {
+    const res = await db.personnage_buff_rolls.getAll();
+    if (!res.success) return;
+    const obsoletes = res.data
+      .filter((r: any) => r.id_personnage === idPersonnage && !activeKeys.has(r.cache_key));
+
+    for (const obs of obsoletes) {
+      await db.personnage_buff_rolls.delete(obs.id);
+    }
+  },
+
   calculateAllStats: async (
     idPersonnage: string, 
     buffRollsCache: Record<string, number>,
     onNewRoll: (cacheKey: string, val: number) => Promise<void>
   ): Promise<StatValeur[]> => {
-    const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme']
+    const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme'];
 
-    // 1. Stats de base
-    const { data: baseStats } = await supabase
-      .from('personnage_stats')
-      .select('valeur, id_stat, stats(id, nom, description)')
-      .eq('id_personnage', idPersonnage)
+    // MIGRATION: était des jointures SQL complexes
+    const resBaseStats = await db.personnage_stats.getAll();
+    const resStatsTable = await db.stats.getAll();
+    if (!resBaseStats.success || !resStatsTable.success) return [];
 
-    if (!baseStats) return []
+    const baseStats = resBaseStats.data
+      .filter((s: any) => s.id_personnage === idPersonnage)
+      .map((s: any) => ({
+        ...s,
+        stats: resStatsTable.data.find((st: any) => st.id === s.id_stat)
+      }));
 
-    // 2. Équipements équipés
-    const { data: equipement } = await supabase
-      .from('inventaire')
-      .select(`
-        id, equipe,
-        items (
-          modificateurs ( id, id_stat, valeur, type_calcul, des_nb, des_faces, des_stat_id ),
-          item_tags ( id_tag )
-        )
-      `)
-      .eq('id_personnage', idPersonnage)
-      .eq('equipe', true)
+    const resInv = await db.inventaire.getAll();
+    const resItems = await db.items.getAll();
+    const resModifs = await db.modificateurs.getAll();
+    const resItemTags = await db.item_tags.getAll();
 
-    const equippedTagIds = new Set<string>()
-    equipement?.forEach((inv: any) => {
-      inv.items?.item_tags?.forEach((it: any) => { if (it.id_tag) equippedTagIds.add(it.id_tag) })
-    })
+    const equipement = resInv.success ? resInv.data.filter((i: any) => i.id_personnage === idPersonnage && i.equipe === 1).map((inv: any) => {
+      const item = resItems.success ? resItems.data.find((it: any) => it.id === inv.id_item) : null;
+      const modifs = item && resModifs.success ? resModifs.data.filter((m: any) => m.id_item === item.id) : [];
+      const iTags = item && resItemTags.success ? resItemTags.data.filter((it: any) => it.id_item === item.id) : [];
+      return {
+        id: inv.id,
+        equipe: inv.equipe === 1,
+        items: item ? { modificateurs: modifs, item_tags: iTags } : null
+      };
+    }) : [];
 
-    // 3. Modificateurs directs liés au personnage
-    const { data: directModifs } = await supabase
-      .from('modificateurs')
-      .select('id, id_stat, valeur, type_calcul, des_nb, des_faces, des_stat_id')
-      .eq('id_personnage', idPersonnage)
+    const equippedTagIds = new Set<string>();
+    equipement.forEach((inv: any) => {
+      inv.items?.item_tags?.forEach((it: any) => { if (it.id_tag) equippedTagIds.add(it.id_tag) });
+    });
 
-    // 4. Compétences acquises
-    const { data: compAcquisesRaw } = await supabase
-      .from('personnage_competences')
-      .select(`
-        id, is_active,
-        competences (
-          id, type, condition_type,
-          modificateurs ( id, id_stat, valeur, type_calcul, des_nb, des_faces, des_stat_id )
-        )
-      `)
-      .eq('id_personnage', idPersonnage)
+    const directModifs = resModifs.success ? resModifs.data.filter((m: any) => m.id_personnage === idPersonnage) : [];
 
-    const compAcquisesMap = new Map<string, any>()
-    compAcquisesRaw?.forEach(entry => {
-      const c = entry.competences as any
-      if (!c) return
-      if (!compAcquisesMap.has(c.id) || entry.is_active) compAcquisesMap.set(c.id, entry)
-    })
-    const compAcquises = Array.from(compAcquisesMap.values())
+    const resPComp = await db.personnage_competences.getAll();
+    const resComps = await db.competences.getAll();
+    
+    const compAcquisesRaw = resPComp.success ? resPComp.data.filter((pc: any) => pc.id_personnage === idPersonnage).map((pc: any) => {
+      const comp = resComps.success ? resComps.data.find((c: any) => c.id === pc.id_competence) : null;
+      const modifs = comp && resModifs.success ? resModifs.data.filter((m: any) => m.id_competence === comp.id) : [];
+      return {
+        id: pc.id,
+        is_active: pc.is_active === 1,
+        competences: comp ? { ...comp, modificateurs: modifs } : null
+      };
+    }) : [];
 
-    // Passifs toggle actifs
+    const compAcquisesMap = new Map<string, any>();
+    compAcquisesRaw.forEach((entry: any) => {
+      const c = entry.competences;
+      if (!c) return;
+      if (!compAcquisesMap.has(c.id) || entry.is_active) compAcquisesMap.set(c.id, entry);
+    });
+    const compAcquises = Array.from(compAcquisesMap.values());
+
     const toggleEntries = compAcquises.filter((entry: any) =>
       entry.is_active === true && entry.competences?.type === 'passive_toggle'
-    )
-    const activeToggleIds = toggleEntries.map((entry: any) => entry.competences.id)
-    const activeTagsPool = new Set<string>(equippedTagIds)
+    );
+    const activeToggleIds = toggleEntries.map((entry: any) => entry.competences.id);
+    const activeTagsPool = new Set<string>(equippedTagIds);
 
-    if (activeToggleIds.length > 0) {
-      const { data: toggleTags } = await supabase
-        .from('competence_tags')
-        .select('id_tag')
-        .in('id_competence', activeToggleIds)
-      toggleTags?.forEach((tt: any) => { if (tt.id_tag) activeTagsPool.add(tt.id_tag) })
+    const resCompTags = await db.competence_tags.getAll();
+    if (activeToggleIds.length > 0 && resCompTags.success) {
+      const toggleTags = resCompTags.data.filter((ct: any) => activeToggleIds.includes(ct.id_competence));
+      toggleTags.forEach((tt: any) => { if (tt.id_tag) activeTagsPool.add(tt.id_tag) });
     }
 
-    const bonusFixes: Record<string, number> = {}
-    const bonusPct: Record<string, number> = {}
-    const clesActives = new Set<string>()
+    const bonusFixes: Record<string, number> = {};
+    const bonusPct: Record<string, number> = {};
+    const clesActives = new Set<string>();
 
     const accumulerBonus = async (modificateurs: any[], sourceId: string) => {
-      if (!modificateurs) return
+      if (!modificateurs) return;
       for (const m of modificateurs) {
-        let val = m.valeur || 0
+        let val = m.valeur || 0;
 
         if (m.type_calcul === 'roll_dice' || m.type_calcul === 'roll_stat') {
-          const cacheKey = `${sourceId}-${m.id}`
-          clesActives.add(cacheKey)
+          const cacheKey = `${sourceId}-${m.id}`;
+          clesActives.add(cacheKey);
 
           if (buffRollsCache[cacheKey] !== undefined) {
-            val = buffRollsCache[cacheKey]
+            val = buffRollsCache[cacheKey];
           } else {
-            let newRoll = 0
+            let newRoll = 0;
             if (m.type_calcul === 'roll_dice') {
-              newRoll = rollDice(m.des_nb || 1, m.des_faces || 6, m.valeur || 0).total
+              newRoll = rollDice(m.des_nb || 1, m.des_faces || 6, m.valeur || 0).total;
             } else {
-              const statRollBase = baseStats.find((s: any) => s.id_stat === m.des_stat_id)
-              const valeurBaseRoll = statRollBase?.valeur || 10
-              const statsData: any = statRollBase?.stats
-              const nomBaseRoll = (Array.isArray(statsData) ? statsData[0]?.nom : statsData?.nom) || 'Stat'
-              newRoll = rollStatDice(valeurBaseRoll, m.valeur || 0, nomBaseRoll).total
+              const statRollBase = baseStats.find((s: any) => s.id_stat === m.des_stat_id);
+              const valeurBaseRoll = statRollBase?.valeur || 10;
+              const statsData: any = statRollBase?.stats;
+              const nomBaseRoll = (Array.isArray(statsData) ? statsData[0]?.nom : statsData?.nom) || 'Stat';
+              newRoll = rollStatDice(valeurBaseRoll, m.valeur || 0, nomBaseRoll).total;
             }
-            // Enregistrement forcé en base via le callback
-            await onNewRoll(cacheKey, newRoll)
-            buffRollsCache[cacheKey] = newRoll
-            val = newRoll
+            await onNewRoll(cacheKey, newRoll);
+            buffRollsCache[cacheKey] = newRoll;
+            val = newRoll;
           }
         }
 
-        if (!m.id_stat) continue
+        if (!m.id_stat) continue;
 
         if (m.type_calcul === 'pourcentage') {
-          bonusPct[m.id_stat] = (bonusPct[m.id_stat] || 0) + val
+          bonusPct[m.id_stat] = (bonusPct[m.id_stat] || 0) + val;
         } else {
-          bonusFixes[m.id_stat] = (bonusFixes[m.id_stat] || 0) + val
+          bonusFixes[m.id_stat] = (bonusFixes[m.id_stat] || 0) + val;
         }
       }
-    }
+    };
 
-    // Accumulation
-    // A. Équipements
-    for (const entry of (equipement || [])) await accumulerBonus((entry.items as any)?.modificateurs, entry.id)
-    
-    // B. Modificateurs directs (on utilise l'ID du personnage comme sourceId pour la cacheKey)
-    if (directModifs) await accumulerBonus(directModifs, idPersonnage)
+    for (const entry of equipement) await accumulerBonus(entry.items?.modificateurs, entry.id);
+    if (directModifs.length > 0) await accumulerBonus(directModifs, idPersonnage);
 
-    // C. Compétences
     for (const entry of compAcquises) {
-      const c = entry.competences as any
-      if (!c || c.type === 'passive_toggle') continue
-      if (c.type === 'passive_auto' && !c.condition_type) await accumulerBonus(c.modificateurs, entry.id)
+      const c = entry.competences;
+      if (!c || c.type === 'passive_toggle') continue;
+      if (c.type === 'passive_auto' && !c.condition_type) await accumulerBonus(c.modificateurs, entry.id);
     }
     
-    // Passifs auto avec conditions (tags)
-    const passiveAutoComps = compAcquises.filter(entry => {
-      const c = entry.competences as any
-      return c && c.type === 'passive_auto' && ['item', 'les_deux'].includes(c.condition_type)
-    })
+    const passiveAutoComps = compAcquises.filter((entry: any) => {
+      const c = entry.competences;
+      return c && c.type === 'passive_auto' && ['item', 'les_deux'].includes(c.condition_type);
+    });
 
     for (const entry of passiveAutoComps) {
-      const pc = entry.competences as any
-      const { data: condTags } = await supabase.from('competence_tags').select('id_tag').eq('id_competence', pc.id)
-      const condTagIds = condTags?.map((ct: any) => ct.id_tag) || []
+      const pc = entry.competences;
+      const condTags = resCompTags.success ? resCompTags.data.filter((ct: any) => ct.id_competence === pc.id) : [];
+      const condTagIds = condTags.map((ct: any) => ct.id_tag);
       if (Array.from(activeTagsPool).some(tid => condTagIds.includes(tid))) {
-        await accumulerBonus(pc.modificateurs, entry.id)
+        await accumulerBonus(pc.modificateurs, entry.id);
       }
     }
 
-    // Passifs toggle
-    for (const entry of toggleEntries) await accumulerBonus(entry.competences.modificateurs, entry.id)
+    for (const entry of toggleEntries) await accumulerBonus(entry.competences.modificateurs, entry.id);
 
-    await statsService.cleanupObsoleteBuffRolls(idPersonnage, clesActives)
+    await statsService.cleanupObsoleteBuffRolls(idPersonnage, clesActives);
 
-    const statsCibles = baseStats.filter((d: any) => !['PV Max', 'Mana Max', 'Stamina Max'].includes(d.stats.nom))
+    const statsCibles = baseStats.filter((d: any) => d.stats && !['PV Max', 'Mana Max', 'Stamina Max'].includes(d.stats.nom));
     const formatted = statsCibles.map((d: any) => {
-      const fixe = bonusFixes[d.id_stat] || 0
-      const pct = bonusPct[d.id_stat] || 0
-      const valeurFinale = statsEngine.calculerValeurFinale(d.valeur, fixe, pct)
+      const fixe = bonusFixes[d.id_stat] || 0;
+      const pct = bonusPct[d.id_stat] || 0;
+      const valeurFinale = statsEngine.calculerValeurFinale(d.valeur, fixe, pct);
       return {
         id: d.stats.id,
         nom: d.stats.nom,
@@ -241,9 +209,9 @@ saveBuffRoll: async (idPersonnage: string, cacheKey: string, valeur: number) => 
         base: d.valeur,
         bonus: valeurFinale - d.valeur,
         valeur: valeurFinale
-      }
-    })
+      };
+    });
 
-    return statsEngine.trierStats(formatted, ORDRE_STATS)
+    return statsEngine.trierStats(formatted, ORDRE_STATS);
   }
 }

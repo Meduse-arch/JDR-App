@@ -1,28 +1,47 @@
-import { supabase } from '../supabase';
 import { Item, Modificateur, EffetActif, Stat, CategorieItem } from '../types';
 import { tagsService } from './tagsService';
+
+const db = (window as any).db;
 
 export const itemsService = {
   /**
    * Récupère tous les items d'une session avec leurs modificateurs et effets
    */
   getItems: async (idSession: string): Promise<Item[]> => {
-    const { data, error } = await supabase
-      .from('items')
-      .select('*, modificateurs(*, stats:id_stat(nom), tags(nom)), effets_actifs(*), item_tags(id_tag, tags(id, nom))')
-      .eq('id_session', idSession)
-      .order('nom');
-    
-    if (error) {
-      console.error("Erreur récupération items:", error);
-      return [];
-    }
-    
-    // Reformater pour que tags[] soit à plat
-    return (data || []).map((item: any) => ({
-      ...item,
-      tags: item.item_tags?.map((it: any) => it.tags) || []
-    }));
+    // MIGRATION: était une jointure SQL complexe
+    const resItems = await db.items.getAll();
+    if (!resItems.success) return [];
+    const items = resItems.data.filter((i: any) => i.id_session === idSession).sort((a: any, b: any) => a.nom.localeCompare(b.nom));
+
+    const resModifs = await db.modificateurs.getAll();
+    const resStats = await db.stats.getAll();
+    const resTags = await db.tags.getAll();
+    const resEffets = await db.effets_actifs.getAll();
+    const resItemTags = await db.item_tags.getAll();
+
+    return items.map((item: any) => {
+      const modifs = resModifs.data?.filter((m: any) => m.id_item === item.id).map((m: any) => ({
+        ...m,
+        stats: resStats.data?.find((s: any) => s.id === m.id_stat),
+        tags: resTags.data?.find((t: any) => t.id === m.id_tag)
+      })) || [];
+
+      const effets = resEffets.data?.filter((e: any) => e.id_item === item.id).map((e: any) => ({
+        ...e,
+        est_jet_de: e.est_jet_de === 1
+      })) || [];
+      
+      const itemTags = resItemTags.data?.filter((it: any) => it.id_item === item.id).map((it: any) => 
+        resTags.data?.find((t: any) => t.id === it.id_tag)
+      ).filter(Boolean) || [];
+
+      return {
+        ...item,
+        modificateurs: modifs,
+        effets_actifs: effets,
+        tags: itemTags
+      };
+    });
   },
 
   /**
@@ -35,49 +54,55 @@ export const itemsService = {
     effetsActifs: Partial<EffetActif>[] = [],
     tagIds: string[] = []
   ): Promise<boolean> => {
-    // 1. Update de l'item
-    const { error: itemError } = await supabase
-      .from('items')
-      .update(itemData)
-      .eq('id', idItem);
+    const resItem = await db.items.update(idItem, itemData);
+    if (!resItem.success) return false;
 
-    if (itemError) return false;
-
-    // 2. Tags
     await tagsService.setTagsForItem(idItem, tagIds);
 
-    // 3. Nettoyage des anciens modifs/effets
-    await supabase.from('modificateurs').delete().eq('id_item', idItem);
-    await supabase.from('effets_actifs').delete().eq('id_item', idItem);
-
-    // 3. Réinsertion des modificateurs
-    if (modificateurs.length > 0) {
-      const validModifs = modificateurs.map(m => ({
-        id_item: idItem,
-        id_stat: m.id_stat,
-        type_calcul: m.type_calcul || 'fixe',
-        valeur: m.valeur || 0,
-        id_tag: m.id_tag || null,
-        des_stat_id: m.des_stat_id || null,
-        des_nb: m.des_nb || null,
-        des_faces: m.des_faces || null,
-        nom_affiche: m.nom_affiche || null
-      }));
-      await supabase.from('modificateurs').insert(validModifs);
+    const resModifs = await db.modificateurs.getAll();
+    if (resModifs.success) {
+      const toDelete = resModifs.data.filter((m: any) => m.id_item === idItem);
+      for (const m of toDelete) await db.modificateurs.delete(m.id);
     }
 
-    // 4. Réinsertion des effets
+    const resEffets = await db.effets_actifs.getAll();
+    if (resEffets.success) {
+      const toDelete = resEffets.data.filter((e: any) => e.id_item === idItem);
+      for (const e of toDelete) await db.effets_actifs.delete(e.id);
+    }
+
+    if (modificateurs.length > 0) {
+      for (const m of modificateurs) {
+        await db.modificateurs.create({
+          id: crypto.randomUUID(),
+          id_item: idItem,
+          id_stat: m.id_stat,
+          type_calcul: m.type_calcul || 'fixe',
+          valeur: m.valeur || 0,
+          id_tag: m.id_tag || null,
+          des_stat_id: m.des_stat_id || null,
+          des_nb: m.des_nb || null,
+          des_faces: m.des_faces || null,
+          nom_affiche: m.nom_affiche || null,
+          created_at: new Date().toISOString()
+        });
+      }
+    }
+
     if (effetsActifs.length > 0) {
-      const validEffets = effetsActifs.map(e => ({
-        id_item: idItem,
-        cible_jauge: e.cible_jauge,
-        valeur: e.valeur || 0,
-        des_nb: e.des_nb || null,
-        des_faces: e.des_faces || null,
-        des_stat_id: e.des_stat_id || null,
-        est_jet_de: e.est_jet_de || false
-      }));
-      await supabase.from('effets_actifs').insert(validEffets);
+      for (const e of effetsActifs) {
+        await db.effets_actifs.create({
+          id: crypto.randomUUID(),
+          id_item: idItem,
+          cible_jauge: e.cible_jauge,
+          valeur: e.valeur || 0,
+          des_nb: e.des_nb || null,
+          des_faces: e.des_faces || null,
+          des_stat_id: e.des_stat_id || null,
+          est_jet_de: e.est_jet_de ? 1 : 0,
+          created_at: new Date().toISOString()
+        });
+      }
     }
 
     return true;
@@ -87,15 +112,8 @@ export const itemsService = {
    * Récupère les stats disponibles
    */
   getStats: async (): Promise<Stat[]> => {
-    const { data, error } = await supabase
-      .from('stats')
-      .select('id, nom, description');
-    
-    if (error) {
-      console.error("Erreur récupération stats:", error);
-      return [];
-    }
-    return data || [];
+    const res = await db.stats.getAll();
+    return res.success ? res.data : [];
   },
 
   /**
@@ -109,28 +127,27 @@ export const itemsService = {
     effetsActifs: Partial<EffetActif>[] = [],
     tagIds: string[] = []
   ): Promise<Item | null> => {
-    const { data: newItem, error: itemError } = await supabase
-      .from('items')
-      .insert({
-        ...itemData,
-        id_session: idSession,
-        cree_par: idCompte,
-      })
-      .select()
-      .single();
+    const newItem = {
+      ...itemData,
+      id: crypto.randomUUID(),
+      id_session: idSession,
+      cree_par: idCompte || null,
+      created_at: new Date().toISOString()
+    };
 
-    if (itemError || !newItem) {
-      alert(`Erreur création item : ${itemError?.message}`);
+    const resItem = await db.items.create(newItem);
+    if (!resItem.success) {
+      alert(`Erreur création item : ${resItem.error}`);
       return null;
     }
 
-    // Tags
     await tagsService.setTagsForItem(newItem.id, tagIds);
 
     if (modificateurs.length > 0) {
-      const validModifs = modificateurs
-        .filter(m => m.id_stat)
-        .map(m => ({
+      for (const m of modificateurs) {
+        if (!m.id_stat) continue;
+        await db.modificateurs.create({
+          id: crypto.randomUUID(),
           id_item: newItem.id,
           id_stat: m.id_stat,
           type_calcul: m.type_calcul || 'fixe',
@@ -139,60 +156,37 @@ export const itemsService = {
           des_stat_id: m.des_stat_id || null,
           des_nb: m.des_nb || null,
           des_faces: m.des_faces || null,
-          nom_affiche: m.nom_affiche || null
-        }));
-
-      if (validModifs.length > 0) {
-        const { error: modifError } = await supabase
-          .from('modificateurs')
-          .insert(validModifs);
-        
-        if (modifError) {
-          alert(`Erreur bonus : ${modifError.message}`);
-        }
+          nom_affiche: m.nom_affiche || null,
+          created_at: new Date().toISOString()
+        });
       }
     }
 
     if (effetsActifs.length > 0) {
-      const validEffets = effetsActifs
-        .filter(e => e.cible_jauge)
-        .map(e => ({
+      for (const e of effetsActifs) {
+        if (!e.cible_jauge) continue;
+        await db.effets_actifs.create({
+          id: crypto.randomUUID(),
           id_item: newItem.id,
           cible_jauge: e.cible_jauge,
           valeur: e.valeur || 0,
           des_nb: e.des_nb || null,
           des_faces: e.des_faces || null,
           des_stat_id: e.des_stat_id || null,
-          est_jet_de: e.est_jet_de || false
-        }));
-
-      if (validEffets.length > 0) {
-        const { error: effetError } = await supabase
-          .from('effets_actifs')
-          .insert(validEffets);
-        
-        if (effetError) {
-          alert(`Erreur effets actifs : ${effetError.message}`);
-        }
+          est_jet_de: e.est_jet_de ? 1 : 0,
+          created_at: new Date().toISOString()
+        });
       }
     }
 
-    return newItem;
+    return newItem as Item;
   },
 
   /**
    * Supprime un item
    */
   deleteItem: async (idItem: string): Promise<boolean> => {
-    const { error } = await supabase
-      .from('items')
-      .delete()
-      .eq('id', idItem);
-    
-    if (error) {
-      console.error("Erreur suppression item:", error);
-      return false;
-    }
-    return true;
+    const res = await db.items.delete(idItem);
+    return res.success;
   }
 };

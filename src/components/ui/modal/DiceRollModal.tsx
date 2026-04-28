@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore, type DiceResult } from '../../../store/useStore';
-import { broadcastService } from '../../../services/broadcastService';
+import { peerService } from '../../../services/peerService';
 import RunicDecoder from '../RunicDecoder';
 import { ModalContainer } from './ModalContainer';
 
@@ -41,13 +41,15 @@ const STAT_ABBR: Record<string, string> = { 'Force': 'FOR', 'Agilité': 'AGI', '
 const getAbbreviatedLabel = (label: string) => STAT_ABBR[label] ?? label.substring(0, 3).toUpperCase();
 
 export const DiceRollModal: React.FC = () => {
-  const { diceResult, setDiceResult, sessionActive, mode } = useStore();
+  const { diceResult, setDiceResult, mode } = useStore();
   const [phase, setPhase] = useState<'rolling' | 'rune' | 'reveal'>('rolling');
   const [displayRune, setDisplayRune] = useState('');
 
+  // MIGRATION WebRTC
   useEffect(() => {
-    if (!sessionActive?.id) return;
-    const unsubscribe = broadcastService.subscribe(sessionActive.id, 'dice-roll', (payload) => {
+    const unsubscribe = peerService.onStateUpdate((msg) => {
+      if (msg.entity !== 'dice') return;
+      const payload = msg.payload;
       if (Array.isArray(payload)) { setDiceResult(payload, false); return; }
       const { diceResult, isSecret, senderId, allowedViewers } = payload;
       if (isSecret) {
@@ -65,7 +67,7 @@ export const DiceRollModal: React.FC = () => {
       setDiceResult(diceResult, false);
     });
     return () => unsubscribe();
-  }, [sessionActive?.id, setDiceResult]);
+  }, [setDiceResult]);
 
   const rollInfo = useMemo(() => {
     if (!diceResult || diceResult.length === 0) return null;

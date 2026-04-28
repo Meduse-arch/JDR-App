@@ -1,44 +1,70 @@
-import { supabase } from '../supabase'
 import { Quete, Recompense } from '../types'
+
+const db = (window as any).db;
 
 export const queteService = {
   /**
    * Récupère toutes les quêtes d'une session (Admin/MJ)
    */
   getQuetes: async (sessionId: string): Promise<Quete[]> => {
-    const { data, error } = await supabase
-      .from('quetes')
-      .select('*, quete_recompenses(*, items(nom)), personnage_quetes(*, personnages(nom))')
-      .eq('id_session', sessionId)
-      .order('created_at', { ascending: false })
-    
-    if (error) {
-      console.error("Erreur getQuetes:", error)
-      const { data: fallback } = await supabase
-        .from('quetes')
-        .select('*, quete_recompenses(*, items(nom))')
-        .eq('id_session', sessionId)
-        .order('created_at', { ascending: false })
-      return (fallback || []) as Quete[]
-    }
-    return (data || []) as Quete[]
+    // MIGRATION: jointure SQL en JS
+    const resQuetes = await db.quetes.getAll();
+    if (!resQuetes.success) return [];
+    const quetes = resQuetes.data.filter((q: any) => q.id_session === sessionId).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const resRecompenses = await db.quete_recompenses.getAll();
+    const resItems = await db.items.getAll();
+    const resPersoQuetes = await db.personnage_quetes.getAll();
+    const resPersos = await db.personnages.getAll();
+
+    return quetes.map((q: any) => {
+      const recompenses = resRecompenses.data?.filter((r: any) => r.id_quete === q.id).map((r: any) => ({
+        ...r,
+        items: resItems.data?.find((i: any) => i.id === r.id_item) || null
+      })) || [];
+
+      const personnageQuetes = resPersoQuetes.data?.filter((pq: any) => pq.id_quete === q.id).map((pq: any) => ({
+        ...pq,
+        personnages: resPersos.data?.find((p: any) => p.id === pq.id_personnage) || null,
+        suivie: pq.suivie === 1
+      })) || [];
+
+      return {
+        ...q,
+        quete_recompenses: recompenses,
+        personnage_quetes: personnageQuetes
+      };
+    });
   },
 
   /**
    * Récupère les quêtes assignées à un personnage (Joueur)
    */
   getQuetesPersonnage: async (personnageId: string): Promise<Quete[]> => {
-    const { data, error } = await supabase
-      .from('personnage_quetes')
-      .select('*, quetes(*, quete_recompenses(*, items(nom)))')
-      .eq('id_personnage', personnageId)
-    
-    if (error) return []
+    // MIGRATION: jointure SQL en JS
+    const resPersoQuetes = await db.personnage_quetes.getAll();
+    if (!resPersoQuetes.success) return [];
+    const persoQuetes = resPersoQuetes.data.filter((pq: any) => pq.id_personnage === personnageId);
 
-    return data?.map((d: any) => ({
-      ...d.quetes,
-      suivie: d.suivie || false
-    })) || []
+    const resQuetes = await db.quetes.getAll();
+    const resRecompenses = await db.quete_recompenses.getAll();
+    const resItems = await db.items.getAll();
+
+    return persoQuetes.map((pq: any) => {
+      const quete = resQuetes.data?.find((q: any) => q.id === pq.id_quete);
+      if (!quete) return null;
+
+      const recompenses = resRecompenses.data?.filter((r: any) => r.id_quete === quete.id).map((r: any) => ({
+        ...r,
+        items: resItems.data?.find((i: any) => i.id === r.id_item) || null
+      })) || [];
+
+      return {
+        ...quete,
+        quete_recompenses: recompenses,
+        suivie: pq.suivie === 1
+      };
+    }).filter(Boolean);
   },
 
   /**
@@ -50,95 +76,93 @@ export const queteService = {
     participantsIds: string[], 
     recompenses: Partial<Recompense>[]
   ): Promise<boolean> => {
-    const isUpdate = !!quete.id
+    const isUpdate = !!quete.id;
     
-    // 1. Gérer la quête principale
     const queteData = { 
       titre: quete.titre, 
       description: quete.description, 
       statut: quete.statut || 'En cours',
       image_url: quete.image_url || null,
       id_session: sessionId 
-    }
+    };
 
-    let queteId = quete.id
+    let queteId = quete.id;
     if (isUpdate) {
-      const { error } = await supabase.from('quetes').update(queteData).eq('id', quete.id)
-      if (error) return false
+      const res = await db.quetes.update(quete.id, queteData);
+      if (!res.success) return false;
     } else {
-      const { data, error } = await supabase.from('quetes').insert(queteData).select().single()
-      if (error || !data) return false
-      queteId = data.id
+      queteId = crypto.randomUUID();
+      const res = await db.quetes.create({ ...queteData, id: queteId, created_at: new Date().toISOString() });
+      if (!res.success) return false;
     }
 
-    // 2. Gérer les récompenses (Nettoyage + Réinsertion)
-    await supabase.from('quete_recompenses').delete().eq('id_quete', queteId)
+    const resRec = await db.quete_recompenses.getAll();
+    if (resRec.success) {
+      const toDelete = resRec.data.filter((r: any) => r.id_quete === queteId);
+      for (const r of toDelete) await db.quete_recompenses.delete(r.id);
+    }
+
     if (recompenses.length > 0) {
-      const cleanRewards = recompenses.map(r => ({
-        id_quete: queteId,
-        type: r.type,
-        id_item: r.id_item || null,
-        valeur: r.valeur || 0,
-        description: r.description || null
-      }))
-      await supabase.from('quete_recompenses').insert(cleanRewards)
+      for (const r of recompenses) {
+        await db.quete_recompenses.create({
+          id: crypto.randomUUID(),
+          id_quete: queteId,
+          type: r.type,
+          id_item: r.id_item || null,
+          valeur: r.valeur || 0,
+          description: r.description || null
+        });
+      }
     }
 
-    // 3. Gérer les participants (Delta sync)
-    const { data: current } = await supabase.from('personnage_quetes').select('id_personnage').eq('id_quete', queteId)
-    const currentIds = current?.map(p => p.id_personnage) || []
+    const resPQ = await db.personnage_quetes.getAll();
+    const current = resPQ.data?.filter((pq: any) => pq.id_quete === queteId) || [];
+    const currentIds = current.map((p: any) => p.id_personnage);
     
-    const toDelete = currentIds.filter(id => !participantsIds.includes(id))
-    const toAdd    = participantsIds.filter(id => !currentIds.includes(id))
+    const toDeletePQ = currentIds.filter((id: string) => !participantsIds.includes(id));
+    const toAddPQ    = participantsIds.filter((id: string) => !currentIds.includes(id));
 
-    if (toDelete.length > 0) await supabase.from('personnage_quetes').delete().eq('id_quete', queteId).in('id_personnage', toDelete)
-    if (toAdd.length > 0)    await supabase.from('personnage_quetes').insert(toAdd.map(pid => ({ id_personnage: pid, id_quete: queteId })))
+    for (const pid of toDeletePQ) {
+      await db.personnage_quetes.deleteByFields({ id_quete: queteId, id_personnage: pid });
+    }
+    for (const pid of toAddPQ) {
+      await db.personnage_quetes.create({ id_personnage: pid, id_quete: queteId, suivie: 0 });
+    }
 
-    return true
+    return true;
   },
 
   modifierStatut: async (queteId: string, statut: string) => {
-    const { error } = await supabase.from('quetes').update({ statut }).eq('id', queteId)
-    return !error
+    const res = await db.quetes.update(queteId, { statut });
+    return res.success;
   },
 
   supprimerQuete: async (queteId: string) => {
-    const { error } = await supabase.from('quetes').delete().eq('id', queteId)
-    return !error
+    const res = await db.quetes.delete(queteId);
+    return res.success;
   },
 
   toggleSuivreQuete: async (personnageId: string, queteId: string, suivie: boolean) => {
-    const { error } = await supabase
-      .from('personnage_quetes')
-      .update({ suivie })
-      .eq('id_personnage', personnageId)
-      .eq('id_quete', queteId)
-    return !error
+    await db.personnage_quetes.deleteByFields({ id_personnage: personnageId, id_quete: queteId });
+    const res = await db.personnage_quetes.create({
+      id_personnage: personnageId,
+      id_quete: queteId,
+      suivie: suivie ? 1 : 0
+    });
+    return res.success;
   },
 
   assignerQuete: async (personnageId: string, queteId: string): Promise<boolean> => {
-    const { data: existing } = await supabase
-      .from('personnage_quetes')
-      .select('id_personnage')
-      .eq('id_personnage', personnageId)
-      .eq('id_quete', queteId)
-      .maybeSingle()
-
-    if (existing) return true
-
-    const { error } = await supabase
-      .from('personnage_quetes')
-      .insert({ id_personnage: personnageId, id_quete: queteId })
-
-    return !error
+    const resAll = await db.personnage_quetes.getAll();
+    if (resAll.success && resAll.data.some((pq: any) => pq.id_personnage === personnageId && pq.id_quete === queteId)) {
+      return true;
+    }
+    const res = await db.personnage_quetes.create({ id_personnage: personnageId, id_quete: queteId, suivie: 0 });
+    return res.success;
   },
 
   desassignerQuete: async (personnageId: string, queteId: string): Promise<boolean> => {
-    const { error } = await supabase
-      .from('personnage_quetes')
-      .delete()
-      .eq('id_personnage', personnageId)
-      .eq('id_quete', queteId)
-    return !error
+    const res = await db.personnage_quetes.deleteByFields({ id_personnage: personnageId, id_quete: queteId });
+    return res.success;
   },
 }

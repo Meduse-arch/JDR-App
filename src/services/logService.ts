@@ -1,19 +1,25 @@
-import { supabase } from '../supabase'
 import { LogActivite } from '../types'
+
+const db = (window as any).db;
 
 export const logService = {
   async logAction(entry: Omit<LogActivite, 'id' | 'created_at'>) {
-    await supabase.from('logs_activite').insert(entry)
+    await db.logs_activite.create({
+      ...entry,
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString()
+    });
   },
+  
   async getLogs(sessionId: string, personnageId?: string) {
-    let query = supabase
-      .from('logs_activite')
-      .select('*')
-      .eq('id_session', sessionId)
-      .order('created_at', { ascending: false })
-      .limit(200)
-    if (personnageId) query = query.eq('id_personnage', personnageId)
-    const { data } = await query
-    return data || []
+    const res = await db.logs_activite.getAll();
+    if (!res.success) return [];
+    
+    let logs = res.data.filter((l: any) => l.id_session === sessionId);
+    if (personnageId) {
+      logs = logs.filter((l: any) => l.id_personnage === personnageId);
+    }
+    
+    return logs.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 200);
   }
 }

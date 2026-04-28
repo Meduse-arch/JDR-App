@@ -9,7 +9,7 @@ import { ConfirmButton } from '../../components/ui/ConfirmButton'
 import RunicDecoder from '../../components/ui/RunicDecoder'
 import { Globe, X, Search, User, Calendar, Crown, Trash2, PlusCircle, MoveRight, Map, Compass } from 'lucide-react'
 
-type Session = { id: string; nom: string; description: string; created_at?: string; cree_par: string }
+type Session = { id: string; nom: string; description: string; created_at?: string; cree_par: string; folder_path?: string }
 type Compte  = { id: string; pseudo: string }
 
 export default function Sessions() {
@@ -26,6 +26,9 @@ export default function Sessions() {
   const [recherche, setRecherche] = useState('')
   const [filtreMJ, setFiltreMJ] = useState('')
   const [filtreDate, setFiltreDate] = useState('')
+
+  const [peerIdInput, setPeerIdInput] = useState('')
+  const [isJoining, setIsJoining] = useState(false)
 
   useEffect(() => { chargerSessions() }, [])
 
@@ -70,7 +73,40 @@ export default function Sessions() {
   }
 
   const rejoindreSession = async (session: Session) => {
+    // Si c'est le MJ, on doit dire à Electron de charger la base de données SQLite de la campagne !
+    if (compte?.role === 'mj' || compte?.role === 'admin') {
+      const db = (window as any).db;
+      if (session.folder_path) {
+         try {
+           await db.system.loadSession(session.folder_path);
+         } catch (e) {
+           console.error("Failed to load session DB", e);
+         }
+      }
+    }
     setEnteringSession({ id: session.id, nom: session.nom })
+  }
+
+  const handleRejoindreDistante = async () => {
+    if (!peerIdInput || !compte) return
+    setIsJoining(true)
+    try {
+      const monPeerId = `joueur-${compte.id}-${Date.now().toString().slice(-6)}`
+      const { peerService } = await import('../../services/peerService')
+      
+      await peerService.initAsJoueur(peerIdInput, monPeerId)
+      
+      // Demander le resync qui mettra à jour le store
+      setTimeout(() => {
+        peerService.requestResync(compte.id)
+        setEnteringSession({ id: 'remote-session', nom: 'Connexion en cours...' })
+      }, 1000)
+    } catch (e) {
+      console.error("Erreur de connexion P2P:", e)
+      alert("Impossible de rejoindre le MJ. Vérifiez le code de connexion.")
+    } finally {
+      setIsJoining(false)
+    }
   }
 
   // ─── RENDU MODE TAROT ──────────────────────────────────────────────────────
@@ -252,6 +288,29 @@ export default function Sessions() {
             </div>
           </Card>
         )}
+
+        {/* Rejoindre P2P */}
+        <div className="flex flex-col md:flex-row gap-4 bg-theme-main/5 border border-theme-main/20 p-6 rounded-sm mb-12 medieval-border items-end shadow-xl">
+          <div className="flex-1 w-full">
+            <label className="text-[10px] font-cinzel font-black uppercase tracking-widest opacity-60 ml-1 mb-2 block">
+              Rejoindre une aventure à distance
+            </label>
+            <Input
+              type="text"
+              placeholder="Code de connexion du MJ (ex: sigil-mj123)"
+              value={peerIdInput}
+              onChange={e => setPeerIdInput(e.target.value)}
+              className="font-mono bg-black/40 font-bold"
+            />
+          </div>
+          <Button 
+            onClick={handleRejoindreDistante} 
+            disabled={!peerIdInput || isJoining}
+            className="w-full md:w-auto font-cinzel font-black tracking-widest px-8 shadow-theme-main/10 whitespace-nowrap"
+          >
+            {isJoining ? 'Connexion...' : 'REJOINDRE (P2P)'}
+          </Button>
+        </div>
 
         {/* Liste des sessions */}
         {sessionsFiltrees.length === 0 ? (

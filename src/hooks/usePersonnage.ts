@@ -3,7 +3,7 @@ import { supabase } from '../supabase'
 import { useStore, type Personnage } from '../store/useStore'
 import { personnageService } from '../services/personnageService'
 import { useRealtimeQuery } from './useRealtimeQuery'
-import { broadcastService } from '../services/broadcastService'
+import { peerService } from '../services/peerService'
 
 export function usePersonnage() {
   const compte = useStore(s => s.compte)
@@ -91,17 +91,20 @@ export function usePersonnage() {
   }, [chargerPersonnage])
 
   // Realtime Broadcasts (Ressources)
+  // MIGRATION WebRTC
   useEffect(() => {
-    if (!sessionActive?.id || !personnage) return;
+    if (!personnage) return;
     
-    const unsubscribe = broadcastService.subscribe(sessionActive.id, 'update-ressource', (payload) => {
-      if (payload.id_personnage === personnage.id) {
+    const unsubscribe = peerService.onStateUpdate((msg) => {
+      if (msg.entity !== 'personnage') return;
+      const payload = msg.payload;
+      if (payload.id_personnage === personnage.id && payload.type) {
         setPersonnage(prev => prev ? { ...prev, [payload.type]: payload.valeur } : prev);
       }
     });
 
     return () => unsubscribe();
-  }, [sessionActive?.id, personnage?.id]);
+  }, [personnage?.id]);
 
   // Realtime
   useRealtimeQuery({

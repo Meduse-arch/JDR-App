@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import { useRealtimeQuery } from './useRealtimeQuery'
 import { chatService, ChatMessage } from '../services/chatService'
-import { broadcastService } from '../services/broadcastService'
+import { peerService } from '../services/peerService'
 import { supabase } from '../supabase'
 
 /**
@@ -22,18 +22,21 @@ export function useMapChat(channelId: string | null) {
   useEffect(() => { canalIdRef.current = canalId }, [canalId])
 
   // ── Écoute des messages en Broadcast (Mode Hybride) ────────────────────────
+  // MIGRATION WebRTC
   useEffect(() => {
-    if (!sessionActive || !compte) return
-    const unsubscribe = broadcastService.subscribe(sessionActive.id, 'chat-message', (msg: ChatMessage) => {
-      if (canalIdRef.current === msg.id_canal && msg.id_compte !== compte.id) {
+    if (!compte) return;
+    const unsubscribe = peerService.onStateUpdate((msg) => {
+      if (msg.entity !== 'chat') return;
+      const chatMsg = msg.payload as ChatMessage;
+      if (canalIdRef.current === chatMsg.id_canal && chatMsg.id_compte !== compte.id) {
         setMessages(prev => {
-          if (prev.some(m => m.id === msg.id)) return prev
-          return [...prev, msg]
-        })
+          if (prev.some(m => m.id === chatMsg.id)) return prev;
+          return [...prev, chatMsg];
+        });
       }
-    })
-    return () => unsubscribe()
-  }, [sessionActive, compte])
+    });
+    return () => unsubscribe();
+  }, [compte]);
 
   // ── Résoudre l'id du canal chat à partir du channelId map ─────────────────
   const resoudreCanalId = useCallback(async () => {
@@ -51,7 +54,6 @@ export function useMapChat(channelId: string | null) {
       setCanalId(data.id)
     } else {
       // Si le canal n'existe pas, on le crée
-      // (Cas des maps créées avant cette fonctionnalité ou erreur de création initiale)
       try {
         const membres = await chatService.getMembresSession(sessionActive.id)
         const ids = membres.map(m => m.id)
@@ -60,8 +62,6 @@ export function useMapChat(channelId: string | null) {
         if (nouveauCanal) {
           setCanalId(nouveauCanal.id)
         } else {
-          // Si la création a échoué, il est possible qu'un autre utilisateur l'ait créé entre-temps
-          // On tente une dernière fois de le récupérer
           const { data: retryData } = await supabase
             .from('chat_canaux')
             .select('id')
@@ -116,17 +116,14 @@ export function useMapChat(channelId: string | null) {
     options?: {
       image_url?: string
       modeIC?: boolean
-      /** Permet au MJ de parler sous le nom d'un token/personnage spécifique */
       nomICOverride?: string
     }
   ): Promise<boolean> => {
     if (!sessionActive || !compte) {
-      console.warn('Impossible d\'envoyer le message: session ou compte manquant')
       return false
     }
     
     if (!canalIdRef.current) {
-      console.warn('Impossible d\'envoyer le message: canalId non résolu')
       return false
     }
 
@@ -135,10 +132,6 @@ export function useMapChat(channelId: string | null) {
     setEnvoi(true)
     let success = false
 
-    // Résolution du nom affiché :
-    // 1. Si MJ avec un perso choisi → nomICOverride
-    // 2. Si mode IC classique (joueur) → nom du personnageJoueur
-    // 3. Sinon → pseudo du compte
     let nomFinal: string
     if (options?.nomICOverride) {
       nomFinal = options.nomICOverride
@@ -161,7 +154,12 @@ export function useMapChat(channelId: string | null) {
     setMessages(prev => [...prev, tempMsg])
     
     // Broadcast instantané pour le mode Hybride
-    broadcastService.send(sessionActive.id, 'chat-message', tempMsg)
+    // MIGRATION WebRTC
+    if (peerService.isHost) {
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'chat', payload: tempMsg });
+    } else {
+      peerService.sendToMJ({ type: 'ACTION', kind: 'chat_message', payload: tempMsg });
+    }
 
     try {
       const result = await chatService.envoyerMessage({

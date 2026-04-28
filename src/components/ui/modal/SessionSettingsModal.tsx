@@ -42,9 +42,11 @@ export function SessionSettingsModal({ onClose }: SessionSettingsModalProps) {
         parametres: params
       })
 
-      // Diffuser les nouveaux paramètres à tous les joueurs connectés
-      import('../../../services/broadcastService').then(({ broadcastService }) => {
-        broadcastService.send(sessionActive.id, 'settings-update', params)
+      // MIGRATION WebRTC
+      import('../../../services/peerService').then(({ peerService }) => {
+        if (peerService.isHost) {
+          peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { action: 'settings-update', params } })
+        }
       })
 
       onClose()

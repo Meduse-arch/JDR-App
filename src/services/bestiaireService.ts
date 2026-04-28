@@ -1,38 +1,29 @@
-import { supabase } from '../supabase'
 import { PersonnageType } from '../store/useStore'
+
+const db = (window as any).db;
 
 export const bestiaireService = {
   /**
    * Récupère les modèles
    */
   getTemplates: async (sessionId: string, type: PersonnageType) => {
-    const { data } = await supabase
-      .from('v_personnages')
-      .select('*')
-      .eq('id_session', sessionId)
-      .eq('is_template', true)
-      .eq('type', type)
-    return data || []
+    // MIGRATION: était une vue SQL (v_personnages)
+    const res = await db.personnages.getAll();
+    if (!res.success) return [];
+    return res.data.filter((p: any) => p.id_session === sessionId && p.is_template === 1 && p.type === type);
   },
 
   /**
    * Récupère les instances actives
    */
   getInstances: async (sessionId: string, type: PersonnageType | PersonnageType[]) => {
-    const query = supabase
-      .from('v_personnages')
-      .select('*')
-      .eq('id_session', sessionId)
-      .eq('is_template', false)
-    
-    if (Array.isArray(type)) {
-      query.in('type', type)
-    } else {
-      query.eq('type', type)
-    }
-
-    const { data } = await query
-    return data || []
+    const res = await db.personnages.getAll();
+    if (!res.success) return [];
+    return res.data.filter((p: any) => {
+      if (p.id_session !== sessionId || p.is_template === 1) return false;
+      if (Array.isArray(type)) return type.includes(p.type);
+      return p.type === type;
+    });
   },
 
   /**
@@ -44,49 +35,75 @@ export const bestiaireService = {
         const nomFinal = count > 1 ? `${options?.nom || template.nom} ${i + 1}` : (options?.nom || template.nom)
         const typeFinal = options?.type || template.type
 
+        const newPersoId = crypto.randomUUID();
         // 1. Copie du personnage
-        const { data: nouveau, error: errPerso } = await supabase
-          .from('personnages')
-          .insert({
-            id_session: sessionId,
-            nom: nomFinal,
-            type: typeFinal,
-            is_template: false,
-            template_id: template.id,
-            hp: template.hp_max,
-            mana: template.mana_max,
-            stam: template.stam_max,
-          })
-          .select().single()
+        const resPerso = await db.personnages.create({
+          id: newPersoId,
+          id_session: sessionId,
+          nom: nomFinal,
+          type: typeFinal,
+          is_template: 0,
+          template_id: template.id,
+          hp: template.hp_max || 0,
+          mana: template.mana_max || 0,
+          stam: template.stam_max || 0,
+          created_at: new Date().toISOString()
+        });
 
-        if (errPerso || !nouveau) {
-          console.error("Erreur instanciation perso:", errPerso)
-          alert(`Erreur base de données : ${errPerso?.message || 'Impossible de créer le personnage'}. \n\nAs-tu bien ajouté le type 'Boss' via la commande SQL ?`)
-          continue
+        if (!resPerso.success) {
+          console.error("Erreur instanciation perso:", resPerso.error);
+          continue;
         }
 
         // 2. Copie des stats
-        const { data: stats } = await supabase.from('personnage_stats').select('id_stat, valeur').eq('id_personnage', template.id)
-        if (stats && stats.length > 0) {
-          await supabase.from('personnage_stats').insert(
-            stats.map(s => ({ id_personnage: nouveau.id, id_stat: s.id_stat, valeur: s.valeur }))
-          )
+        const resStats = await db.personnage_stats.getAll();
+        if (resStats.success) {
+          const stats = resStats.data.filter((s: any) => s.id_personnage === template.id);
+          for (const s of stats) {
+            await db.personnage_stats.create({
+              id: crypto.randomUUID(),
+              id_personnage: newPersoId,
+              id_stat: s.id_stat,
+              valeur: s.valeur
+            });
+          }
         }
 
         // 3. Copie de l'inventaire
-        const { data: inv } = await supabase.from('inventaire').select('id_item, quantite, equipe').eq('id_personnage', template.id)
-        if (inv && inv.length > 0) {
-          await supabase.from('inventaire').insert(inv.map(item => ({ id_personnage: nouveau.id, id_item: item.id_item, quantite: item.quantite, equipe: item.equipe })))
+        const resInv = await db.inventaire.getAll();
+        if (resInv.success) {
+          const inv = resInv.data.filter((item: any) => item.id_personnage === template.id);
+          for (const item of inv) {
+            await db.inventaire.create({
+              id: crypto.randomUUID(),
+              id_personnage: newPersoId,
+              id_item: item.id_item,
+              quantite: item.quantite,
+              equipe: item.equipe
+            });
+          }
         }
 
         // 4. Copie des compétences
-        const { data: comp } = await supabase.from('personnage_competences').select('id_competence, niveau').eq('id_personnage', template.id)
-        if (comp && comp.length > 0) {
-          await supabase.from('personnage_competences').insert(comp.map(c => ({ id_personnage: nouveau.id, id_competence: c.id_competence, niveau: c.niveau })))
+        const resComp = await db.personnage_competences.getAll();
+        if (resComp.success) {
+          const comp = resComp.data.filter((c: any) => c.id_personnage === template.id);
+          for (const c of comp) {
+            await db.personnage_competences.create({
+              id: crypto.randomUUID(),
+              id_personnage: newPersoId,
+              id_competence: c.id_competence,
+              niveau: c.niveau,
+              is_active: c.is_active || 0
+            });
+          }
         }
 
         // 5. Lien Session
-        await supabase.from('session_joueurs').insert({ id_session: sessionId, id_personnage: nouveau.id })
+        await db.session_joueurs.create({
+          id_session: sessionId,
+          id_personnage: newPersoId
+        });
       }
       return true
     } catch (e) { 
@@ -99,12 +116,12 @@ export const bestiaireService = {
    * Supprimer
    */
   supprimerTemplate: async (id: string) => {
-    const { error } = await supabase.from('personnages').delete().eq('id', id)
-    return !error
+    const res = await db.personnages.delete(id);
+    return res.success;
   },
 
   supprimerInstance: async (id: string) => {
-    const { error } = await supabase.from('personnages').delete().eq('id', id)
-    return !error
+    const res = await db.personnages.delete(id);
+    return res.success;
   }
 }

@@ -1,5 +1,7 @@
-import { supabase } from '../supabase'
-import { broadcastService } from './broadcastService'
+import { peerService } from './peerService'
+import { useStore } from '../store/useStore'
+
+const db = (window as any).db;
 
 // Stockage global des timers pour le debouncing
 const debounceTimers: Record<string, NodeJS.Timeout> = {};
@@ -13,210 +15,170 @@ const executerDebounced = (key: string, action: () => Promise<void>, delay = 300
 };
 
 export const personnageService = {
-  /**
-   * Modifie les Points de Vie de manière HYBRIDE (Broadcast immédiat + DB debouncé)
-   */
-  updatePVHybride: (sessionId: string, idPersonnage: string, nouvelleValeur: number, max: number) => {
+  updatePVHybride: (_sessionId: string, idPersonnage: string, nouvelleValeur: number, max: number) => {
     const pvSecurises = Math.max(0, Math.min(max, nouvelleValeur));
     
-    // 1. Broadcast immédiat pour fluidité
-    broadcastService.send(sessionId, 'update-ressource', {
-      id_personnage: idPersonnage,
-      type: 'hp',
-      valeur: pvSecurises
-    });
-
-    // 2. DB debouncée
-    executerDebounced(`pv-${idPersonnage}`, async () => {
-      const { error } = await supabase
-        .from('personnages')
-        .update({ hp: pvSecurises })
-        .eq('id', idPersonnage);
-      if (error) console.error("Erreur mise à jour PV:", error);
-    });
+    // MIGRATION WebRTC
+    if (peerService.isHost) {
+      // Côté MJ : broadcast à tout le monde et écriture SQLite
+      peerService.broadcastToAll({
+        type: 'STATE_UPDATE',
+        entity: 'personnage',
+        payload: { id_personnage: idPersonnage, type: 'hp', valeur: pvSecurises }
+      });
+      executerDebounced(`pv-${idPersonnage}`, async () => {
+        await db.personnages.update(idPersonnage, { hp: pvSecurises });
+      });
+    } else {
+      // Côté Joueur : envoyer une intention d'action
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'update_resource',
+        payload: { id_personnage: idPersonnage, type: 'hp', valeur: pvSecurises }
+      });
+    }
   },
 
-  /**
-   * Modifie le Mana de manière HYBRIDE
-   */
-  updateManaHybride: (sessionId: string, idPersonnage: string, nouvelleValeur: number, max: number) => {
+  updateManaHybride: (_sessionId: string, idPersonnage: string, nouvelleValeur: number, max: number) => {
     const manaSecurise = Math.max(0, Math.min(max, nouvelleValeur));
     
-    broadcastService.send(sessionId, 'update-ressource', {
-      id_personnage: idPersonnage,
-      type: 'mana',
-      valeur: manaSecurise
-    });
-
-    executerDebounced(`mana-${idPersonnage}`, async () => {
-      const { error } = await supabase
-        .from('personnages')
-        .update({ mana: manaSecurise })
-        .eq('id', idPersonnage);
-      if (error) console.error("Erreur mise à jour Mana:", error);
-    });
+    // MIGRATION WebRTC
+    if (peerService.isHost) {
+      peerService.broadcastToAll({
+        type: 'STATE_UPDATE',
+        entity: 'personnage',
+        payload: { id_personnage: idPersonnage, type: 'mana', valeur: manaSecurise }
+      });
+      executerDebounced(`mana-${idPersonnage}`, async () => {
+        await db.personnages.update(idPersonnage, { mana: manaSecurise });
+      });
+    } else {
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'update_resource',
+        payload: { id_personnage: idPersonnage, type: 'mana', valeur: manaSecurise }
+      });
+    }
   },
 
-  /**
-   * Modifie la Stamina de manière HYBRIDE
-   */
-  updateStaminaHybride: (sessionId: string, idPersonnage: string, nouvelleValeur: number, max: number) => {
+  updateStaminaHybride: (_sessionId: string, idPersonnage: string, nouvelleValeur: number, max: number) => {
     const stamSecurise = Math.max(0, Math.min(max, nouvelleValeur));
     
-    broadcastService.send(sessionId, 'update-ressource', {
-      id_personnage: idPersonnage,
-      type: 'stam',
-      valeur: stamSecurise
-    });
-
-    executerDebounced(`stam-${idPersonnage}`, async () => {
-      const { error } = await supabase
-        .from('personnages')
-        .update({ stam: stamSecurise })
-        .eq('id', idPersonnage);
-      if (error) console.error("Erreur mise à jour Stamina:", error);
-    });
+    // MIGRATION WebRTC
+    if (peerService.isHost) {
+      peerService.broadcastToAll({
+        type: 'STATE_UPDATE',
+        entity: 'personnage',
+        payload: { id_personnage: idPersonnage, type: 'stam', valeur: stamSecurise }
+      });
+      executerDebounced(`stam-${idPersonnage}`, async () => {
+        await db.personnages.update(idPersonnage, { stam: stamSecurise });
+      });
+    } else {
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'update_resource',
+        payload: { id_personnage: idPersonnage, type: 'stam', valeur: stamSecurise }
+      });
+    }
   },
 
-  /**
-   * Modifie les Points de Vie (soin ou dégâts)
-   */
   updatePV: async (idPersonnage: string, nouvelleValeur: number, max: number) => {
-    // On s'assure que les PV ne dépassent pas le max et ne tombent pas sous 0
-    const pvSecurises = Math.max(0, Math.min(max, nouvelleValeur))
-    
-    const { error } = await supabase
-      .from('personnages')
-      .update({ hp: pvSecurises })
-      .eq('id', idPersonnage)
-    
-    if (error) console.error("Erreur mise à jour PV:", error)
-    return !error
+    const pvSecurises = Math.max(0, Math.min(max, nouvelleValeur));
+    const res = await db.personnages.update(idPersonnage, { hp: pvSecurises });
+    return res.success;
   },
 
-  /**
-   * Modifie le Mana
-   */
   updateMana: async (idPersonnage: string, nouvelleValeur: number, max: number) => {
-    const manaSecurise = Math.max(0, Math.min(max, nouvelleValeur))
-    
-    const { error } = await supabase
-      .from('personnages')
-      .update({ mana: manaSecurise })
-      .eq('id', idPersonnage)
-      
-    return !error
+    const manaSecurise = Math.max(0, Math.min(max, nouvelleValeur));
+    const res = await db.personnages.update(idPersonnage, { mana: manaSecurise });
+    return res.success;
   },
 
-  /**
-   * Modifie la Stamina
-   */
   updateStamina: async (idPersonnage: string, nouvelleValeur: number, max: number) => {
-    const stamSecurise = Math.max(0, Math.min(max, nouvelleValeur))
-    
-    const { error } = await supabase
-      .from('personnages')
-      .update({ stam: stamSecurise })
-      .eq('id', idPersonnage)
-      
-    return !error
+    const stamSecurise = Math.max(0, Math.min(max, nouvelleValeur));
+    const res = await db.personnages.update(idPersonnage, { stam: stamSecurise });
+    return res.success;
   },
 
-  /**
-   * Modifie plusieurs champs d'un personnage à la fois
-   */
   updatePersonnage: async (idPersonnage: string, updates: Partial<any>) => {
-    const { error } = await supabase
-      .from('personnages')
-      .update(updates)
-      .eq('id', idPersonnage)
-    
-    if (error) console.error("Erreur mise à jour personnage:", error)
-    return !error
+    const res = await db.personnages.update(idPersonnage, updates);
+    return res.success;
   },
 
-  /**
-   * Recalcule les statistiques et ressources maximum d'un personnage
-   * Prend en compte les stats de base + les bonus d'équipement
-   */
   recalculerStats: async (idPersonnage: string) => {
     try {
-      const { data: perso, error: persoError } = await supabase
-        .from('v_personnages')
-        .select('*')
-        .eq('id', idPersonnage)
-        .single()
+      const resPerso = await db.personnages.getById(idPersonnage);
+      if (!resPerso.success || !resPerso.data) return false;
+      const perso = resPerso.data;
 
-      if (persoError || !perso) return false
+      const store = useStore.getState();
+      const personnageStore = store.personnageJoueur?.id === idPersonnage 
+        ? store.personnageJoueur 
+        : store.pnjControle?.id === idPersonnage 
+          ? store.pnjControle 
+          : null;
+
+      const hpMax = perso.hp_max ?? personnageStore?.hp_max ?? perso.hp;
+      const manaMax = perso.mana_max ?? personnageStore?.mana_max ?? perso.mana;
+      const stamMax = perso.stam_max ?? personnageStore?.stam_max ?? perso.stam;
 
       const updates = {
-        hp: Math.min(perso.hp, perso.hp_max),
-        mana: Math.min(perso.mana, perso.mana_max),
-        stam: Math.min(perso.stam, perso.stam_max)
-      }
+        hp: Math.min(perso.hp, hpMax),
+        mana: Math.min(perso.mana, manaMax),
+        stam: Math.min(perso.stam, stamMax)
+      };
 
       if (updates.hp !== perso.hp || updates.mana !== perso.mana || updates.stam !== perso.stam) {
-        const { data: updatedPerso, error: updateError } = await supabase
-          .from('personnages')
-          .update(updates)
-          .eq('id', idPersonnage)
-          .select()
-          .single()
-
-        if (updateError) console.error("Erreur recalculerStats:", updateError)
-        return updatedPerso || null
+        const updateRes = await db.personnages.update(idPersonnage, updates);
+        return updateRes.success ? updateRes.data : null;
       }
-      return perso
+      return perso;
     } catch (error) {
       console.error("Exception dans recalculerStats:", error)
       return null
     }
   },
 
-  /**
-   * Modifie une statistique de base d'un personnage
-   */
   updateBaseStat: async (idPersonnage: string, idStat: string, delta: number) => {
-    // 1. Récupérer la valeur actuelle
-    const { data, error: fetchError } = await supabase
-      .from('personnage_stats')
-      .select('valeur')
-      .eq('id_personnage', idPersonnage)
-      .eq('id_stat', idStat)
-      .single()
-    
-    if (fetchError || !data) return false
+    const resStats = await db.personnage_stats.getAll();
+    if (!resStats.success) return false;
+    const data = resStats.data.find((s: any) => s.id_personnage === idPersonnage && s.id_stat === idStat);
+    if (!data) return false;
 
-    // 2. Mettre à jour la valeur
-    const { error: updateError } = await supabase
-      .from('personnage_stats')
-      .update({ valeur: data.valeur + delta })
-      .eq('id_personnage', idPersonnage)
-      .eq('id_stat', idStat)
-    
-    if (updateError) return false
+    const updateRes = await db.personnage_stats.update(data.id, { valeur: data.valeur + delta });
+    if (!updateRes.success) return false;
 
-    // 3. Recalculer les ressources max car les stats de base influent sur HP/Mana/Stam max
-    await personnageService.recalculerStats(idPersonnage)
-    return true
+    await personnageService.recalculerStats(idPersonnage);
+    return true;
   },
 
-  /**
-   * Supprime un personnage et toutes ses données liées
-   */
   deletePersonnage: async (idPersonnage: string) => {
-    // Les suppressions en cascade devraient être gérées par la DB, 
-    // mais on peut aussi le faire explicitement si besoin.
-    // Ici on suit la logique existante du composant.
-    await supabase.from('session_joueurs').delete().eq('id_personnage', idPersonnage)
-    await supabase.from('personnage_stats').delete().eq('id_personnage', idPersonnage)
-    await supabase.from('inventaire').delete().eq('id_personnage', idPersonnage)
-    await supabase.from('personnage_competences').delete().eq('id_personnage', idPersonnage)
-    await supabase.from('personnage_quetes').delete().eq('id_personnage', idPersonnage)
-    await supabase.from('map_tokens').delete().eq('id_personnage', idPersonnage)
-    const { error } = await supabase.from('personnages').delete().eq('id', idPersonnage)
+    await db.session_joueurs.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
     
-    if (error) console.error("Erreur suppression personnage:", error)
-    return !error
+    const resPStats = await db.personnage_stats.getAll();
+    if (resPStats.success) {
+       for (const s of resPStats.data.filter((x: any) => x.id_personnage === idPersonnage)) await db.personnage_stats.delete(s.id);
+    }
+    
+    const resInv = await db.inventaire.getAll();
+    if (resInv.success) {
+       for (const i of resInv.data.filter((x: any) => x.id_personnage === idPersonnage)) await db.inventaire.delete(i.id);
+    }
+    
+    const resPComp = await db.personnage_competences.getAll();
+    if (resPComp.success) {
+       for (const c of resPComp.data.filter((x: any) => x.id_personnage === idPersonnage)) await db.personnage_competences.delete(c.id);
+    }
+    
+    await db.personnage_quetes.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
+    
+    const resMapTok = await db.map_tokens.getAll();
+    if (resMapTok.success) {
+       for (const t of resMapTok.data.filter((x: any) => x.id_personnage === idPersonnage)) await db.map_tokens.delete(t.id);
+    }
+
+    const res = await db.personnages.delete(idPersonnage);
+    return res.success;
   }
 }
