@@ -36,6 +36,13 @@ export default function SelectionJoueur() {
 
       const fetchList = () => {
         if (peerService.peer && !peerService.isHost) {
+          // SE RE-PRÉSENTER (au cas où)
+          peerService.sendToMJ({
+            type: 'ACTION',
+            kind: 'player_identity',
+            payload: { id: compte.id, pseudo: compte.pseudo }
+          });
+          
           console.log("Envoi requête LIST_CHARACTERS...");
           peerService.requestListCharacters(compte.id);
         }

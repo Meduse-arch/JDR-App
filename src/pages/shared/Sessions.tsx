@@ -95,6 +95,13 @@ export default function Sessions() {
       
       await peerService.initAsJoueur(peerIdInput, monPeerId)
       
+      // SE PRÉSENTER AU MJ IMMÉDIATEMENT
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'player_identity',
+        payload: { id: compte.id, pseudo: compte.pseudo }
+      });
+
       // On simule une entrée en session
       setEnteringSession({ id: 'remote-session', nom: 'Session Distante' })
     } catch (e) {
