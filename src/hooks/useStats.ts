@@ -36,28 +36,35 @@ export function useStats() {
     // --- LOGIQUE JOUEUR (Source: Store WebRTC) ---
     if (roleEffectif === 'joueur') {
       const perso = pnjControle || personnageJoueur;
-      // On accepte soit perso.stats (nouvelle version), soit on attend le MJ
       if (perso && perso.id === characterId) {
         const rawStats = perso.stats || [];
-        console.log(`[useStats] Hydratation stats pour le joueur (${rawStats.length} stats reçues, bibliothèque de ${allStats.length} noms)`);
+        console.log(`[useStats] Hydratation stats pour le joueur (${rawStats.length} stats reçues)`);
         
+        // Bibliothèque de secours en dur pour les stats de base (IDs 1 à 7)
+        const FALLBACK_NAMES: Record<string, string> = {
+          '1': 'Force', '2': 'Agilité', '3': 'Constitution', 
+          '4': 'Intelligence', '5': 'Sagesse', '6': 'Charisme', '7': 'Perception'
+        };
+
         const formattedStats = rawStats.map((s: any) => {
           const ref = allStats.find((r: any) => r.id === s.id_stat);
+          const fallbackNom = FALLBACK_NAMES[s.id_stat] || "Stat";
+          
           return {
             id: s.id_stat,
-            nom: ref?.nom || "Stat",
+            nom: ref?.nom || fallbackNom,
             valeur: s.valeur ?? 0,
             base: s.base ?? s.valeur ?? 0,
             bonus: s.bonus ?? 0,
             description: ref?.description || ""
           };
-        }).filter(s => s.nom !== "Stat" || allStats.length === 0);
+        });
         
         const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme'];
         const sorted = statsEngine.trierStats(formattedStats, ORDRE_STATS);
         
         setStats(sorted);
-        if (rawStats.length > 0 || allStats.length > 0) {
+        if (rawStats.length > 0) {
           setChargement(false);
         }
         return;

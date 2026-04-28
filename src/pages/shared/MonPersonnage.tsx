@@ -28,9 +28,21 @@ export default function MonPersonnage() {
   useEffect(() => {
     const handleResize = () => setVh(window.innerHeight)
     window.addEventListener('resize', handleResize)
+    
+    // Pour le pseudo du joueur, on essaie de le trouver via les comptes de la session ou une lib
+    // Mais on évite de bloquer/crash si pas dispo en local
     if (personnage?.lie_au_compte) {
-      const db = (window as any).db;
-      db.comptes.getById(personnage.lie_au_compte).then((res: any) => { if (res.success && res.data) setPseudoJoueur(res.data.pseudo) })
+      if (peerService.isHost) {
+        const db = (window as any).db;
+        db.comptes.getById(personnage.lie_au_compte).then((res: any) => { if (res.success && res.data) setPseudoJoueur(res.data.pseudo) })
+      } else {
+        // Côté joueur, on pourrait l'avoir dans un futur message d'identité globale
+        // Pour l'instant on laisse vide ou on met le pseudo du compte si c'est le nôtre
+        const compte = useStore.getState().compte;
+        if (compte && compte.id === personnage.lie_au_compte) {
+          setPseudoJoueur(compte.pseudo);
+        }
+      }
     }
     return () => window.removeEventListener('resize', handleResize)
   }, [personnage?.lie_au_compte])
