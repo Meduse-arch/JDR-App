@@ -1,5 +1,4 @@
 import { useCallback } from 'react'
-import { supabase } from '../supabase'
 import { useStore } from '../store/useStore'
 import { rollDice, rollStatDice } from '../utils/rollDice'
 import { useToast } from './useToast'
@@ -53,10 +52,14 @@ export function useItemUsage(
           } else {
             // Dé sur stat
             try {
-              const { data: statsPerso } = await supabase.from('personnage_stats').select('valeur, stats(nom)').eq('id_personnage', personnage.id).eq('id_stat', e.des_stat_id).single()
-              const statsData: any = statsPerso?.stats;
-              statNom = (Array.isArray(statsData) ? statsData[0]?.nom : statsData?.nom) || 'Stat';
-              valeurStat = statsPerso?.valeur || 10;
+              const db = (window as any).db;
+              const resPStats = await db.personnage_stats.getAll();
+              const pStat = resPStats.success ? resPStats.data.find((s: any) => s.id_personnage === personnage.id && s.id_stat === e.des_stat_id) : null;
+              const resStats = await db.stats.getAll();
+              const statObj = resStats.success ? resStats.data.find((s: any) => s.id === e.des_stat_id) : null;
+              
+              statNom = statObj?.nom || 'Stat';
+              valeurStat = pStat?.valeur || 10;
             } catch (err) {
               valeurStat = 10;
               statNom = 'Stat';

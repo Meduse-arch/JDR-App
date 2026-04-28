@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../../supabase'
 import { useStore, type Personnage, type PersonnageType } from '../../store/useStore'
 import { Card } from '../../components/ui/card'
 import { Button } from '../../components/ui/Button'
@@ -58,14 +57,21 @@ export default function GererPersonnage() {
   const chargerDonnees = useCallback(async () => {
     if (!sessionActive) return
 
+    const db = (window as any).db;
+
     // Joueurs & Comptes
-    const { data: persosData } = await supabase.from('v_personnages').select('*').eq('id_session', sessionActive.id).eq('is_template', false).eq('type', 'Joueur')
-    const { data: mjData } = await supabase.from('session_mj').select('id_compte').eq('id_session', sessionActive.id)
-    const { data: comptesData } = await supabase.from('comptes').select('*')
+    const resPersos = await db.personnages.getAll();
+    const persosData = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 0 && p.type === 'Joueur') : [];
     
-    setJoueursPersos((persosData as Personnage[]) || [])
-    setMjsIds((mjData || []).map(m => m.id_compte))
-    setComptes(comptesData || [])
+    const resMj = await db.session_mj.getAll();
+    const mjData = resMj.success ? resMj.data.filter((m: any) => m.id_session === sessionActive.id) : [];
+    
+    const resComptes = await db.comptes.getAll();
+    const comptesData = resComptes.success ? resComptes.data : [];
+    
+    setJoueursPersos(persosData);
+    setMjsIds(mjData.map((m: any) => m.id_compte));
+    setComptes(comptesData);
 
     // PNJ & Boss
     const instancesPnj = await bestiaireService.getInstances(sessionActive.id, ['PNJ', 'Boss'])
@@ -76,12 +82,14 @@ export default function GererPersonnage() {
     setMobs(instancesMob as Personnage[])
 
     // Templates
-    const { data: allTemplates } = await supabase.from('v_personnages').select('*').eq('id_session', sessionActive.id).eq('is_template', true).in('type', ['Monstre', 'PNJ', 'Boss'])
-    setTemplates((allTemplates as Personnage[]) || [])
+    const allTemplates = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 1 && ['Monstre', 'PNJ', 'Boss'].includes(p.type)) : [];
+    setTemplates(allTemplates);
   }, [sessionActive])
 
   const mettreAJourPersonnageMJ = useCallback(async (updates: Partial<Personnage>) => {
     if (!gererPersonnage || !sessionActive) return
+
+    const db = (window as any).db;
 
     // 1. Détecter les mises à jour de ressources pour le mode hybride
     const resKeys: ('hp' | 'mana' | 'stam')[] = ['hp', 'mana', 'stam'];
@@ -106,31 +114,23 @@ export default function GererPersonnage() {
     delete dbUpdates.stats;
 
     if (Object.keys(dbUpdates).length > 0) {
-      const { error } = await supabase
-        .from('personnages')
-        .update(dbUpdates)
-        .eq('id', gererPersonnage.id)
-
-      if (error) {
-        console.error("Erreur mise à jour MJ:", error);
-        return;
-      }
+      await db.personnages.update(gererPersonnage.id, dbUpdates);
     }
 
     // 3. Rafraîchissement des données locales
-    const { data } = await supabase
-      .from('v_personnages')
-      .select('*')
-      .eq('id', gererPersonnage.id)
-      .single()
+    const resP = await db.personnages.getById(gererPersonnage.id);
     
-    if (data) {
-      const updated = data as Personnage;
-      setGererPersonnage(updated);
-      setJoueursPersos(prev => prev.map(p => p.id === updated.id ? updated : p));
-      setPnjs(prev => prev.map(p => p.id === updated.id ? updated : p));
-      setMobs(prev => prev.map(p => p.id === updated.id ? updated : p));
-      setTemplates(prev => prev.map(p => p.id === updated.id ? updated : p));
+    if (resP.success && resP.data) {
+      // Pour reproduire la vue v_personnages, il faut recalculer les stats max, ou alors utiliser personnageService.recalculerStats mais on n'a pas besoin de full stats ici si juste refresh
+      // Utilisons le service pour recalculer
+      const updated = await personnageService.recalculerStats(gererPersonnage.id);
+      if (updated) {
+        setGererPersonnage(updated);
+        setJoueursPersos(prev => prev.map(p => p.id === updated.id ? updated : p));
+        setPnjs(prev => prev.map(p => p.id === updated.id ? updated : p));
+        setMobs(prev => prev.map(p => p.id === updated.id ? updated : p));
+        setTemplates(prev => prev.map(p => p.id === updated.id ? updated : p));
+      }
     }
   }, [gererPersonnage, sessionActive])
 

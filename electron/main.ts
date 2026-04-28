@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // │ │
 // │ ├─┬ dist-electron
 // │ │ ├── main.js
-// │ │ └── preload.mjs
+// │ │ └── preload.cjs
 // │
 process.env.APP_ROOT = path.join(__dirname, '..')
 
@@ -32,7 +32,7 @@ function createPopoutWindow(pageId: string) {
     return
   }
 
-  const preloadPath = path.join(__dirname, 'preload.mjs')
+  const preloadPath = path.join(__dirname, 'preload.cjs')
 
   const popout = new BrowserWindow({
     title: `Sigil : ${pageId.toUpperCase()}`,
@@ -73,7 +73,7 @@ function createWindow() {
     icon: path.join(process.env.VITE_PUBLIC, 'logo.png'),
     autoHideMenuBar: true, // 👈 C'est CETTE LIGNE qui cache le menu Windows !
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   })
 

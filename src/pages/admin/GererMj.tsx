@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
 
 type Compte = { id: string; pseudo: string; role: string }
@@ -16,23 +15,32 @@ export default function GererMJ() {
 
   const chargerMJs = async () => {
     if (!sessionActive) return
-    const { data: mjData } = await supabase
-      .from('session_mj').select('comptes(*)').eq('id_session', sessionActive.id)
-    if (mjData) setMjSession(mjData.map((d: any) => d.comptes))
+    const db = (window as any).db;
+    
+    const resMj = await db.session_mj.getAll();
+    const mjData = resMj.success ? resMj.data.filter((m: any) => m.id_session === sessionActive.id) : [];
+    
+    const resComptes = await db.comptes.getAll();
+    const comptesData = resComptes.success ? resComptes.data : [];
 
-    const { data: comptesData } = await supabase.from('comptes').select('*').in('role', ['joueur', 'mj'])
-    if (comptesData && mjData) {
-      const idsDeja = mjData.map((d: any) => d.comptes.id)
-      setDisponibles(comptesData.filter((c: Compte) => !idsDeja.includes(c.id)))
+    const mjsCompteIds = mjData.map((m: any) => m.id_compte);
+    const mjs = comptesData.filter((c: any) => mjsCompteIds.includes(c.id));
+    setMjSession(mjs);
+
+    if (comptesData) {
+      const dispo = comptesData.filter((c: any) => ['joueur', 'mj'].includes(c.role) && !mjsCompteIds.includes(c.id));
+      setDisponibles(dispo);
     }
   }
 
   const ajouterMJ = async (idCompte: string) => {
-    await supabase.from('session_mj').insert({ id_session: sessionActive?.id, id_compte: idCompte })
+    const db = (window as any).db;
+    await db.session_mj.create({ id_session: sessionActive?.id, id_compte: idCompte });
     chargerMJs()
   }
   const retirerMJ = async (idCompte: string) => {
-    await supabase.from('session_mj').delete().eq('id_session', sessionActive?.id).eq('id_compte', idCompte)
+    const db = (window as any).db;
+    await db.session_mj.deleteByFields({ id_session: sessionActive?.id, id_compte: idCompte });
     chargerMJs()
   }
 

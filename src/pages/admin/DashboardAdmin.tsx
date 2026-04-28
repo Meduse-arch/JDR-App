@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { supabase } from '../../supabase'
 import { useStore, type Personnage } from '../../store/useStore'
 import { motion } from 'framer-motion'
 import { 
@@ -40,22 +39,36 @@ export default function DashboardAdmin() {
 
   const chargerDonnees = useCallback(async () => {
     if (!sessionActive) return
-    const [persosRes, itemsRes, compRes, tmplRes, queteStatsRes, queteActiveRes] = await Promise.all([
-      supabase.from('v_personnages').select('*').eq('id_session', sessionActive.id).eq('is_template', false),
-      supabase.from('items').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id),
-      supabase.from('competences').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id),
-      supabase.from('v_personnages').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id).eq('is_template', true),
-      supabase.from('quetes').select('id', { count: 'exact', head: true }).eq('id_session', sessionActive.id),
-      supabase.from('quetes').select('*').eq('id_session', sessionActive.id).eq('statut', 'En cours')
-    ])
-    if (persosRes.data) {
-      setJoueurs(persosRes.data.filter(p => p.type === 'Joueur'))
-      setEntites(persosRes.data.filter(p => p.type !== 'Joueur'))
-    }
-    if (queteActiveRes.data) setQuetesEnCours(queteActiveRes.data)
+    const db = (window as any).db;
+
+    const [
+      resPersos, resItems, resComps, resQuetes
+    ] = await Promise.all([
+      db.personnages.getAll(),
+      db.items.getAll(),
+      db.competences.getAll(),
+      db.quetes.getAll()
+    ]);
+
+    const persos = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id) : [];
+    
+    const countItems = resItems.success ? resItems.data.filter((i: any) => i.id_session === sessionActive.id).length : 0;
+    const countComps = resComps.success ? resComps.data.filter((c: any) => c.id_session === sessionActive.id).length : 0;
+    const countTemplates = persos.filter((p: any) => p.is_template === 1).length;
+    
+    const sessionQuetes = resQuetes.success ? resQuetes.data.filter((q: any) => q.id_session === sessionActive.id) : [];
+    const countQuetes = sessionQuetes.length;
+    const enCours = sessionQuetes.filter((q: any) => q.statut === 'En cours');
+
+    const persosActifs = persos.filter((p: any) => p.is_template === 0);
+
+    setJoueurs(persosActifs.filter((p: any) => p.type === 'Joueur'))
+    setEntites(persosActifs.filter((p: any) => p.type !== 'Joueur'))
+    setQuetesEnCours(enCours as Quete[])
+    
     setStats({ 
-      items: itemsRes.count || 0, competences: compRes.count || 0, 
-      templates: tmplRes.count || 0, quetes: queteStatsRes.count || 0 
+      items: countItems, competences: countComps, 
+      templates: countTemplates, quetes: countQuetes 
     })
   }, [sessionActive])
 

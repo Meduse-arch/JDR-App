@@ -184,10 +184,11 @@ export const chatService = {
   // ── Membres disponibles ──────────────────────────────────────────────────────
 
   async getMembresSession(sessionId: string): Promise<{ id: string; pseudo: string; role: string }[]> {
-    // MIGRATION SQLite
-    const resMj = await db.session_mj.getAll();
-    const mjIds = resMj.success ? resMj.data.filter((m: any) => m.id_session === sessionId).map((m: any) => m.id_compte) : [];
+    // MIGRATION Mixte: MJs sur Supabase, Joueurs sur SQLite
+    const { data: mjData } = await supabase.from('session_mj').select('id_compte').eq('id_session', sessionId);
+    const mjIds = mjData ? mjData.map((m: any) => m.id_compte) : [];
 
+    const db = (window as any).db;
     const resPerso = await db.personnages.getAll();
     const persosLieIds = resPerso.success ? resPerso.data
       .filter((p: any) => p.id_session === sessionId && p.type === 'Joueur' && p.is_template === 0 && p.lie_au_compte)

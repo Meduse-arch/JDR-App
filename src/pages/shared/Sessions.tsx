@@ -33,6 +33,7 @@ export default function Sessions() {
   useEffect(() => { chargerSessions() }, [])
 
   const chargerSessions = async () => {
+    // MIGRATION Supabase -> La liste des sessions reste sur Supabase pour être visible sur internet
     const { data } = await supabase.from('sessions').select('*').order('created_at', { ascending: false })
     if (data) {
       setSessions(data)
@@ -57,18 +58,18 @@ export default function Sessions() {
 
   const creerSession = async () => {
     if (!nom || !compte) return
-    const { error, data: newSession } = await supabase
-      .from('sessions').insert({ nom, description, cree_par: compte.id }).select('id').single()
-    if (!error && newSession) {
-      if (compte.role === 'mj')
-        await supabase.from('session_mj').insert({ id_session: newSession.id, id_compte: compte.id })
+    const { sessionService } = await import('../../services/sessionService')
+    const success = await sessionService.creerSession(nom, description, compte.id, compte.role)
+    if (success) {
       setNom(''); setDescription(''); setAfficherFormulaire(false); chargerSessions()
+    } else {
+      alert("Erreur lors de la création de la session.")
     }
   }
 
   const supprimerSession = async (id: string) => {
-    await supabase.from('session_mj').delete().eq('id_session', id)
-    await supabase.from('sessions').delete().eq('id', id)
+    const { sessionService } = await import('../../services/sessionService')
+    await sessionService.supprimerSession(id)
     chargerSessions()
   }
 
@@ -76,12 +77,10 @@ export default function Sessions() {
     // Si c'est le MJ, on doit dire à Electron de charger la base de données SQLite de la campagne !
     if (compte?.role === 'mj' || compte?.role === 'admin') {
       const db = (window as any).db;
-      if (session.folder_path) {
-         try {
-           await db.system.loadSession(session.folder_path);
-         } catch (e) {
-           console.error("Failed to load session DB", e);
-         }
+      try {
+        await db.system.loadSession(session.folder_path || session.id);
+      } catch (e) {
+        console.error("Failed to load session DB", e);
       }
     }
     setEnteringSession({ id: session.id, nom: session.nom })

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../supabase'
 import { useStore, type PersonnageType } from '../../store/useStore'
 import { Card } from '../../components/ui/card'
 import { Input } from '../../components/ui/Input'
@@ -29,13 +28,15 @@ export default function CreerPersonnage({ type, isTemplate = false, lieAuCompte,
   const [maxStat, setMaxStat] = useState(20)
 
   useEffect(() => {
-    supabase.from('stats').select('*').then(({ data }) => {
-      if (data) {
+    const db = (window as any).db;
+    db.stats.getAll().then((res: any) => {
+      if (res.success && res.data) {
+        const data = res.data;
         const STATS_CALCULEES = ['PV Max', 'Mana Max', 'Stamina Max', 'HP Max', 'hp_max', 'mana_max', 'stam_max']
-        const filtered = data.filter(s => !STATS_CALCULEES.includes(s.nom))
-        const sorted = filtered.sort((a, b) => ORDRE_STATS.indexOf(a.nom) - ORDRE_STATS.indexOf(b.nom))
+        const filtered = data.filter((s: any) => !STATS_CALCULEES.includes(s.nom))
+        const sorted = filtered.sort((a: any, b: any) => ORDRE_STATS.indexOf(a.nom) - ORDRE_STATS.indexOf(b.nom))
         setStats(sorted)
-        setStatsMax(data.filter(s => STATS_CALCULEES.includes(s.nom)))
+        setStatsMax(data.filter((s: any) => STATS_CALCULEES.includes(s.nom)))
       }
     })
   }, [])
@@ -86,43 +87,47 @@ export default function CreerPersonnage({ type, isTemplate = false, lieAuCompte,
     if (!sessionActive || enCours) return
     setEnCours(true)
     try {
-      const { data: personnage, error } = await supabase
-        .from('personnages')
-        .insert({
-          id_session: sessionActive.id,
-          nom, type, is_template: isTemplate,
-          lie_au_compte: (!isTemplate && type === 'Joueur') ? (lieAuCompte || compte?.id) : null,
-          hp: hp,
-          mana: mana,
-          stam: stam,
-        })
-        .select().single()
+      const db = (window as any).db;
+      const newPersoId = crypto.randomUUID();
+      const personnageData = {
+        id: newPersoId,
+        id_session: sessionActive.id,
+        nom, type, is_template: isTemplate ? 1 : 0,
+        lie_au_compte: (!isTemplate && type === 'Joueur') ? (lieAuCompte || compte?.id) : null,
+        hp: hp,
+        mana: mana,
+        stam: stam,
+        created_at: new Date().toISOString()
+      };
 
-      if (error || !personnage) { 
-        alert(`Erreur de création: ${error?.message}`); 
+      const resPerso = await db.personnages.create(personnageData);
+
+      if (!resPerso.success) { 
+        alert(`Erreur de création: ${resPerso.error}`); 
         setEnCours(false);
         return 
       }
 
-      await supabase.from('personnage_stats').insert(jets.map(j => ({ id_personnage: personnage.id, id_stat: j.stat.id, valeur: j.valeur })))
+      for (const j of jets) {
+        await db.personnage_stats.create({ id: crypto.randomUUID(), id_personnage: newPersoId, id_stat: j.stat.id, valeur: j.valeur });
+      }
       
       const maxStatsToInsert = []
       const pvm = statsMax.find(s => s.nom === 'PV Max' || s.nom === 'HP Max' || s.nom === 'hp_max')
-      if (pvm) maxStatsToInsert.push({ id_personnage: personnage.id, id_stat: pvm.id, valeur: hp })
+      if (pvm) maxStatsToInsert.push({ id_personnage: newPersoId, id_stat: pvm.id, valeur: hp })
       
       const manam = statsMax.find(s => s.nom === 'Mana Max' || s.nom === 'mana_max')
-      if (manam) maxStatsToInsert.push({ id_personnage: personnage.id, id_stat: manam.id, valeur: mana })
+      if (manam) maxStatsToInsert.push({ id_personnage: newPersoId, id_stat: manam.id, valeur: mana })
       
       const stamm = statsMax.find(s => s.nom === 'Stamina Max' || s.nom === 'stam_max')
-      if (stamm) maxStatsToInsert.push({ id_personnage: personnage.id, id_stat: stamm.id, valeur: stam })
+      if (stamm) maxStatsToInsert.push({ id_personnage: newPersoId, id_stat: stamm.id, valeur: stam })
       
-      if (maxStatsToInsert.length > 0) {
-        await supabase.from('personnage_stats').insert(maxStatsToInsert)
+      for (const ms of maxStatsToInsert) {
+        await db.personnage_stats.create({ id: crypto.randomUUID(), id_personnage: ms.id_personnage, id_stat: ms.id_stat, valeur: ms.valeur });
       }
 
       if (!isTemplate && type === 'Joueur') {
-        const { error: errSJ } = await supabase.from('session_joueurs').insert({ id_session: sessionActive.id, id_personnage: personnage.id })
-        if (errSJ) console.warn("Notice: session_joueurs issue", errSJ)
+        await db.session_joueurs.create({ id_session: sessionActive.id, id_personnage: newPersoId });
       }
       
       await retour()

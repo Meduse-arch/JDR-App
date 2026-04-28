@@ -23,7 +23,6 @@ import PageTransition from './components/ui/PageTransition'
 import SessionTransitionPortal from './components/SessionTransitionPortal'
 import RunicDecoder from './components/ui/RunicDecoder'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase } from './supabase'
 import { usePersonnage } from './hooks/usePersonnage'
 import SelectionPersonnage from './pages/shared/SelectionPersonnage'
 import { RUNES_PAGES } from './config/runes'
@@ -145,6 +144,7 @@ export default function App() {
 
   const handlePortalComplete = async () => {
     if (!enteringSession || !compte) return
+    const { supabase } = await import('./supabase')
 
     const { data: session } = await supabase.from('sessions').select('*').eq('id', enteringSession.id).single()
     
@@ -153,9 +153,8 @@ export default function App() {
       if (compte.role === 'admin') {
         role = 'admin'
       } else {
-        const { data } = await supabase.from('session_mj').select('*')
-          .eq('id_session', session.id).eq('id_compte', compte.id).single()
-        if (data) role = 'mj'
+        const { data: mjData } = await supabase.from('session_mj').select('*').eq('id_session', session.id).eq('id_compte', compte.id).single();
+        if (mjData) role = 'mj'
       }
       
       setRoleEffectif(role)

@@ -363,18 +363,19 @@ export function useCompetenceUsage(
       }
 
       // Mise à jour BDD
-      const { error } = await supabase.from('personnage_competences').update({ is_active: nouveauStatut }).eq('id', liaison.id);
-      if (error) { afficherToast(`Erreur : ${error.message}`); return; }
+      const dbObj = (window as any).db;
+      await dbObj.personnage_competences.update(liaison.id, { is_active: nouveauStatut ? 1 : 0 });
 
       if (rechargerCompsCb) await rechargerCompsCb(true);
       if (rechargerStatsCb) await rechargerStatsCb();
 
-      // Après le toggle, on récupère les nouveaux Max depuis la vue
-      const { data: updatedPerso } = await supabase.from('v_personnages').select('hp_max, mana_max, stam_max').eq('id', personnage.id).single();
-      if (updatedPerso) {
-        const final_hp = Math.max(0, Math.min(updatedPerso.hp_max, globalUpdates.hp ?? personnage.hp));
-        const final_mana = Math.max(0, Math.min(updatedPerso.mana_max, globalUpdates.mana ?? personnage.mana));
-        const final_stam = Math.max(0, Math.min(updatedPerso.stam_max, globalUpdates.stam ?? personnage.stam));
+      // Après le toggle, on récupère les nouveaux Max depuis le store/service
+      const pRecalcule = await import('../services/personnageService').then(m => m.personnageService.recalculerStats(personnage.id));
+      if (pRecalcule) {
+        const updatedPerso = pRecalcule;
+        const final_hp = Math.max(0, Math.min(updatedPerso.hp_max || 100, globalUpdates.hp ?? personnage.hp));
+        const final_mana = Math.max(0, Math.min(updatedPerso.mana_max || 100, globalUpdates.mana ?? personnage.mana));
+        const final_stam = Math.max(0, Math.min(updatedPerso.stam_max || 100, globalUpdates.stam ?? personnage.stam));
         globalUpdates.hp = final_hp; globalUpdates.mana = final_mana; globalUpdates.stam = final_stam;
       }
 

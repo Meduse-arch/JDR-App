@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '../../supabase'
 import { useStore, type Personnage } from '../../store/useStore'
 import { Card } from '../../components/ui/card'
 import { User, Plus } from 'lucide-react'
@@ -12,10 +11,18 @@ export default function SelectionJoueur() {
 
   const chargerPersonnages = useCallback(async () => {
     if (!compte || !sessionActive) return
-    const { data } = await supabase.from('v_personnages').select('*')
-      .eq('id_session', sessionActive.id).eq('lie_au_compte', compte.id).eq('is_template', false)
-    if (data) {
-      const persos = data as Personnage[]
+    const db = (window as any).db;
+    const resPersos = await db.personnages.getAll();
+    if (resPersos.success) {
+      const data = resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.lie_au_compte === compte.id && p.is_template === 0);
+      
+      const persos = []
+      // Reconstituer les max
+      for (const p of data) {
+         const pRecalcule = await import('../../services/personnageService').then(m => m.personnageService.recalculerStats(p.id));
+         persos.push(pRecalcule || p);
+      }
+
       setMesPersonnages(persos)
       
       // Auto-connexion UNIQUEMENT si on arrive depuis 

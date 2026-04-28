@@ -93,8 +93,9 @@ export default function CarteMap() {
   useEffect(() => {
     async function loadPersonnages() {
       if (!sessionActive || (roleEffectif !== 'admin' && roleEffectif !== 'mj')) return;
-      const { data } = await supabase.from('personnages').select('*').eq('id_session', sessionActive.id);
-      if (data) setPersonnages(data as Personnage[]);
+      const db = (window as any).db;
+      const { data, success } = await db.personnages.getAll();
+      if (success) setPersonnages(data.filter((p: any) => p.id_session === sessionActive.id) as Personnage[]);
     }
     loadPersonnages();
   }, [sessionActive, roleEffectif]);

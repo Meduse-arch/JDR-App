@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { useStats } from '../../hooks/useStats'
@@ -30,7 +29,8 @@ export default function MonPersonnage() {
     const handleResize = () => setVh(window.innerHeight)
     window.addEventListener('resize', handleResize)
     if (personnage?.lie_au_compte) {
-      supabase.from('comptes').select('pseudo').eq('id', personnage.lie_au_compte).single().then(({ data }) => { if (data) setPseudoJoueur(data.pseudo) })
+      const db = (window as any).db;
+      db.comptes.getById(personnage.lie_au_compte).then((res: any) => { if (res.success && res.data) setPseudoJoueur(res.data.pseudo) })
     }
     return () => window.removeEventListener('resize', handleResize)
   }, [personnage?.lie_au_compte])
