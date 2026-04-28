@@ -96,11 +96,21 @@ export function usePersonnage() {
     const unsubscribe = peerService.onStateUpdate((msg) => {
       if (msg.entity !== 'personnage') return;
       const payload = msg.payload;
-      if (payload.id_personnage === personnage.id) {
+      if (payload.id_personnage === (pnjControle?.id || personnageJoueur?.id)) {
         if (payload.type === 'full') {
-           setPersonnage(payload.valeur);
+          const updated = payload.valeur;
+          setPersonnage(updated);
+          if (personnageJoueur && personnageJoueur.id === updated.id) setPersonnageJoueur(updated);
+          if (pnjControle && pnjControle.id === updated.id) setPnjControle(updated);
         } else if (payload.type) {
-           setPersonnage(prev => prev ? { ...prev, [payload.type]: payload.valeur } : prev);
+           setPersonnage(prev => {
+             const next = prev ? { ...prev, [payload.type]: payload.valeur } : prev;
+             if (next) {
+               if (personnageJoueur && personnageJoueur.id === next.id) setPersonnageJoueur(next);
+               if (pnjControle && pnjControle.id === next.id) setPnjControle(next);
+             }
+             return next;
+           });
         }
       }
     });

@@ -34,25 +34,29 @@ export function useStats() {
     }
 
     // --- LOGIQUE JOUEUR (Source: personnage de secours/store) ---
-    const { roleEffectif } = useStore.getState()
+    const { roleEffectif, allStats } = useStore.getState()
     if (roleEffectif === 'joueur') {
       const perso = pnjControle || personnageJoueur;
       if (perso && perso.id === characterId && perso.stats) {
         // Le MJ nous a déjà envoyé les stats calculées
-        // On les formate pour l'UI
-        const resStatsRef = await (window as any).db.stats.getAll(); // Les refs sont souvent dispos ou vides
-        const refs = resStatsRef.success ? resStatsRef.data : [];
-
+        // On les formate pour l'UI en utilisant la bibliothèque allStats du store
         const formattedStats = perso.stats.map((s: any) => {
-          const ref = refs.find((r: any) => r.id === s.id_stat);
+          const ref = allStats.find((r: any) => r.id === s.id_stat);
           return {
             id: s.id_stat,
             nom: ref?.nom || "Stat",
             valeur: s.valeur,
+            base: s.base ?? s.valeur,
+            bonus: s.bonus ?? 0,
             description: ref?.description || ""
           };
         });
-        setStats(formattedStats);
+        
+        // Tri constant pour l'UI
+        const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme'];
+        const sorted = statsEngine.trierStats(formattedStats, ORDRE_STATS);
+        
+        setStats(sorted);
         setChargement(false);
         return;
       }
