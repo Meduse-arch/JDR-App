@@ -47,21 +47,40 @@ export function useMJResyncHandler() {
 
     // Gestion de la demande de liste de personnages d'un compte
     const unsubList = peerService.onListCharactersRequest(async (compteId, fromPeerId) => {
+      console.log(`Requête LIST_CHARACTERS reçue de ${fromPeerId} pour le compte ${compteId}`);
       try {
+        const sessionActive = useStore.getState().sessionActive;
         const res = await db.personnages.getAll();
-        if (res.success) {
-          // On suppose que la session active est celle du MJ
-          // On pourrait aussi filtrer par session si besoin
-          const raw = res.data.filter((p: any) => p.lie_au_compte === compteId && p.is_template === 0);
+        
+        if (res.success && sessionActive) {
+          // Filtrer par compte ET par session active
+          const raw = res.data.filter((p: any) => 
+            p.lie_au_compte === compteId && 
+            p.id_session === sessionActive.id && 
+            p.is_template === 0
+          );
+          
           const hydrated = await personnageService.hydraterPersonnages(raw);
+          console.log(`Envoi de ${hydrated.length} personnages à ${fromPeerId}`);
           
           peerService.sendToJoueur(fromPeerId, {
             type: 'LIST_CHARACTERS_RESPONSE',
             personnages: hydrated
           });
+        } else {
+          // Répondre vide plutôt que de ne pas répondre
+          peerService.sendToJoueur(fromPeerId, {
+            type: 'LIST_CHARACTERS_RESPONSE',
+            personnages: []
+          });
         }
       } catch (e) {
         console.error("Erreur ListCharactersRequest:", e);
+        // Toujours envoyer une réponse pour débloquer le joueur
+        peerService.sendToJoueur(fromPeerId, {
+          type: 'LIST_CHARACTERS_RESPONSE',
+          personnages: []
+        });
       }
     });
 
