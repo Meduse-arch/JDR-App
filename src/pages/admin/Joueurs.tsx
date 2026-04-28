@@ -5,6 +5,8 @@ import { Card } from '../../components/ui/card'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { sessionService } from '../../services/sessionService'
+import { peerService } from '../../services/peerService'
+import { personnageService } from '../../services/personnageService'
 import { Users, User, Heart, Droplets, Zap } from 'lucide-react'
 
 export default function Joueurs() {
@@ -23,21 +25,38 @@ export default function Joueurs() {
   const chargerDonnees = async () => {
     if (!sessionActive) return
 
-    // 1. Charger les joueurs
-    const { data: persos } = await supabase
-      .from('v_personnages')
-      .select('*')
-      .eq('id_session', sessionActive.id)
-      .eq('type', 'Joueur')
-      .eq('is_template', false)
+    // 1. Charger les personnages (Joueur)
+    let persos: Personnage[] = []
+    if (peerService.isHost) {
+      // LOGIQUE MJ : On pioche dans le SQLite local
+      const db = (window as any).db;
+      const res = await db.personnages.getAll();
+      if (res.success) {
+        const raw = res.data.filter((p: any) => 
+          p.id_session === sessionActive.id && 
+          p.type === 'Joueur' && 
+          p.is_template === 0
+        );
+        persos = await personnageService.hydraterPersonnages(raw);
+      }
+    } else {
+      // LOGIQUE JOUEUR : On pioche dans Supabase (Fallback)
+      const { data } = await supabase
+        .from('v_personnages')
+        .select('*')
+        .eq('id_session', sessionActive.id)
+        .eq('type', 'Joueur')
+        .eq('is_template', false)
+      if (data) persos = data as any[]
+    }
     
-    // 2. Charger les MJs de la session
+    // 2. Charger les MJs de la session (Toujours Supabase car c'est au niveau session)
     const { data: mjs } = await supabase
       .from('session_mj')
       .select('id_compte')
       .eq('id_session', sessionActive.id)
 
-    if (persos) setPersonnages(persos)
+    setPersonnages(persos)
     if (mjs) setMjsIds(mjs.map(m => m.id_compte))
   }
 

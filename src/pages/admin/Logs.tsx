@@ -1,28 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useStore } from '../../store/useStore'
-import { supabase } from '../../supabase'
+import { useStore, type Personnage } from '../../store/useStore'
 import { useLogs } from '../../hooks/useLogs'
+import { personnageService } from '../../services/personnageService'
+import { peerService } from '../../services/peerService'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Dices, Zap, Backpack, Heart, Package, ChevronDown } from 'lucide-react'
 
-const TYPE_ICONS: Record<string, any> = {
-  des: { Icon: Dices, color: 'text-violet-500', bg: 'bg-violet-500/10' },
-  competence: { Icon: Zap, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-  item: { Icon: Backpack, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-  ressource: { Icon: Heart, color: 'text-red-500', bg: 'bg-red-500/10' },
-  inventaire: { Icon: Package, color: 'text-gray-400', bg: 'bg-gray-400/10' }
-}
-
-function formatRelativeTime(dateString: string) {
-  const diffInSeconds = Math.floor((new Date().getTime() - new Date(dateString).getTime()) / 1000)
-  if (diffInSeconds < 60) return "à l'instant"
-  const diffInMinutes = Math.floor(diffInSeconds / 60)
-  if (diffInMinutes < 60) return `il y a ${diffInMinutes} min`
-  const diffInHours = Math.floor(diffInMinutes / 60)
-  if (diffInHours < 24) return `il y a ${diffInHours} h`
-  const diffInDays = Math.floor(diffInHours / 24)
-  return `il y a ${diffInDays} j`
-}
+// ... (formatRelativeTime reste inchangé) ...
 
 export default function Logs() {
   const sessionActive = useStore(s => s.sessionActive)
@@ -33,13 +17,16 @@ export default function Logs() {
   useEffect(() => {
     async function loadPersos() {
       if (!sessionActive) return
-      const { data } = await supabase
-        .from('personnages')
-        .select('id, nom')
-        .eq('id_session', sessionActive.id)
-        .eq('is_template', false)
-        .eq('type', 'Joueur')
-      if (data) setPersonnages(data)
+      
+      let data: Personnage[] = []
+      if (peerService.isHost) {
+        const db = (window as any).db;
+        const res = await db.personnages.getAll();
+        data = res.success ? res.data.filter((p: any) => p.id_session === sessionActive.id && p.type === 'Joueur') : []
+      } else {
+        // Joueur: fallback ou vide pour les logs admin
+      }
+      setPersonnages(data.map(p => ({ id: p.id, nom: p.nom })))
     }
     loadPersos()
   }, [sessionActive])

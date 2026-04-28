@@ -42,49 +42,64 @@ export function useCompetenceUsage(
     }
 
     // 2. Récupérer les tags de la compétence utilisée et les tags actifs (équipement)
-    const { data: usedCompTags } = await supabase.from('competence_tags').select('id_tag').eq('id_competence', comp.id);
-    const compTags = usedCompTags?.map((ct: any) => ct.id_tag) || [];
-
-    // Récupérer les tags de l'équipement pour gérer la déduplication des passifs "les_deux"
-    const { data: equipInv } = await supabase.from('inventaire').select('items(item_tags(id_tag))').eq('id_personnage', personnage.id).eq('equipe', true);
+    const db = (window as any).db;
+    let compTags: string[] = [];
     const activeItemTags = new Set<string>();
-    equipInv?.forEach((inv: any) => inv.items?.item_tags?.forEach((it: any) => activeItemTags.add(it.id_tag)));
+
+    if (peerService.isHost) {
+      const resTags = await db.competence_tags.getAll();
+      compTags = resTags.success ? resTags.data.filter((ct: any) => ct.id_competence === comp.id).map((ct: any) => ct.id_tag) : [];
+      
+      const resInv = await db.inventaire.getAll();
+      const resItemTags = await db.item_tags.getAll();
+      const equipInv = resInv.success ? resInv.data.filter((i: any) => i.id_personnage === personnage.id && i.equipe === 1) : [];
+      equipInv.forEach((inv: any) => {
+        const tags = resItemTags.success ? resItemTags.data.filter((it: any) => it.id_item === inv.id_item) : [];
+        tags.forEach((t: any) => activeItemTags.add(t.id_tag));
+      });
+    } else {
+      // Joueur: Données déjà présentes dans l'objet personnage hydraté
+      compTags = (personnage.competences?.find((c: any) => c.id_competence === comp.id)?.competence?.tags || []).map((t: any) => t.id);
+      personnage.inventaire?.filter((i: any) => i.equipe).forEach((inv: any) => {
+        inv.items?.tags?.forEach((t: any) => activeItemTags.add(t.id));
+      });
+    }
 
     // 3. Bonus de stats temporaires pour les jets de dés
     const bonusFixesStats: Record<string, number> = {};
     const bonusPctStats: Record<string, number> = {};
 
     if (compTags.length > 0) {
-      const { data: personnageComps } = await supabase.from('personnage_competences').select('id_competence, is_active').eq('id_personnage', personnage.id);
-      if (personnageComps && personnageComps.length > 0) {
-        const allCompIds = personnageComps.map((pc: any) => pc.id_competence);
-        const { data: conditionPassives } = await supabase
-          .from('competences')
-          .select('id, type, nom, condition_type, modificateurs(*)')
-          .in('id', allCompIds)
-          .in('type', ['passive_auto', 'passive_toggle'])
-          .in('condition_type', ['skill', 'les_deux']);
+      let characterComps: any[] = [];
+      let allComps: any[] = [];
 
-        if (conditionPassives) {
-          const uniquePassifs = Array.from(new Map(conditionPassives.map(p => [p.id, p])).values());
-          const { data: allCondTags } = await supabase.from('competence_tags').select('id_competence, id_tag').in('id_competence', uniquePassifs.map(p => p.id));
-          
-          for (const passif of uniquePassifs) {
-            if (passif.type === 'passive_toggle') {
-              const pcEntry = personnageComps.find((pc: any) => pc.id_competence === passif.id);
-              if (!pcEntry || !pcEntry.is_active) continue;
-            }
-            const passifTagIds = allCondTags?.filter(t => t.id_competence === passif.id).map(t => t.id_tag) || [];
-            if (compTags.some(tid => passifTagIds.includes(tid))) {
-              // On ajoute si c'est 'skill' OU si c'est 'les_deux' mais pas déjà couvert par un objet
-              const alreadyActiveByItem = passif.condition_type === 'les_deux' && passifTagIds.some(tid => activeItemTags.has(tid));
-              
-              if (passif.condition_type === 'skill' || (passif.condition_type === 'les_deux' && !alreadyActiveByItem)) {
-                passif.modificateurs?.forEach((m: any) => {
-                  if (m.type_calcul === 'pourcentage') bonusPctStats[m.id_stat] = (bonusPctStats[m.id_stat] || 0) + m.valeur;
-                  else bonusFixesStats[m.id_stat] = (bonusFixesStats[m.id_stat] || 0) + m.valeur;
-                });
-              }
+      if (peerService.isHost) {
+        const resPC = await db.personnage_competences.getAll();
+        characterComps = resPC.success ? resPC.data.filter((pc: any) => pc.id_personnage === personnage.id) : [];
+        allComps = await competenceService.getCompetences(sessionActive?.id || '');
+      } else {
+        characterComps = personnage.competences || [];
+        allComps = useStore.getState().libCompetences;
+      }
+
+      if (characterComps.length > 0) {
+        const passifs = allComps.filter(c => 
+          (c.type === 'passive_auto' || c.type === 'passive_toggle') && 
+          (c.condition_type === 'skill' || c.condition_type === 'les_deux')
+        );
+
+        for (const passif of passifs) {
+          const pcEntry = characterComps.find((pc: any) => (pc.id_competence || pc.competence_id) === passif.id);
+          if (!pcEntry || (passif.type === 'passive_toggle' && !pcEntry.is_active)) continue;
+
+          const passifTagIds = (passif.tags || []).map((t: any) => t.id || t);
+          if (compTags.some(tid => passifTagIds.includes(tid))) {
+            const alreadyActiveByItem = passif.condition_type === 'les_deux' && passifTagIds.some(tid => activeItemTags.has(tid));
+            if (passif.condition_type === 'skill' || !alreadyActiveByItem) {
+              passif.modificateurs?.forEach((m: any) => {
+                if (m.type_calcul === 'pourcentage') bonusPctStats[m.id_stat] = (bonusPctStats[m.id_stat] || 0) + m.valeur;
+                else bonusFixesStats[m.id_stat] = (bonusFixesStats[m.id_stat] || 0) + m.valeur;
+              });
             }
           }
         }
@@ -110,10 +125,19 @@ export function useCompetenceUsage(
             valeurStat = statTrouvee.valeur;
             statNom = statTrouvee.nom;
           } else {
-            const { data: statsPerso } = await supabase.from('personnage_stats').select('valeur, stats(nom)').eq('id_personnage', personnage.id).eq('id_stat', e.des_stat_id).single()
-            const statsData: any = statsPerso?.stats;
-            statNom = (Array.isArray(statsData) ? statsData[0]?.nom : statsData?.nom) || 'Stat';
-            valeurStat = statsPerso?.valeur || 10;
+            // Fallback MJ/Joueur
+            if (peerService.isHost) {
+              const resS = await db.personnage_stats.getAll();
+              const resRef = await db.stats.getAll();
+              const ps = resS.success ? resS.data.find((s: any) => s.id_personnage === personnage.id && s.id_stat === e.des_stat_id) : null;
+              const ref = resRef.success ? resRef.data.find((s: any) => s.id === e.des_stat_id) : null;
+              statNom = ref?.nom || 'Stat';
+              valeurStat = ps?.valeur || 10;
+            } else {
+              const sObj = personnage.stats?.find((s: any) => s.id_stat === e.des_stat_id);
+              statNom = sObj?.nom || 'Stat';
+              valeurStat = sObj?.valeur || 10;
+            }
           }
           const finalValeurStat = Math.round((valeurStat + (bonusFixesStats[e.des_stat_id] || 0)) * (1 + (bonusPctStats[e.des_stat_id] || 0) / 100));
           rollRes = rollStatDice(finalValeurStat, e.valeur, statNom);
@@ -149,43 +173,50 @@ export function useCompetenceUsage(
 
     // 5. Déclencher les réactions (Passifs Auto, Toggle, Skills Actifs)
     if (comp.type !== 'passive_auto' && compTags.length > 0) {
-      const { data: personnageComps } = await supabase.from('personnage_competences').select('id_competence, is_active').eq('id_personnage', personnage.id);
-      if (personnageComps && personnageComps.length > 0) {
-        const allCompIds = personnageComps.map((pc: any) => pc.id_competence);
-        const { data: reactiveComps } = await supabase.from('competences').select('*, effets_actifs(*)').in('id', allCompIds).in('condition_type', ['skill', 'les_deux']);
-        
-        if (reactiveComps) {
-          const uniqueReactives = Array.from(new Map(reactiveComps.map(c => [c.id, c])).values());
-          const { data: reactTags } = await supabase.from('competence_tags').select('id_competence, id_tag').in('id_competence', uniqueReactives.map(r => r.id));
+      let characterComps: any[] = [];
+      let allComps: any[] = [];
 
-          for (const react of uniqueReactives) {
-            if (react.id === comp.id) continue;
-            if (react.type === 'passive_toggle') {
-              const pcEntry = personnageComps.find((pc: any) => pc.id_competence === react.id);
-              if (!pcEntry || !pcEntry.is_active) continue;
-            }
-            const reactTagIds = reactTags?.filter(t => t.id_competence === react.id).map(t => t.id_tag) || [];
-            if (compTags.some(tid => reactTagIds.includes(tid))) {
-              const effetsReact = (react.effets_actifs as any[]) || [];
-              let triggered = false;
-              for (const er of effetsReact) {
-                if (er.est_cout) continue;
-                let val = er.valeur || 0;
-                if (er.des_nb || er.des_stat_id) {
-                  const roll = er.des_stat_id ? rollStatDice(10, er.valeur, 'Stat') : rollDice(er.des_nb || 1, er.des_faces || 6, er.valeur);
-                  val = roll.total;
-                  diceResults.push({ ...roll, label: `REACTION: ${react.nom}`, color: react.type === 'active' ? '#f59e0b' : (react.type === 'passive_toggle' ? '#6366f1' : '#a855f7') });
-                }
-                const jauge = er.cible_jauge.toLowerCase();
-                if (labels[jauge]) {
-                  const actuel = globalUpdates[jauge] ?? personnage[jauge] ?? 0;
-                  const max = globalUpdates[`${jauge}_max`] ?? personnage[`${jauge}_max`] ?? 100;
-                  globalUpdates[jauge] = Math.max(0, Math.min(max, actuel + val));
-                  triggered = true;
-                }
+      if (peerService.isHost) {
+        const resPC = await db.personnage_competences.getAll();
+        characterComps = resPC.success ? resPC.data.filter((pc: any) => pc.id_personnage === personnage.id) : [];
+        allComps = await competenceService.getCompetences(sessionActive?.id || '');
+      } else {
+        characterComps = personnage.competences || [];
+        allComps = useStore.getState().libCompetences;
+      }
+
+      if (characterComps.length > 0) {
+        const reactiveComps = allComps.filter(c => 
+          c.id !== comp.id && 
+          (c.condition_type === 'skill' || c.condition_type === 'les_deux')
+        );
+
+        for (const react of reactiveComps) {
+          const pcEntry = characterComps.find((pc: any) => (pc.id_competence || pc.competence_id) === react.id);
+          if (!pcEntry) continue;
+          if (react.type === 'passive_toggle' && !pcEntry.is_active) continue;
+
+          const reactTagIds = (react.tags || []).map((t: any) => t.id || t);
+          if (compTags.some(tid => reactTagIds.includes(tid))) {
+            const effetsReact = (react.effets_actifs as any[]) || [];
+            let triggered = false;
+            for (const er of effetsReact) {
+              if (er.est_cout) continue;
+              let val = er.valeur || 0;
+              if (er.des_nb || er.des_stat_id) {
+                const roll = er.des_stat_id ? rollStatDice(10, er.valeur, 'Stat') : rollDice(er.des_nb || 1, er.des_faces || 6, er.valeur);
+                val = roll.total;
+                diceResults.push({ ...roll, label: `REACTION: ${react.nom}`, color: react.type === 'active' ? '#f59e0b' : (react.type === 'passive_toggle' ? '#6366f1' : '#a855f7') });
               }
-              if (triggered) afficherToast(`${react.type === 'active' ? '' : 'REACTION : '}${react.nom} !`);
+              const jauge = er.cible_jauge.toLowerCase();
+              if (labels[jauge]) {
+                const actuel = globalUpdates[jauge] ?? personnage[jauge] ?? 0;
+                const max = globalUpdates[`${jauge}_max`] ?? personnage[`${jauge}_max`] ?? 100;
+                globalUpdates[jauge] = Math.max(0, Math.min(max, actuel + val));
+                triggered = true;
+              }
             }
+            if (triggered) afficherToast(`${react.type === 'active' ? '' : 'REACTION : '}${react.nom} !`);
           }
         }
       }

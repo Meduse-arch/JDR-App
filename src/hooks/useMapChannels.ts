@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { supabase } from '../supabase';
 import { useRealtimeQuery } from './useRealtimeQuery';
 import { MapChannel } from '../types';
 import { chatService } from '../services/chatService';
+import { mapService } from '../services/mapService';
+import { peerService } from '../services/peerService';
 
 export function useMapChannels(sessionId: string | undefined) {
   const [channels, setChannels] = useState<MapChannel[]>([]);
@@ -14,17 +15,16 @@ export function useMapChannels(sessionId: string | undefined) {
   // Chargement channels
   const chargerChannels = useCallback(async () => {
     if (!sessionId) return;
-    const { data, error } = await supabase
-      .from('map_channels')
-      .select('*')
-      .eq('id_session', sessionId)
-      .order('ordre');
     
-    if (error) {
-      console.error('Erreur chargement channels map:', error);
-      return;
+    let data: MapChannel[] = [];
+    if (peerService.isHost) {
+      data = await mapService.getChannels(sessionId);
+    } else {
+      // Les joueurs reçoivent les channels via STATE_UPDATE (à implémenter dans ResyncHandler)
+      // Pour l'instant on laisse vide ou on attend le broadcast
     }
-    setChannels(data || []);
+    
+    setChannels(data);
     
     if (!channelActifRef.current && data && data.length > 0) {
       setChannelActif(data[0].id);
@@ -43,94 +43,43 @@ export function useMapChannels(sessionId: string | undefined) {
   const creerCanalChatMap = useCallback(async (channelId: string) => {
     if (!sessionId) return;
     const nomCanal = `map_${channelId}`;
-
-    const { data: existing } = await supabase
-      .from('chat_canaux')
-      .select('id')
-      .eq('id_session', sessionId)
-      .eq('nom', nomCanal)
-      .maybeSingle();
-
-    if (existing) return;
-
-    const membres = await chatService.getMembresSession(sessionId);
-    const ids = membres.map(m => m.id);
-
-    const canal = await chatService.creerCanalPrive(sessionId, ids, nomCanal);
+    // Le chat reste partiellement sur SQLite via chatService
+    const canal = await chatService.creerCanalPrive(sessionId, [], nomCanal);
     if (!canal) console.error('Erreur création canal chat map:', channelId);
-  }, [sessionId]);
-
-  const supprimerCanalChatMap = useCallback(async (channelId: string) => {
-    if (!sessionId) return;
-    const nomCanal = `map_${channelId}`;
-
-    const { data } = await supabase
-      .from('chat_canaux')
-      .select('id')
-      .eq('id_session', sessionId)
-      .eq('nom', nomCanal)
-      .maybeSingle();
-
-    if (data?.id) {
-      await chatService.supprimerCanal(data.id);
-    }
   }, [sessionId]);
 
   // Actions channels
   const creerChannel = async (nom: string, image_url?: string, largeur: number = 20, hauteur: number = 15, grille_taille: number = 50) => {
     if (!sessionId) return null;
-    
     const ordre = channels.length;
     
-    const { data, error } = await supabase
-      .from('map_channels')
-      .insert({
-        id_session: sessionId,
-        nom,
-        image_url,
-        largeur,
-        hauteur,
-        grille_taille,
-        ordre,
-        active: false
-      })
-      .select()
-      .single();
+    const newChan = await mapService.createChannel(sessionId, {
+      nom, image_url, largeur, hauteur, grille_taille, ordre, active: false
+    });
       
-    if (error) {
-      console.error('Erreur creation channel:', error);
-      return null;
-    } else {
-      await creerCanalChatMap(data.id);
+    if (newChan) {
+      await creerCanalChatMap(newChan.id);
       chargerChannels();
-      return data.id;
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update' } });
+      return newChan.id;
     }
+    return null;
   };
 
   const modifierChannel = async (id: string, updates: Partial<MapChannel>) => {
-    const { error } = await supabase
-      .from('map_channels')
-      .update(updates)
-      .eq('id', id);
-      
-    if (error) console.error('Erreur modification channel:', error);
-    else chargerChannels();
+    const ok = await mapService.updateChannel(id, updates);
+    if (ok) {
+      chargerChannels();
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update' } });
+    }
   };
 
   const supprimerChannel = async (id: string) => {
-    await supprimerCanalChatMap(id);
-
-    const { error } = await supabase
-      .from('map_channels')
-      .delete()
-      .eq('id', id);
-      
-    if (error) console.error('Erreur suppression channel:', error);
-    else {
-      if (channelActif === id) {
-        setChannelActif(null);
-      }
+    const ok = await mapService.deleteChannel(id);
+    if (ok) {
+      if (channelActif === id) setChannelActif(null);
       chargerChannels();
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update' } });
     }
   };
 

@@ -22,6 +22,56 @@ export function useMJResyncHandler() {
           console.log(`👤 Joueur '${pseudo}' identifié localement.`);
         } catch (e) {}
       }
+
+      if (msg.kind === 'move_token') {
+        const { id, x, y } = msg.payload;
+        await db.map_tokens.update(id, { x, y });
+        // On rebroadcast pour que tous les autres joueurs voient le mouvement
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'map_token',
+          payload: { id, x, y }
+        });
+      }
+
+      if (msg.kind === 'add_item') {
+        const { personnageId, itemId, quantite } = msg.payload;
+        await itemsService.ajouterItem(personnageId, itemId, quantite);
+        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'character_created' } });
+      }
+
+      if (msg.kind === 'toggle_equip') {
+        const { entryId, equipe } = msg.payload;
+        await inventaireService.toggleEquipement(entryId, equipe);
+        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'character_created' } });
+      }
+
+      if (msg.kind === 'remove_item') {
+        const { entryId, quantite } = msg.payload;
+        await inventaireService.retirerItem(entryId, quantite);
+        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'character_created' } });
+      }
+
+      if (msg.kind === 'toggle_competence') {
+        const { liaisonId, is_active } = msg.payload;
+        await db.personnage_competences.update(liaisonId, { is_active: is_active ? 1 : 0 });
+        // On broadcast le changement à tout le monde
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'character_created' } // Force refresh pour tout le monde
+        });
+      }
+
+      if (msg.kind === 'update_resource') {
+        const { id_personnage, type, valeur } = msg.payload;
+        await db.personnages.update(id_personnage, { [type]: valeur });
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'personnage',
+          payload: { id_personnage, type, valeur }
+        });
+      }
       
       if (msg.kind === 'create_character') {
         const payload = msg.payload;
@@ -125,11 +175,36 @@ export function useMJResyncHandler() {
           
           const hydrated = await personnageService.hydraterPersonnages(raw);
           
-          // Récupérer les stats détaillées pour chaque personnage pour le joueur
+          // Récupérer les données complètes pour chaque personnage pour le joueur
           const fullPersos = await Promise.all(hydrated.map(async (p) => {
-            const resStats = await db.personnage_stats.getAll();
+            const [resStats, resComps, resInv] = await Promise.all([
+              db.personnage_stats.getAll(),
+              db.personnage_competences.getAll(),
+              db.inventaire.getAll()
+            ]);
+
             const stats = resStats.success ? resStats.data.filter((s: any) => s.id_personnage === p.id) : [];
-            return { ...p, stats };
+            
+            // On récupère aussi les détails des compétences
+            const liaisons = resComps.success ? resComps.data.filter((pc: any) => pc.id_personnage === p.id) : [];
+            const resAllComps = await competenceService.getCompetences(sessionActive.id);
+            const competences = liaisons.map((l: any) => {
+              const info = resAllComps.find(c => c.id === l.id_competence);
+              return info ? { ...l, competence: info } : null;
+            }).filter(Boolean);
+
+            // On récupère aussi l'inventaire
+            const invRaw = resInv.success ? resInv.data.filter((i: any) => i.id_personnage === p.id) : [];
+            const resAllItems = await itemsService.getItems(sessionActive.id);
+            const inventaire = invRaw.map((i: any) => {
+              const item = resAllItems.find(it => it.id === i.id_item);
+              return item ? { ...i, items: item } : null;
+            }).filter(Boolean);
+
+            // On récupère aussi les quêtes
+            const quetes = await queteService.getQuetesPersonnage(p.id);
+
+            return { ...p, stats, competences, inventaire, quetes };
           }));
 
           console.log(`Envoi de ${fullPersos.length} personnages complets à ${fromPeerId}`);

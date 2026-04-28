@@ -5,6 +5,7 @@ import { usePersonnage } from './usePersonnage';
 import { competenceService } from '../services/competenceService';
 import { useRealtimeQuery } from './useRealtimeQuery';
 import { useStore } from '../store/useStore';
+import { peerService } from '../services/peerService';
 
 export function usePersonnageCompetences(personnageExterne?: Personnage | null) {
   const { personnage: personnageStore } = usePersonnage();
@@ -23,48 +24,50 @@ export function usePersonnageCompetences(personnageExterne?: Personnage | null) 
 
     if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return;
     
-    if (!silencieux) setChargement(true);
-    
-    const { data: liaisons, error: liaisonError } = await supabase
-      .from('personnage_competences')
-      .select('*')
-      .eq('id_personnage', personnage.id);
+    // LOGIQUE JOUEUR : via Store WebRTC
+    if (!peerService.isHost) {
+      if (personnage.competences) {
+        setCompetencesAcquises(personnage.competences as PersonnageCompetence[]);
+      }
+      setChargement(false);
+      return;
+    }
 
-    if (liaisonError) {
-      console.error("Erreur récupération liaisons:", liaisonError);
+    // LOGIQUE MJ : via SQLite
+    if (!silencieux) setChargement(true);
+    const db = (window as any).db;
+    
+    const resLiaisons = await db.personnage_competences.getAll();
+
+    if (!resLiaisons.success || !resLiaisons.data) {
       if (!silencieux) setChargement(false);
       return;
     }
 
-    if (liaisons && liaisons.length > 0) {
-      const idsCompetences = liaisons.map(l => l.id_competence || l.competence_id || l.id_competences);
-      const { data: competencesData } = await supabase
-        .from('competences')
-        .select('*, effets_actifs(*), modificateurs(*)')
-        .in('id', idsCompetences);
+    const mesLiaisons = resLiaisons.data.filter((l: any) => l.id_personnage === personnage.id);
 
-      if (competencesData) {
-        const formated = liaisons.map(liaison => {
-          const l_id = liaison.id_competence || liaison.competence_id || liaison.id_competences;
-          const compInfo = competencesData.find(c => c.id === l_id);
-          if (!compInfo) return null;
-          return {
-            id: liaison.id,
-            id_personnage: liaison.id_personnage,
-            id_competence: l_id,
-            is_active: liaison.is_active,
-            competence: compInfo
-          };
-        }).filter(item => item !== null);
-        
-        setCompetencesAcquises(formated as PersonnageCompetence[]);
-      }
+    if (mesLiaisons.length > 0) {
+      const competencesData = await competenceService.getCompetences(sessionActive?.id || '');
+      
+      const formated = mesLiaisons.map((liaison: any) => {
+        const compInfo = competencesData.find(c => c.id === liaison.id_competence);
+        if (!compInfo) return null;
+        return {
+          id: liaison.id,
+          id_personnage: liaison.id_personnage,
+          id_competence: liaison.id_competence,
+          is_active: liaison.is_active === 1,
+          competence: compInfo
+        };
+      }).filter((item: any) => item !== null);
+      
+      setCompetencesAcquises(formated as PersonnageCompetence[]);
     } else {
       setCompetencesAcquises([]);
     }
     
     if (!silencieux) setChargement(false);
-  }, [personnage]);
+  }, [personnage, sessionActive?.id]);
 
   useEffect(() => {
     chargerCompetencesAcquises();
@@ -107,12 +110,16 @@ export function usePersonnageCompetences(personnageExterne?: Personnage | null) 
     ));
 
     try {
-      const { error } = await supabase
-        .from('personnage_competences')
-        .update({ is_active })
-        .eq('id', liaisonId);
-      
-      if (error) throw error;
+      if (peerService.isHost) {
+        const db = (window as any).db;
+        await db.personnage_competences.update(liaisonId, { is_active: is_active ? 1 : 0 });
+      } else {
+        peerService.sendToMJ({
+          type: 'ACTION',
+          kind: 'toggle_competence',
+          payload: { liaisonId, is_active }
+        });
+      }
     } catch (e) {
       setCompetencesAcquises(memoire);
       console.error(e);
