@@ -28,8 +28,11 @@ export default function SelectionJoueur() {
       }
     } else {
       // LOGIQUE JOUEUR : via WebRTC
-      peerService.requestListCharacters(compte.id);
-      // On attend la réponse via le listener useEffect ci-dessous
+      console.log("Connexion établie, attente de stabilisation avant requête...");
+      setTimeout(() => {
+        console.log("Envoi de la requête LIST_CHARACTERS au MJ...");
+        peerService.requestListCharacters(compte.id);
+      }, 1000);
     }
   }, [compte, sessionActive])
 
