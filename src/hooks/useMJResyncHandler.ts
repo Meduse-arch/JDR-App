@@ -7,11 +7,13 @@ import { useStore } from '../store/useStore';
 
 export function useMJResyncHandler() {
   const db = (window as any).db;
+  const sessionActive = useStore(s => s.sessionActive);
+  const roleEffectif = useStore(s => s.roleEffectif);
 
   useEffect(() => {
-    if (!peerService.isHost) return;
+    if (!peerService.isHost || !sessionActive) return;
 
-    // Gestion de la resync d'un personnage spécifique ou globale
+    console.log("📡 MJ Resync Handler : Activation de l'écoute...");
     const unsubResync = peerService.onResyncRequest(async (characterId, fromPeerId) => {
       if (characterId) {
         const fullPerso = await personnageService.recalculerStats(characterId);
@@ -88,5 +90,5 @@ export function useMJResyncHandler() {
       unsubResync();
       unsubList();
     };
-  }, []);
+  }, [sessionActive, roleEffectif]);
 }

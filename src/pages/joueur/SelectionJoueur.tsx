@@ -27,12 +27,19 @@ export default function SelectionJoueur() {
         setChargement(false)
       }
     } else {
-      // LOGIQUE JOUEUR : via WebRTC
-      console.log("Connexion établie, attente de stabilisation avant requête...");
-      setTimeout(() => {
-        console.log("Envoi de la requête LIST_CHARACTERS au MJ...");
-        peerService.requestListCharacters(compte.id);
-      }, 1000);
+      // LOGIQUE JOUEUR : via WebRTC uniquement
+      console.log("Joueur : Tentative de récupération des personnages via WebRTC...");
+      
+      const interval = setInterval(() => {
+        if (peerService.peer && !peerService.isHost) {
+          console.log("Envoi requête LIST_CHARACTERS...");
+          peerService.requestListCharacters(compte.id);
+        }
+      }, 2000);
+
+      // Sécurité : on arrête de chercher si on reçoit une réponse (géré par le listener)
+      // ou si on quitte le composant
+      return () => clearInterval(interval);
     }
   }, [compte, sessionActive])
 

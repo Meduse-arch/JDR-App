@@ -158,50 +158,40 @@ export default function App() {
     
     if (session) {
       const role = await sessionService.getRoleDansSession(session.id, compte.id, compte.role)
-      // On génère un ID unique pour cette instance précise (évite les conflits d'ID déjà pris)
+      const mjPeerId = generateMJPeerId(session.id)
       const instanceId = `${role}-${compte.id}-${Date.now().toString().slice(-4)}`
       
-      try {
-        if (role === 'mj' || role === 'admin') {
-          // INITIALISATION MJ (Hôte)
-          // Le MJ utilise un ID fixe basé sur la session pour être trouvable, 
-          // MAIS on va d'abord tenter de nettoyer si possible.
-          const mjPeerId = generateMJPeerId(session.id)
-          await peerService.initAsMJ(mjPeerId)
-          
-          // SIGNALISATION : Le MJ dit à tout le monde "Je suis là avec cet ID"
-          await supabase.from('sessions').update({ folder_path: mjPeerId }).eq('id', session.id)
-          console.log("✅ MJ Signalé dans Supabase:", mjPeerId)
-        } else {
-          // INITIALISATION JOUEUR
-          // On attend que le MJ ait publié son ID
-          console.log("Recherche du MJ dans Supabase...")
-          const { data: latestSession } = await supabase.from('sessions').select('folder_path').eq('id', session.id).single()
-          
-          const targetMJId = latestSession?.folder_path || generateMJPeerId(session.id)
-          console.log(`Tentative de connexion au MJ via l'ID signalé: ${targetMJId}`);
-          
-          await peerService.initAsJoueur(targetMJId, instanceId)
-          console.log("✅ Connecté au MJ!")
-        }
-      } catch (err) {
-        console.error("❌ ÉCHEC CRITIQUE de l'initialisation Peer:", err)
-        if (role === 'mj' || role === 'admin') {
-          alert(`ERREUR RÉSEAU : Impossible d'ouvrir la session. L'ID est peut-être déjà utilisé. Détail: ${err instanceof Error ? err.message : 'Inconnu'}`)
-        } else {
-          alert(`DÉCONNEXION : Le Maître du Jeu est introuvable. Vérifiez qu'il est bien entré dans la session. (Détail: ${err instanceof Error ? err.message : 'Inconnu'})`)
-        }
-        setEnteringSession(null)
-        return
-      }
-
+      // On entre dans la session IMMÉDIATEMENT
       setRoleEffectif(role)
       setSessionActive(session)
       setPageCourante('dashboard')
+      setEnteringSession(null) // On ferme le portail tout de suite
       
+      // La connexion PeerJS se fait en arrière-plan
+      const startConnection = async () => {
+        try {
+          if (role === 'mj' || role === 'admin') {
+            await peerService.initAsMJ(mjPeerId)
+            await supabase.from('sessions').update({ folder_path: mjPeerId }).eq('id', session.id)
+            console.log("✅ MJ prêt (fond)");
+          } else {
+            // Le joueur cherche le MJ en fond
+            const { data: latest } = await supabase.from('sessions').select('folder_path').eq('id', session.id).single()
+            await peerService.initAsJoueur(latest?.folder_path || mjPeerId, instanceId)
+            console.log("✅ Joueur connecté (fond)");
+          }
+        } catch (err) {
+          console.error("Erreur connexion fond:", err);
+          // On ne bloque pas l'UI, le service retentera ou affichera son état
+        }
+      }
+      
+      startConnection();
+
       if (navigationMode === 'immersive') {
         setNavigationOpen(true)
       }
+      return; // Fin précoce pour handlePortalComplete
     }
     
     setEnteringSession(null)
