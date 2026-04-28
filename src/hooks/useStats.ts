@@ -32,27 +32,26 @@ export function useStats() {
       setChargement(false)
       return
     }
-
     // --- LOGIQUE JOUEUR (Source: Store WebRTC) ---
     if (roleEffectif === 'joueur') {
       const perso = pnjControle || personnageJoueur;
       if (perso && perso.id === characterId) {
         const rawStats = perso.stats || [];
-        console.log(`[useStats] Hydratation stats pour le joueur (${rawStats.length} stats reçues)`);
+        console.log(`[useStats] Joueur ${compte?.pseudo} - ${rawStats.length} stats reçues pour ${perso.nom}`);
         
-        // Bibliothèque de secours en dur pour les stats de base (IDs 1 à 7)
         const FALLBACK_NAMES: Record<string, string> = {
           '1': 'Force', '2': 'Agilité', '3': 'Constitution', 
           '4': 'Intelligence', '5': 'Sagesse', '6': 'Charisme', '7': 'Perception'
         };
 
         const formattedStats = rawStats.map((s: any) => {
-          const ref = allStats.find((r: any) => r.id === s.id_stat);
-          const fallbackNom = FALLBACK_NAMES[s.id_stat] || "Stat";
+          const sid = String(s.id_stat);
+          const ref = allStats.find((r: any) => String(r.id) === sid);
+          const nomStat = ref?.nom || FALLBACK_NAMES[sid] || `Stat ${sid}`;
           
           return {
-            id: s.id_stat,
-            nom: ref?.nom || fallbackNom,
+            id: sid,
+            nom: nomStat,
             valeur: s.valeur ?? 0,
             base: s.base ?? s.valeur ?? 0,
             bonus: s.bonus ?? 0,
@@ -64,12 +63,11 @@ export function useStats() {
         const sorted = statsEngine.trierStats(formattedStats, ORDRE_STATS);
         
         setStats(sorted);
-        if (rawStats.length > 0) {
-          setChargement(false);
-        }
+        if (rawStats.length > 0) setChargement(false);
         return;
       }
     }
+
 
     // --- LOGIQUE MJ (Calcul complexe SQLite) ---
     if (roleEffectif !== 'joueur') {
