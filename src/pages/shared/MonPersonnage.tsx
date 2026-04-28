@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '../../supabase'
 import { useStore } from '../../store/useStore'
 import { usePersonnage } from '../../hooks/usePersonnage'
 import { useStats } from '../../hooks/useStats'
 import { personnageService } from '../../services/personnageService'
 import { useResourceManagement, type RessourceKey } from '../../hooks/useResourceManagement'
 import { CONFIG_RESSOURCES } from '../../utils/constants'
-import { Camera } from 'lucide-react'
+import { Camera, Loader2, RefreshCw } from 'lucide-react'
 
 // Import des nouvelles vues Pro
 import FicheHero from '../../components/ficheview/FicheHero'
@@ -17,7 +18,7 @@ export default function MonPersonnage() {
   const setPnjControle = useStore(s => s.setPnjControle)
   const characterSheetMode = useStore(s => s.characterSheetMode)
   
-  const { personnage, rechargerPersonnage, mettreAJourLocalement, mettreAJourRessourceHybride } = usePersonnage()
+  const { personnage, rechargerPersonnage, mettreAJourLocalement, mettreAJourRessourceHybride, chargement } = usePersonnage()
   const { stats } = useStats()
   const { deltas, updateDelta, adjustDelta, appliquerDelta } = useResourceManagement(personnage, mettreAJourLocalement, mettreAJourRessourceHybride)
   
@@ -29,39 +30,47 @@ export default function MonPersonnage() {
     const handleResize = () => setVh(window.innerHeight)
     window.addEventListener('resize', handleResize)
     
-    // Pour le pseudo du joueur, on essaie de le trouver via les comptes de la session ou une lib
-    // Mais on évite de bloquer/crash si pas dispo en local
+    // Récupération du pseudo via Supabase (Autorisé car c'est une info de Compte)
     if (personnage?.lie_au_compte) {
-      if (peerService.isHost) {
-        const db = (window as any).db;
-        db.comptes.getById(personnage.lie_au_compte).then((res: any) => { if (res.success && res.data) setPseudoJoueur(res.data.pseudo) })
-      } else {
-        // Côté joueur, on pourrait l'avoir dans un futur message d'identité globale
-        // Pour l'instant on laisse vide ou on met le pseudo du compte si c'est le nôtre
-        const compte = useStore.getState().compte;
-        if (compte && compte.id === personnage.lie_au_compte) {
-          setPseudoJoueur(compte.pseudo);
-        }
-      }
+      supabase.from('comptes')
+        .select('pseudo')
+        .eq('id', personnage.lie_au_compte)
+        .maybeSingle()
+        .then(({ data }) => { if (data) setPseudoJoueur(data.pseudo) })
     }
+    
     return () => window.removeEventListener('resize', handleResize)
   }, [personnage?.lie_au_compte])
 
+  // ÉCRAN DE CHARGEMENT / SÉCURITÉ (Évite la page blanche filigrane)
   if (!personnage) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-        <div className="w-12 h-12 border-4 border-theme-main/20 border-t-theme-main rounded-full animate-spin" />
-        <p className="font-cinzel text-theme-main animate-pulse uppercase tracking-widest text-sm">Récupération de votre âme...</p>
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-6 text-center px-6">
+        <motion.div 
+          animate={{ rotate: 360 }} 
+          transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+          className="text-theme-main opacity-20"
+        >
+          <Loader2 size={64} />
+        </motion.div>
+        <div className="flex flex-col gap-2">
+          <h2 className="font-cinzel text-xl text-theme-main uppercase tracking-widest animate-pulse">Inspiration de l'âme...</h2>
+          <p className="font-garamond italic opacity-40 text-sm max-w-xs">
+            Le Codex tente de se lier à votre essence. Si cela prend trop de temps, tentez une résonance manuelle.
+          </p>
+        </div>
         <button 
           onClick={() => rechargerPersonnage()}
-          className="px-4 py-2 border border-theme-main/30 text-[10px] font-cinzel uppercase hover:bg-theme-main/10 transition-colors"
+          className="mt-4 flex items-center gap-2 px-6 py-3 border border-theme-main/30 font-cinzel text-[10px] uppercase tracking-[0.2em] hover:bg-theme-main/10 transition-all group"
         >
-          Forcer la resynchronisation
+          <RefreshCw size={14} className="group-active:rotate-180 transition-transform" />
+          Résonance Manuelle
         </button>
       </div>
     )
   }
 
+  // Calcul des ressources avec valeurs de secours pour éviter NaN
   const ressources = (Object.keys(CONFIG_RESSOURCES) as RessourceKey[]).map(key => ({        
     ...CONFIG_RESSOURCES[key],
     actuel: (personnage[key as keyof typeof personnage] as number) ?? 0,
