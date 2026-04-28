@@ -17,16 +17,28 @@ export function usePersonnage() {
   const lastUpdateRef = useRef<number>(0)
 
   const chargerPersonnage = useCallback(async (isRealtime = false) => {
-    // Throttle important : pas plus d'un rechargement toutes les 2 secondes en temps réel
-    if (isRealtime && Date.now() - lastUpdateRef.current < 2000) return
-
     if (!sessionActive) {
       setPersonnage(null)
       setChargement(false)
       return
     }
 
+    // Uniquement le MJ peut charger depuis SQLite
+    if (!peerService.isHost) {
+      // Les joueurs utilisent le personnage déjà présent dans le store (mis à jour par WebRTC)
+      if (personnageJoueur && personnageJoueur.id_session === sessionActive.id) {
+        setPersonnage(personnageJoueur);
+      } else if (pnjControle && pnjControle.id_session === sessionActive.id) {
+        setPersonnage(pnjControle);
+      }
+      setChargement(false);
+      return;
+    }
+
+    // Logique MJ (Hôte)
+    if (isRealtime && Date.now() - lastUpdateRef.current < 2000) return
     if (!isRealtime) setChargement(true)
+
     try {
       const db = (window as any).db;
       let targetId: string | null = null;
@@ -49,8 +61,6 @@ export function usePersonnage() {
       }
 
       if (targetId) {
-        // On n'appelle recalculerStats qu'en mode non-temps réel pour éviter les boucles
-        // En temps réel, on se contente de ce qu'il y a en base
         const resP = await db.personnages.getById(targetId);
         if (resP.success && resP.data) {
           const fullPerso = isRealtime 
@@ -59,7 +69,6 @@ export function usePersonnage() {
             
           if (fullPerso) {
             setPersonnage(fullPerso as Personnage);
-            // Synchro store si besoin
             if (personnageJoueur && personnageJoueur.id === fullPerso.id) setPersonnageJoueur(fullPerso as Personnage);
             if (pnjControle && pnjControle.id === fullPerso.id) setPnjControle(fullPerso as Personnage);
           }
@@ -85,8 +94,12 @@ export function usePersonnage() {
     const unsubscribe = peerService.onStateUpdate((msg) => {
       if (msg.entity !== 'personnage') return;
       const payload = msg.payload;
-      if (payload.id_personnage === personnage.id && payload.type) {
-        setPersonnage(prev => prev ? { ...prev, [payload.type]: payload.valeur } : prev);
+      if (payload.id_personnage === personnage.id) {
+        if (payload.type === 'full') {
+           setPersonnage(payload.valeur);
+        } else if (payload.type) {
+           setPersonnage(prev => prev ? { ...prev, [payload.type]: payload.valeur } : prev);
+        }
       }
     });
 
@@ -100,7 +113,7 @@ export function usePersonnage() {
     ],
     sessionId: sessionActive?.id,
     onReload: () => chargerPersonnage(true),
-    enabled: !!sessionActive
+    enabled: !!sessionActive && peerService.isHost // Uniquement pour le MJ
   })
 
   const mettreAJourLocalement = async (updates: Partial<Personnage>) => {

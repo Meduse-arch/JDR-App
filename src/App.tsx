@@ -36,9 +36,15 @@ import Connexion from './pages/auth/Connexion'
 import Inscription from './pages/auth/Inscription'
 
 import { TITRES_LEGENDE } from './config/titres'
+import { useMJResyncHandler } from './hooks/useMJResyncHandler'
+import { useLibrarySync } from './hooks/useLibrarySync'
 
 export default function App() {
   const [navigationOpen, setNavigationOpen] = useState(false)
+  
+  // Handlers WebRTC
+  useMJResyncHandler()
+  useLibrarySync()
   
   // Gestion du mode Pop-out (fenêtre détachée)
   const fullUrl = window.location.href

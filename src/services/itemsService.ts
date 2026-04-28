@@ -1,5 +1,6 @@
 import { Item, Modificateur, EffetActif, Stat, CategorieItem } from '../types';
 import { tagsService } from './tagsService';
+import { peerService } from './peerService';
 
 const db = (window as any).db;
 
@@ -8,7 +9,8 @@ export const itemsService = {
    * Récupère tous les items d'une session avec leurs modificateurs et effets
    */
   getItems: async (idSession: string): Promise<Item[]> => {
-    // MIGRATION: était une jointure SQL complexe
+    if (!peerService.isHost) return [];
+    
     const resItems = await db.items.getAll();
     if (!resItems.success) return [];
     const items = resItems.data.filter((i: any) => i.id_session === idSession).sort((a: any, b: any) => a.nom.localeCompare(b.nom));
@@ -54,6 +56,7 @@ export const itemsService = {
     effetsActifs: Partial<EffetActif>[] = [],
     tagIds: string[] = []
   ): Promise<boolean> => {
+    if (!peerService.isHost) return false;
     const resItem = await db.items.update(idItem, itemData);
     if (!resItem.success) return false;
 
@@ -112,6 +115,7 @@ export const itemsService = {
    * Récupère les stats disponibles
    */
   getStats: async (): Promise<Stat[]> => {
+    if (!peerService.isHost) return [];
     const res = await db.stats.getAll();
     return res.success ? res.data : [];
   },
@@ -127,6 +131,7 @@ export const itemsService = {
     effetsActifs: Partial<EffetActif>[] = [],
     tagIds: string[] = []
   ): Promise<Item | null> => {
+    if (!peerService.isHost) return null;
     const newItem = {
       ...itemData,
       id: crypto.randomUUID(),
@@ -186,6 +191,7 @@ export const itemsService = {
    * Supprime un item
    */
   deleteItem: async (idItem: string): Promise<boolean> => {
+    if (!peerService.isHost) return false;
     const res = await db.items.delete(idItem);
     return res.success;
   }

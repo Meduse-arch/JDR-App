@@ -110,6 +110,7 @@ export const personnageService = {
    */
   hydraterPersonnages: async (personnages: any[]) => {
     if (!personnages || personnages.length === 0) return [];
+    if (!peerService.isHost) return personnages; // Les joueurs ne peuvent pas hydrater via BDD
     
     try {
       const resStats = await db.personnage_stats.getAll();
@@ -153,6 +154,7 @@ export const personnageService = {
   },
 
   recalculerStats: async (idPersonnage: string) => {
+    if (!peerService.isHost) return null; // Uniquement le MJ peut recalculer via BDD
     try {
       const resPerso = await db.personnages.getById(idPersonnage);
       if (!resPerso.success || !resPerso.data) return null;
@@ -160,18 +162,22 @@ export const personnageService = {
       const hydrated = await personnageService.hydraterPersonnages([resPerso.data]);
       const perso = hydrated[0];
 
-      // On ne met à jour la BDD que si on est MJ et qu'il y a un dépassement flagrant
-      // Cela évite les boucles infinies de rechargement temps réel
-      if (peerService.isHost) {
-        const updates: any = {};
-        if (perso.hp > perso.hp_max) updates.hp = perso.hp_max;
-        if (perso.mana > perso.mana_max) updates.mana = perso.mana_max;
-        if (perso.stam > perso.stam_max) updates.stam = perso.stam_max;
+      const updates: any = {};
+      if (perso.hp > perso.hp_max) updates.hp = perso.hp_max;
+      if (perso.mana > perso.mana_max) updates.mana = perso.mana_max;
+      if (perso.stam > perso.stam_max) updates.stam = perso.stam_max;
 
-        if (Object.keys(updates).length > 0) {
-          await db.personnages.update(idPersonnage, updates);
-          return { ...perso, ...updates };
-        }
+      if (Object.keys(updates).length > 0) {
+        await db.personnages.update(idPersonnage, updates);
+        
+        // On informe les joueurs du nouveau statut
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'personnage',
+          payload: { id_personnage: idPersonnage, type: 'full', valeur: { ...perso, ...updates } }
+        });
+
+        return { ...perso, ...updates };
       }
       
       return perso;

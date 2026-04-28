@@ -61,6 +61,12 @@ interface JdrState {
   clearBuffRolls: () => void
   enteringSession: { id: string, nom: string } | null
   authPage: 'accueil' | 'connexion' | 'inscription'
+  libItems: any[]
+  libCompetences: any[]
+  allStats: any[]
+  setLibItems: (items: any[]) => void
+  setLibCompetences: (competences: any[]) => void
+  setAllStats: (stats: any[]) => void
   setCompte: (c: Compte | null) => void
   setSessionActive: (s: Session | null) => void
   setRoleEffectif: (r: RoleId | null) => void
@@ -101,6 +107,13 @@ export const useStore = create<JdrState>((set, get) => ({
   buffRolls: {},
   enteringSession: null,
   authPage: 'accueil',
+  libItems: [],
+  libCompetences: [],
+  allStats: [],
+
+  setLibItems: (libItems) => set({ libItems }),
+  setLibCompetences: (libCompetences) => set({ libCompetences }),
+  setAllStats: (allStats) => set({ allStats }),
 
   setCompte: (compte) => {
     if (compte) localStorage.setItem('sigil-compte', JSON.stringify(compte))

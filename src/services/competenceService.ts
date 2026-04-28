@@ -1,5 +1,6 @@
 import { Competence } from '../types';
 import { tagsService } from './tagsService';
+import { peerService } from './peerService';
 
 const db = (window as any).db;
 
@@ -8,7 +9,8 @@ export const competenceService = {
    * Récupère toutes les compétences de la base de données
    */
   getCompetences: async (idSession: string): Promise<Competence[]> => {
-    // MIGRATION: était une jointure SQL
+    if (!peerService.isHost) return [];
+
     const resComp = await db.competences.getAll();
     if (!resComp.success) return [];
     const competences = resComp.data.filter((c: any) => c.id_session === idSession).sort((a: any, b: any) => a.nom.localeCompare(b.nom));
@@ -56,6 +58,8 @@ export const competenceService = {
     effetsActifs: Partial<any>[] = [],
     tagIds: string[] = []
   ): Promise<boolean> => {
+    if (!peerService.isHost) return false;
+
     const finalData = {
       ...competenceData,
       condition_type: competenceData.type === 'passive_auto' ? competenceData.condition_type : null
@@ -123,6 +127,8 @@ export const competenceService = {
     effetsActifs: Partial<any>[] = [],
     tagIds: string[] = []
   ): Promise<Competence | null> => {
+    if (!peerService.isHost) return null;
+
     const finalData = {
       ...competenceData,
       id: crypto.randomUUID(),
@@ -178,6 +184,7 @@ export const competenceService = {
    * Supprime une compétence
    */
   deleteCompetence: async (idCompetence: string): Promise<boolean> => {
+    if (!peerService.isHost) return false;
     const res = await db.competences.delete(idCompetence);
     return res.success;
   },
@@ -186,6 +193,7 @@ export const competenceService = {
    * Ajoute une compétence à un personnage
    */
   apprendreCompetence: async (idPersonnage: string, idCompetence: string): Promise<boolean> => {
+    if (!peerService.isHost) return false;
     const resAll = await db.personnage_competences.getAll();
     if (resAll.success) {
       const exists = resAll.data.find((pc: any) => pc.id_personnage === idPersonnage && pc.id_competence === idCompetence);
@@ -206,6 +214,7 @@ export const competenceService = {
    * Oublier une compétence (retirer d'un personnage)
    */
   oublierCompetence: async (idPersonnage: string, idCompetence: string): Promise<boolean> => {
+    if (!peerService.isHost) return false;
     const resAll = await db.personnage_competences.getAll();
     if (!resAll.success) return false;
     const exists = resAll.data.find((pc: any) => pc.id_personnage === idPersonnage && pc.id_competence === idCompetence);

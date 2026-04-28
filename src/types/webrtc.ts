@@ -19,17 +19,29 @@ export interface StateUpdateMessage {
 
 export interface ResyncRequestMessage {
   type: 'RESYNC_REQUEST';
-  characterId: string; // The character ID the player is requesting resync for
+  characterId?: string; // Optional character ID
   senderId?: string;
 }
 
 export interface ResyncResponseMessage {
   type: 'RESYNC_RESPONSE';
-  payload: any; // The full state of the character (e.g., Personnage object + inventory + stats)
+  payload: any; // The full state requested
+}
+
+export interface ListCharactersRequestMessage {
+  type: 'LIST_CHARACTERS_REQUEST';
+  compteId: string;
+}
+
+export interface ListCharactersResponseMessage {
+  type: 'LIST_CHARACTERS_RESPONSE';
+  personnages: any[];
 }
 
 export type WebRTCMessage =
   | ActionMessage
   | StateUpdateMessage
   | ResyncRequestMessage
-  | ResyncResponseMessage;
+  | ResyncResponseMessage
+  | ListCharactersRequestMessage
+  | ListCharactersResponseMessage;

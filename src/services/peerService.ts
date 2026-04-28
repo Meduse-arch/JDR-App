@@ -4,6 +4,8 @@ import {
   StateUpdateMessage, 
   ResyncRequestMessage, 
   ResyncResponseMessage, 
+  ListCharactersRequestMessage,
+  ListCharactersResponseMessage,
   WebRTCMessage 
 } from '../types/webrtc';
 
@@ -17,8 +19,10 @@ class PeerService {
   private stateUpdateHandlers: Array<(msg: StateUpdateMessage) => void> = [];
   private joueurConnectedHandlers: Array<(peerId: string) => void> = [];
   private joueurDisconnectedHandlers: Array<(peerId: string) => void> = [];
-  private resyncRequestHandlers: Array<(characterId: string, fromPeerId: string) => void> = [];
+  private resyncRequestHandlers: Array<(characterId: string | undefined, fromPeerId: string) => void> = [];
   private resyncResponseHandlers: Array<(msg: ResyncResponseMessage) => void> = [];
+  private listCharactersRequestHandlers: Array<(compteId: string, fromPeerId: string) => void> = [];
+  private listCharactersResponseHandlers: Array<(msg: ListCharactersResponseMessage) => void> = [];
 
   private hostConnection: DataConnection | null = null;
 
@@ -38,13 +42,9 @@ class PeerService {
             { urls: 'stun:stun1.l.google.com:19302' },
           ]
         }
-        // MIGRATION WebRTC — Signaling via PeerJS Cloud (requis pour connexions internet)
-        // Les données de jeu transitent en P2P direct, le cloud n'est utilisé que
-        // pour l'établissement de connexion initial (ICE/STUN/TURN)
       });
       
       this.peer.on('open', () => resolve());
-      
       this.peer.on('error', (err) => reject(err));
       
       this.peer.on('connection', (conn) => {
@@ -132,12 +132,18 @@ class PeerService {
       case 'RESYNC_RESPONSE':
         this.resyncResponseHandlers.forEach(cb => cb(data as ResyncResponseMessage));
         break;
+      case 'LIST_CHARACTERS_REQUEST':
+        this.listCharactersRequestHandlers.forEach(cb => cb((data as ListCharactersRequestMessage).compteId, fromPeerId));
+        break;
+      case 'LIST_CHARACTERS_RESPONSE':
+        this.listCharactersResponseHandlers.forEach(cb => cb(data as ListCharactersResponseMessage));
+        break;
     }
   }
 
   // --- Méthodes d'Envoi ---
 
-  sendToMJ(message: ActionMessage): void {
+  sendToMJ(message: ActionMessage | ResyncRequestMessage | ListCharactersRequestMessage): void {
     if (!this.isHost && this.hostConnection) {
       this.hostConnection.send(message);
     }
@@ -149,7 +155,7 @@ class PeerService {
     }
   }
 
-  sendToJoueur(joueurPeerId: string, message: StateUpdateMessage | ResyncResponseMessage): void {
+  sendToJoueur(joueurPeerId: string, message: StateUpdateMessage | ResyncResponseMessage | ListCharactersResponseMessage): void {
     if (this.isHost) {
       this.connections.get(joueurPeerId)?.send(message);
     }
@@ -157,15 +163,18 @@ class PeerService {
 
   // --- Resync ---
 
-  requestResync(characterId: string): void {
+  requestResync(characterId?: string): void {
     if (!this.isHost && this.hostConnection) {
       const msg: ResyncRequestMessage = { type: 'RESYNC_REQUEST', characterId };
       this.hostConnection.send(msg);
     }
   }
 
-  sendResyncResponse(joueurPeerId: string, data: ResyncResponseMessage): void {
-    this.sendToJoueur(joueurPeerId, data);
+  requestListCharacters(compteId: string): void {
+    if (!this.isHost && this.hostConnection) {
+      const msg: ListCharactersRequestMessage = { type: 'LIST_CHARACTERS_REQUEST', compteId };
+      this.hostConnection.send(msg);
+    }
   }
 
   // --- Abonnements (retournent une fonction de désabonnement pour useEffect) ---
@@ -190,7 +199,7 @@ class PeerService {
     return () => { this.joueurDisconnectedHandlers = this.joueurDisconnectedHandlers.filter(h => h !== handler); };
   }
 
-  onResyncRequest(handler: (characterId: string, fromPeerId: string) => void): () => void {
+  onResyncRequest(handler: (characterId: string | undefined, fromPeerId: string) => void): () => void {
     this.resyncRequestHandlers.push(handler);
     return () => { this.resyncRequestHandlers = this.resyncRequestHandlers.filter(h => h !== handler); };
   }
@@ -198,6 +207,16 @@ class PeerService {
   onResyncResponse(handler: (msg: ResyncResponseMessage) => void): () => void {
     this.resyncResponseHandlers.push(handler);
     return () => { this.resyncResponseHandlers = this.resyncResponseHandlers.filter(h => h !== handler); };
+  }
+
+  onListCharactersRequest(handler: (compteId: string, fromPeerId: string) => void): () => void {
+    this.listCharactersRequestHandlers.push(handler);
+    return () => { this.listCharactersRequestHandlers = this.listCharactersRequestHandlers.filter(h => h !== handler); };
+  }
+
+  onListCharactersResponse(handler: (msg: ListCharactersResponseMessage) => void): () => void {
+    this.listCharactersResponseHandlers.push(handler);
+    return () => { this.listCharactersResponseHandlers = this.listCharactersResponseHandlers.filter(h => h !== handler); };
   }
 }
 
