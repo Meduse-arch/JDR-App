@@ -18,8 +18,12 @@ export function useLibrarySync() {
       const { payload } = msg;
       if (payload.type === 'library_update') {
         if (payload.items) setLibItems(payload.items);
-        if (payload.stats) setAllStats(payload.stats);
-      } else if (payload.type === 'library_update_competences') {
+        if (payload.stats) {
+          console.log(`[Joueur] 📚 Bibliothèque de ${payload.stats.length} statistiques reçue.`);
+          setAllStats(payload.stats);
+        }
+      }
+ else if (payload.type === 'library_update_competences') {
         if (payload.competences) setLibCompetences(payload.competences);
       } else if (payload.type === 'character_created') {
         // Déclencher une actualisation de la liste des personnages pour le joueur

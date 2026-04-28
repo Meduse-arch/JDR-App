@@ -163,9 +163,11 @@ export function useMJResyncHandler() {
         const sessionActive = useStore.getState().sessionActive;
         if (!sessionActive) return;
         
+        console.log(`[MJ] 📚 Envoi des bibliothèques à ${fromPeerId}...`);
+
         const [items, stats, competences] = await Promise.all([
           itemsService.getItems(sessionActive.id),
-          itemsService.getStats(),
+          itemsService.getStats(), // Récupère la table 'stats' complète (id, nom, desc)
           competenceService.getCompetences(sessionActive.id)
         ]);
 
