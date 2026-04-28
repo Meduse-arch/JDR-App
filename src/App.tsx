@@ -173,11 +173,13 @@ export default function App() {
         }
       } catch (err) {
         console.error("Erreur initialisation Peer:", err)
-        if (role === 'joueur') {
-          alert("Impossible de se connecter au Maître du Jeu. Est-il en ligne ?")
-          setEnteringSession(null)
-          return
+        if (role === 'mj' || role === 'admin') {
+          alert("ERREUR RÉSEAU : Impossible d'ouvrir votre session aux autres joueurs. Vérifiez votre connexion internet.")
+        } else {
+          alert("DÉCONNEXION : Impossible de rejoindre le Maître du Jeu. Assurez-vous qu'il a bien lancé la session.")
         }
+        setEnteringSession(null)
+        return
       }
 
       setRoleEffectif(role)

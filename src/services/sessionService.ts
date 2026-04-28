@@ -19,17 +19,16 @@ export const sessionService = {
       return false
     }
 
-    if (roleGlobale === 'mj') {
-      await supabase.from('session_mj').insert({ id_session: newSession.id, id_compte: idCompte })
-      
-      // Initialize the new session DB in the backend locally
-      const db = (window as any).db;
+    // Le créateur est systématiquement MJ de sa session
+    await supabase.from('session_mj').insert({ id_session: newSession.id, id_compte: idCompte })
+    
+    // Initialize the new session DB in the backend locally
+    const db = (window as any).db;
       try {
         await db.system.initSession(newSession.id);
       } catch (err) {
         console.error("Erreur initSession local SQLite:", err);
       }
-    }
     return true
   },
 
@@ -46,8 +45,15 @@ export const sessionService = {
 
   getRoleDansSession: async (idSession: string, idCompte: string, roleGlobal: string) => {
     if (roleGlobal === 'admin') return 'admin'
-    const { data } = await supabase.from('session_mj').select('id_compte').eq('id_session', idSession).eq('id_compte', idCompte).single();
-    if (data) return 'mj';
+    
+    // 1. Vérifier s'il est explicitement MJ
+    const { data: isMJ } = await supabase.from('session_mj').select('id_compte').eq('id_session', idSession).eq('id_compte', idCompte).single();
+    if (isMJ) return 'mj';
+
+    // 2. Vérifier s'il est le créateur de la session
+    const { data: session } = await supabase.from('sessions').select('cree_par').eq('id', idSession).single();
+    if (session && session.cree_par === idCompte) return 'mj';
+
     return 'joueur'
   },
 

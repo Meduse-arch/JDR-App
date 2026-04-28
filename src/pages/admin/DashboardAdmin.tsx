@@ -120,11 +120,14 @@ export default function DashboardAdmin() {
           <div className="mt-2 flex flex-col items-center gap-2 bg-black/40 border border-theme-main/20 p-4 rounded-lg backdrop-blur-sm">
             <span className="font-cinzel text-xs text-primary/60 uppercase tracking-widest">Code de connexion (Joueurs)</span>
             <div className="flex items-center gap-4">
-              <code className="font-mono text-lg text-theme-main font-bold px-3 py-1 bg-black/50 rounded">{sessionActive.id}</code>
+              <code className="font-mono text-lg text-theme-main font-bold px-3 py-1 bg-black/50 rounded">{generateMJPeerId(sessionActive.id)}</code>
               <button 
-                onClick={() => navigator.clipboard.writeText(generateMJPeerId(sessionActive.id))}
+                onClick={() => {
+                  navigator.clipboard.writeText(generateMJPeerId(sessionActive.id));
+                  alert("Code de connexion copié !");
+                }}
                 className="flex items-center gap-2 text-xs font-cinzel tracking-widest uppercase bg-theme-main/10 hover:bg-theme-main/20 text-theme-main px-3 py-2 rounded transition-all"
-                title="Copier le Peer ID de connexion"
+                title="Copier le code de connexion"
               >
                 <Copy size={14} /> Copier
               </button>
