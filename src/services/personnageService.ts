@@ -157,22 +157,20 @@ export const personnageService = {
   },
 
   recalculerStats: async (idPersonnage: string) => {
-    if (!peerService.isHost) return null; // Uniquement le MJ peut recalculer via BDD
+    if (!peerService.isHost) return null;
     try {
       const resPerso = await db.personnages.getById(idPersonnage);
       if (!resPerso.success || !resPerso.data) return null;
       
-      // 1. Hydrater les ressources max de base (HP, Mana, Stam)
       const hydrated = await personnageService.hydraterPersonnages([resPerso.data]);
       const perso = hydrated[0];
 
-      // 2. Calculer les statistiques complexes (Force, Agilité, etc.) avec bonus
       const buffRolls = await statsService.getBuffRolls(idPersonnage);
       const fullStats = await statsService.calculateAllStats(idPersonnage, buffRolls, async (k, v) => {
         await statsService.saveBuffRoll(idPersonnage, k, v);
       });
 
-      // Injecter les stats calculées dans l'objet perso pour le joueur
+      // Stats complexes pour le joueur
       perso.stats = fullStats.map(s => ({
         id_stat: s.id,
         valeur: s.valeur,
@@ -180,33 +178,30 @@ export const personnageService = {
         bonus: s.bonus
       }));
 
+      // S'assurer que les MAX sont bien présents (déjà fait par hydraterPersonnages mais on double-check)
+      perso.hp_max = perso.hp_max || 10;
+      perso.mana_max = perso.mana_max || 10;
+      perso.stam_max = perso.stam_max || 10;
+
       const updates: any = {};
       if (perso.hp > perso.hp_max) updates.hp = perso.hp_max;
       if (perso.mana > perso.mana_max) updates.mana = perso.mana_max;
       if (perso.stam > perso.stam_max) updates.stam = perso.stam_max;
 
+      const finalPerso = { ...perso, ...updates };
+
       if (Object.keys(updates).length > 0) {
         await db.personnages.update(idPersonnage, updates);
-        const finalPerso = { ...perso, ...updates };
-        
-        // On informe les joueurs du nouveau statut
-        peerService.broadcastToAll({
-          type: 'STATE_UPDATE',
-          entity: 'personnage',
-          payload: { id_personnage: idPersonnage, type: 'full', valeur: finalPerso }
-        });
-
-        return finalPerso;
       }
       
-      // Toujours informer les joueurs du statut complet pour synchro stats
+      // BROADCAST COMPLET : Essentiel pour que les joueurs voient les MAX et les STATS
       peerService.broadcastToAll({
         type: 'STATE_UPDATE',
         entity: 'personnage',
-        payload: { id_personnage: idPersonnage, type: 'full', valeur: perso }
+        payload: { id_personnage: idPersonnage, type: 'full', valeur: finalPerso }
       });
 
-      return perso;
+      return finalPerso;
     } catch (error) {
       console.error("Exception dans recalculerStats:", error)
       return null
