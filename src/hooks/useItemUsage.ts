@@ -36,7 +36,10 @@ export function useItemUsage(
 
     for (const e of effets) {
       let finalValue = e.valeur || 0
-      const isCout = e.valeur < 0 || e.est_cout === true;
+      
+      // ADAPTATION Supabase→SQLite : INTEGER (0/1) -> Boolean
+      const isCout = e.valeur < 0 || e.est_cout === 1 || e.est_cout === true;
+      const isJetDe = e.est_jet_de === 1 || e.est_jet_de === true;
       
       // LOGIQUE DE DÉS
       if (e.des_nb || e.des_stat_id) {
@@ -45,21 +48,26 @@ export function useItemUsage(
         let valeurStat = 10;
         
         if (e.des_stat_id) {
-          const statTrouvee = statsCalculees?.find(s => s.id === e.des_stat_id);
+          // ADAPTATION Supabase→SQLite : Normalisation String sur ID
+          const sid = String(e.des_stat_id);
+          const statTrouvee = statsCalculees?.find(s => String(s.id) === sid);
+          
           if (statTrouvee) {
             valeurStat = statTrouvee.valeur;
             statNom = statTrouvee.nom;
           } else {
-            // Dé sur stat
+            // Dé sur stat (lecture directe si non calculé)
             try {
               const db = (window as any).db;
-              const resPStats = await db.personnage_stats.getAll();
-              const pStat = resPStats.success ? resPStats.data.find((s: any) => s.id_personnage === personnage.id && s.id_stat === e.des_stat_id) : null;
-              const resStats = await db.stats.getAll();
-              const statObj = resStats.success ? resStats.data.find((s: any) => s.id === e.des_stat_id) : null;
-              
-              statNom = statObj?.nom || 'Stat';
-              valeurStat = pStat?.valeur || 10;
+              if (db) {
+                const resPStats = await db.personnage_stats.getAll();
+                const pStat = resPStats.success ? resPStats.data.find((s: any) => String(s.id_personnage) === String(personnage.id) && String(s.id_stat) === sid) : null;
+                const resStats = await db.stats.getAll();
+                const statObj = resStats.success ? resStats.data.find((s: any) => String(s.id) === sid) : null;
+                
+                statNom = statObj?.nom || 'Stat';
+                valeurStat = pStat?.valeur || 10;
+              }
             } catch (err) {
               valeurStat = 10;
               statNom = 'Stat';
@@ -80,8 +88,8 @@ export function useItemUsage(
         finalValue = -Math.abs(finalValue);
       }
 
-      // Si c'est un jet de dé pur (est_jet_de), on ne modifie PAS les jauges du personnage
-      if (e.est_jet_de) continue;
+      // ADAPTATION Supabase→SQLite : INTEGER (0/1) -> Boolean
+      if (isJetDe) continue;
 
       if (e.cible_jauge === 'hp') {
         updates.hp = Math.max(0, Math.min(personnage.hp_max, (updates.hp ?? personnage.hp) + finalValue))

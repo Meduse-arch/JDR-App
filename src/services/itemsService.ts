@@ -2,7 +2,7 @@ import { Item, Modificateur, EffetActif, Stat, CategorieItem } from '../types';
 import { tagsService } from './tagsService';
 import { peerService } from './peerService';
 
-// FIX Items affichage : Sécurisation de l'accès à la DB
+// ADAPTATION Supabase→SQLite
 const getDB = () => (window as any).db;
 
 export const itemsService = {
@@ -16,7 +16,7 @@ export const itemsService = {
     const resItems = await db.items.getAll();
     if (!resItems.success) return [];
     
-    // FIX Items affichage : Comparaison souple des IDs de session
+    // Filtrage strict par session
     const items = resItems.data.filter((i: any) => String(i.id_session) === String(idSession))
                                .sort((a: any, b: any) => a.nom.localeCompare(b.nom));
 
@@ -31,13 +31,14 @@ export const itemsService = {
     return items.map((item: any) => {
       const modifs = resModifs.data?.filter((m: any) => m.id_item === item.id).map((m: any) => ({
         ...m,
-        // FIX Items affichage : Normalisation String sur id_stat
+        // ADAPTATION Supabase→SQLite : Normalisation String sur id_stat
         stats: resStats.data?.find((s: any) => String(s.id) === String(m.id_stat)),
         tags: resTags.data?.find((t: any) => String(t.id) === String(m.id_tag))
       })) || [];
 
       const effets = resEffets.data?.filter((e: any) => e.id_item === item.id).map((e: any) => ({
         ...e,
+        // ADAPTATION Supabase→SQLite : INTEGER 0/1 -> boolean
         est_jet_de: e.est_jet_de === 1
       })) || [];
       
@@ -54,26 +55,19 @@ export const itemsService = {
    */
   getStats: async (): Promise<Stat[]> => {
     const db = getDB();
-    console.log('[DEBUG getStats] db disponible:', !!db);
     if (!db) return [];
-    
     const res = await db.stats.getAll();
-    console.log('[DEBUG getStats] résultat brut:', res);
     
-    // FIX Items affichage : Normalisation IDs + Filtrage stats système (PV Max...)
-    const STATS_SYSTEME = ['101', '102', '103'];
-    const filtered = res.success 
+    // ADAPTATION Supabase→SQLite : Normalisation IDs + Filtrage stats système (is_systeme)
+    return res.success 
       ? res.data
           .map((s: any) => ({ ...s, id: String(s.id) }))
-          .filter((s: any) => !STATS_SYSTEME.includes(s.id))
+          .filter((s: any) => s.is_systeme !== 1)
       : [];
-    
-    console.log('[DEBUG getStats] résultat filtré:', filtered);
-    return filtered;
   },
 
   /**
-   * Crée un nouvel item avec validation de chaque étape
+   * Crée un nouvel item avec tous ses champs
    */
   createItem: async (
     idSession: string,
@@ -83,7 +77,6 @@ export const itemsService = {
     effetsActifs: Partial<EffetActif>[] = [],
     tagIds: string[] = []
   ): Promise<Item | null> => {
-    // FIX Items persistance
     const db = getDB();
     if (!db) return null;
 
@@ -96,44 +89,51 @@ export const itemsService = {
     };
 
     const resItem = await db.items.create(newItem);
-    if (!resItem.success) {
-      console.error("Échec création item:", resItem.error);
-      return null;
-    }
+    if (!resItem.success) return null;
 
     await tagsService.setTagsForItem(newItem.id, tagIds);
 
     if (modificateurs.length > 0) {
       for (const m of modificateurs) {
         if (!m.id_stat) continue;
-        const resMod = await db.modificateurs.create({
+        await db.modificateurs.create({
           id: crypto.randomUUID(),
-          id_item: newItem.id,
-          id_stat: String(m.id_stat), // FIX Items affichage : id_stat en String
-          type_calcul: m.type_calcul || 'fixe',
+          id_stat: String(m.id_stat),
           valeur: Number(m.valeur) || 0,
+          type_calcul: m.type_calcul || 'fixe',
+          id_item: newItem.id,
+          id_competence: null,
+          id_personnage: null,
+          nom_affiche: m.nom_affiche || null,
+          id_tag: m.id_tag || null,
+          des_stat_id: m.des_stat_id || null,
+          des_nb: m.des_nb || null,
+          des_faces: m.des_faces || null,
           created_at: new Date().toISOString()
         });
-        if (!resMod.success) console.error("Échec modificateur:", resMod.error);
       }
     }
 
     if (effetsActifs.length > 0) {
       for (const e of effetsActifs) {
         if (!e.cible_jauge) continue;
-        const resEffet = await db.effets_actifs.create({
+        await db.effets_actifs.create({
           id: crypto.randomUUID(),
           id_item: newItem.id,
+          id_competence: null,
           cible_jauge: e.cible_jauge,
           valeur: Number(e.valeur) || 0,
-          est_jet_de: e.est_jet_de ? 1 : 0,
+          id_stat_de: e.id_stat_de || null,
+          des_nb: e.des_nb || null,
+          des_faces: e.des_faces || null,
+          des_stat_id: e.des_stat_id || null,
+          est_cout: e.est_cout ? 1 : 0, // ADAPTATION Supabase→SQLite
+          est_jet_de: e.est_jet_de ? 1 : 0, // ADAPTATION Supabase→SQLite
           created_at: new Date().toISOString()
         });
-        if (!resEffet.success) console.error("Échec effet:", resEffet.error);
       }
     }
 
-    // Refresh lib et broadcast
     const items = await itemsService.getItems(idSession);
     const stats = await itemsService.getStats();
     peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update', items, stats } });
@@ -142,36 +142,24 @@ export const itemsService = {
   },
 
   /**
-   * Mise à jour avec nettoyage complet
+   * Mise à jour complète
    */
-  updateItem: async (
-    idItem: string, 
-    itemData: any, 
-    modificateurs: Partial<Modificateur>[], 
-    effetsActifs: Partial<EffetActif>[] = [], 
-    tagIds: string[] = []
-  ): Promise<boolean> => {
-    // FIX Items persistance & // FIX update item
+  updateItem: async (idItem: string, itemData: any, modificateurs: any[], effetsActifs: any[] = [], tagIds: string[] = []) => {
     const db = getDB();
     if (!db) return false;
-
-    // FIX update : ne passer que les champs connus de la table items
+    
+    // Nettoyer data
     const dataClean = {
       nom: itemData.nom,
       description: itemData.description,
       categorie: itemData.categorie,
       image_url: itemData.image_url || null,
     };
-    
-    console.log('[DEBUG update] idItem:', idItem, 'dataClean:', dataClean);
 
-    const resUpdate = await db.items.update(idItem, dataClean);
-    console.log('[DEBUG update] résultat:', resUpdate);
-    if (!resUpdate.success) return false;
+    const resItem = await db.items.update(idItem, dataClean);
+    if (!resItem.success) return false;
 
     await tagsService.setTagsForItem(idItem, tagIds);
-
-    // Nettoyage via deleteByFields
     await db.modificateurs.deleteByFields({ id_item: idItem });
     await db.effets_actifs.deleteByFields({ id_item: idItem });
 
@@ -182,18 +170,32 @@ export const itemsService = {
         id_item: idItem,
         id_stat: String(m.id_stat),
         valeur: Number(m.valeur) || 0,
-        type_calcul: m.type_calcul || 'fixe'
+        type_calcul: m.type_calcul || 'fixe',
+        id_competence: null,
+        id_personnage: null,
+        nom_affiche: m.nom_affiche || null,
+        id_tag: m.id_tag || null,
+        des_stat_id: m.des_stat_id || null,
+        des_nb: m.des_nb || null,
+        des_faces: m.des_faces || null,
+        created_at: new Date().toISOString()
       });
     }
-
     for (const e of effetsActifs) {
       if (!e.cible_jauge) continue;
       await db.effets_actifs.create({
         id: crypto.randomUUID(),
         id_item: idItem,
+        id_competence: null,
         cible_jauge: e.cible_jauge,
         valeur: Number(e.valeur) || 0,
-        est_jet_de: e.est_jet_de ? 1 : 0
+        id_stat_de: e.id_stat_de || null,
+        des_nb: e.des_nb || null,
+        des_faces: e.des_faces || null,
+        des_stat_id: e.des_stat_id || null,
+        est_cout: e.est_cout ? 1 : 0, // ADAPTATION Supabase→SQLite
+        est_jet_de: e.est_jet_de ? 1 : 0, // ADAPTATION Supabase→SQLite
+        created_at: new Date().toISOString()
       });
     }
 
@@ -203,7 +205,6 @@ export const itemsService = {
       const stats = await itemsService.getStats();
       peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update', items, stats } });
     }
-
     return true;
   },
 

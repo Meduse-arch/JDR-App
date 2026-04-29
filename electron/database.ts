@@ -3,6 +3,22 @@ import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 
+// ADAPTATION Supabase→SQLite : UUIDs fixes constants pour les stats de base
+export const STATS_IDS = {
+  FORCE:        'a1000000-0000-0000-0000-000000000001',
+  AGILITE:      'a1000000-0000-0000-0000-000000000002',
+  CONSTITUTION: 'a1000000-0000-0000-0000-000000000003',
+  INTELLIGENCE: 'a1000000-0000-0000-0000-000000000004',
+  SAGESSE:      'a1000000-0000-0000-0000-000000000005',
+  CHARISME:     'a1000000-0000-0000-0000-000000000006',
+  PERCEPTION:   'a1000000-0000-0000-0000-000000000007',
+  PV_MAX:       'a1000000-0000-0000-0000-000000000101',
+  MANA_MAX:     'a1000000-0000-0000-0000-000000000102',
+  STAM_MAX:     'a1000000-0000-0000-0000-000000000103',
+} as const;
+
+export type StatId = typeof STATS_IDS[keyof typeof STATS_IDS];
+
 // Construct the master database path in the user data directory
 const masterDbPath = path.join(app.getPath('userData'), 'sigil-master.db');
 
@@ -53,10 +69,12 @@ export function loadSessionDB(folderPath: string) {
   }
 
   const sessionDbPath = path.join(fullFolderPath, 'campagne.db');
+  console.log(`[DB] Loading session database: ${sessionDbPath}`);
   sessionDb = new Database(sessionDbPath, { verbose: console.log });
   sessionDb.pragma('journal_mode = WAL');
 
-  const sessionInitScript = `
+  // 1. Création des tables (Schéma cible définitif)
+  const sessionCreateTablesScript = `
   CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY,
     id_session TEXT,
@@ -68,7 +86,9 @@ export function loadSessionDB(folderPath: string) {
   CREATE TABLE IF NOT EXISTS stats (
     id TEXT PRIMARY KEY,
     nom TEXT NOT NULL UNIQUE,
-    description TEXT
+    description TEXT,
+    id_session TEXT DEFAULT NULL,
+    is_systeme INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS personnages (
@@ -322,22 +342,83 @@ export function loadSessionDB(folderPath: string) {
     id_compte TEXT NOT NULL,
     PRIMARY KEY (id_session, id_compte)
   );
-
-  -- Insertion des statistiques de base si elles n'existent pas
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('1', 'Force', 'Puissance physique et force brute');
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('2', 'Agilité', 'Souplesse, réflexes et équilibre');
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('3', 'Constitution', 'Santé, endurance et résistance');
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('4', 'Intelligence', 'Capacité de raisonnement et mémoire');
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('5', 'Sagesse', 'Perception, intuition et volonté');
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('6', 'Charisme', 'Force de personnalité et magnétisme');
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('7', 'Perception', 'Acuité des sens et attention aux détails');
-
-  -- Stats calculées (Max)
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('101', 'PV Max', 'Points de vie maximum');
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('102', 'Mana Max', 'Points de magie maximum');
-  INSERT OR IGNORE INTO stats (id, nom, description) VALUES ('103', 'Stamina Max', 'Points d''endurance maximum');
   `;
-  sessionDb.exec(sessionInitScript);
+  sessionDb.exec(sessionCreateTablesScript);
+
+  // 2. Insertion des statistiques de base (Seed) avec échappement correct des apostrophes
+  const sessionSeedScript = `
+  INSERT OR IGNORE INTO stats (id, nom, description, id_session, is_systeme) VALUES
+  ('a1000000-0000-0000-0000-000000000001','Force','Puissance physique et force brute',NULL,0),
+  ('a1000000-0000-0000-0000-000000000002','Agilité','Souplesse, réflexes et équilibre',NULL,0),
+  ('a1000000-0000-0000-0000-000000000003','Constitution','Santé, endurance et résistance',NULL,0),
+  ('a1000000-0000-0000-0000-000000000004','Intelligence','Capacité de raisonnement et mémoire',NULL,0),
+  ('a1000000-0000-0000-0000-000000000005','Sagesse','Perception, intuition et volonté',NULL,0),
+  ('a1000000-0000-0000-0000-000000000006','Charisme','Force de personnalité et magnétisme',NULL,0),
+  ('a1000000-0000-0000-0000-000000000007','Perception','Acuité des sens et attention aux détails',NULL,0),
+  ('a1000000-0000-0000-0000-000000000101','PV Max','Points de vie maximum',NULL,1),
+  ('a1000000-0000-0000-0000-000000000102','Mana Max','Points de magie maximum',NULL,1),
+  ('a1000000-0000-0000-0000-000000000103','Stamina Max','Points d''endurance maximum',NULL,1);
+  `;
+  sessionDb.exec(sessionSeedScript);
+
+  // 3. Migration (Ajout de colonnes pour les anciennes DB)
+  const migrations = [
+    "ALTER TABLE stats ADD COLUMN id_session TEXT DEFAULT NULL",
+    "ALTER TABLE stats ADD COLUMN is_systeme INTEGER DEFAULT 0",
+    "ALTER TABLE modificateurs ADD COLUMN nom_affiche TEXT",
+    "ALTER TABLE modificateurs ADD COLUMN id_tag TEXT",
+    "ALTER TABLE modificateurs ADD COLUMN des_stat_id TEXT",
+    "ALTER TABLE modificateurs ADD COLUMN des_nb INTEGER",
+    "ALTER TABLE modificateurs ADD COLUMN des_faces INTEGER",
+    "ALTER TABLE modificateurs ADD COLUMN id_competence TEXT",
+    "ALTER TABLE modificateurs ADD COLUMN id_personnage TEXT",
+    "ALTER TABLE effets_actifs ADD COLUMN id_stat_de TEXT",
+    "ALTER TABLE effets_actifs ADD COLUMN des_nb INTEGER",
+    "ALTER TABLE effets_actifs ADD COLUMN des_faces INTEGER",
+    "ALTER TABLE effets_actifs ADD COLUMN des_stat_id TEXT",
+    "ALTER TABLE effets_actifs ADD COLUMN est_cout INTEGER DEFAULT 0",
+    "ALTER TABLE effets_actifs ADD COLUMN est_jet_de INTEGER DEFAULT 0",
+    "ALTER TABLE effets_actifs ADD COLUMN id_competence TEXT",
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000001',is_systeme=0 WHERE nom='Force'`,
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000002',is_systeme=0 WHERE nom='Agilité'`,
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000003',is_systeme=0 WHERE nom='Constitution'`,
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000004',is_systeme=0 WHERE nom='Intelligence'`,
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000005',is_systeme=0 WHERE nom='Sagesse'`,
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000006',is_systeme=0 WHERE nom='Charisme'`,
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000007',is_systeme=0 WHERE nom='Perception'`,
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000101',is_systeme=1 WHERE nom='PV Max'`,
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000102',is_systeme=1 WHERE nom='Mana Max'`,
+    `UPDATE stats SET id='a1000000-0000-0000-0000-000000000103',is_systeme=1 WHERE nom='Stamina Max'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000001' WHERE id_stat='1'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000002' WHERE id_stat='2'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000003' WHERE id_stat='3'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000004' WHERE id_stat='4'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000005' WHERE id_stat='5'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000006' WHERE id_stat='6'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000007' WHERE id_stat='7'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000101' WHERE id_stat='101'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000102' WHERE id_stat='102'`,
+    `UPDATE modificateurs SET id_stat='a1000000-0000-0000-0000-000000000103' WHERE id_stat='103'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000001' WHERE id_stat='1'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000002' WHERE id_stat='2'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000003' WHERE id_stat='3'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000004' WHERE id_stat='4'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000005' WHERE id_stat='5'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000006' WHERE id_stat='6'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000007' WHERE id_stat='7'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000101' WHERE id_stat='101'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000102' WHERE id_stat='102'`,
+    `UPDATE personnage_stats SET id_stat='a1000000-0000-0000-0000-000000000103' WHERE id_stat='103'`,
+  ];
+
+  for (const query of migrations) {
+    try {
+      sessionDb.exec(query);
+    } catch (e) {
+      // Ignoré
+    }
+  }
+
   return sessionDb;
 }
 

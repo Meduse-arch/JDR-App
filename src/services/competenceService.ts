@@ -2,6 +2,7 @@ import { Competence } from '../types';
 import { tagsService } from './tagsService';
 import { peerService } from './peerService';
 
+// ADAPTATION Supabase→SQLite
 const getDB = () => (window as any).db;
 
 export const competenceService = {
@@ -9,7 +10,6 @@ export const competenceService = {
    * Récupère toutes les compétences de la base de données
    */
   getCompetences: async (idSession: string): Promise<Competence[]> => {
-    // FIX Compétences chargement : Ne pas bloquer par isHost
     const db = getDB();
     if (!db) return [];
 
@@ -31,13 +31,14 @@ export const competenceService = {
     return competences.map((comp: any) => {
       const modifs = resModifs.data?.filter((m: any) => m.id_competence === comp.id).map((m: any) => ({
         ...m,
-        // FIX Compétences chargement : Normalisation String sur id_stat
+        // ADAPTATION Supabase→SQLite : Normalisation String sur id_stat
         stats: resStats.data?.find((s: any) => String(s.id) === String(m.id_stat)),
         tags: resTags.data?.find((t: any) => String(t.id) === String(m.id_tag))
       })) || [];
 
       const effets = resEffets.data?.filter((e: any) => e.id_competence === comp.id).map((e: any) => ({
         ...e,
+        // ADAPTATION Supabase→SQLite : INTEGER 0/1 -> boolean
         est_cout: e.est_cout === 1,
         est_jet_de: e.est_jet_de === 1
       })) || [];
@@ -79,7 +80,7 @@ export const competenceService = {
 
     await tagsService.setTagsForCompetence(idCompetence, tagIds);
 
-    // Nettoyage via deleteByFields (Fix IPC Electron)
+    // Nettoyage via deleteByFields
     await db.modificateurs.deleteByFields({ id_competence: idCompetence });
     await db.effets_actifs.deleteByFields({ id_competence: idCompetence });
 
@@ -88,9 +89,16 @@ export const competenceService = {
       await db.modificateurs.create({
         id: crypto.randomUUID(),
         id_competence: idCompetence,
-        id_stat: String(m.id_stat),
+        id_stat: String(m.id_stat), // ADAPTATION Supabase→SQLite
         valeur: Number(m.valeur) || 0,
         type_calcul: m.type_calcul || 'fixe',
+        id_item: null,
+        id_personnage: null,
+        nom_affiche: m.nom_affiche || null,
+        id_tag: m.id_tag || null,
+        des_stat_id: m.des_stat_id || null,
+        des_nb: m.des_nb || null,
+        des_faces: m.des_faces || null,
         created_at: new Date().toISOString()
       });
     }
@@ -100,10 +108,15 @@ export const competenceService = {
       await db.effets_actifs.create({
         id: crypto.randomUUID(),
         id_competence: idCompetence,
+        id_item: null,
         cible_jauge: e.cible_jauge,
         valeur: Number(e.valeur) || 0,
-        est_cout: e.est_cout ? 1 : 0,
-        est_jet_de: e.est_jet_de ? 1 : 0,
+        id_stat_de: e.id_stat_de || null,
+        des_nb: e.des_nb || null,
+        des_faces: e.des_faces || null,
+        des_stat_id: e.des_stat_id || null,
+        est_cout: e.est_cout ? 1 : 0, // ADAPTATION Supabase→SQLite
+        est_jet_de: e.est_jet_de ? 1 : 0, // ADAPTATION Supabase→SQLite
         created_at: new Date().toISOString()
       });
     }
@@ -147,9 +160,16 @@ export const competenceService = {
       await db.modificateurs.create({
         id: crypto.randomUUID(),
         id_competence: newId,
-        id_stat: String(m.id_stat),
+        id_stat: String(m.id_stat), // ADAPTATION Supabase→SQLite
         valeur: Number(m.valeur) || 0,
         type_calcul: m.type_calcul || 'fixe',
+        id_item: null,
+        id_personnage: null,
+        nom_affiche: m.nom_affiche || null,
+        id_tag: m.id_tag || null,
+        des_stat_id: m.des_stat_id || null,
+        des_nb: m.des_nb || null,
+        des_faces: m.des_faces || null,
         created_at: new Date().toISOString()
       });
     }
@@ -159,24 +179,25 @@ export const competenceService = {
       await db.effets_actifs.create({
         id: crypto.randomUUID(),
         id_competence: newId,
+        id_item: null,
         cible_jauge: e.cible_jauge,
         valeur: Number(e.valeur) || 0,
-        est_cout: e.est_cout ? 1 : 0,
-        est_jet_de: e.est_jet_de ? 1 : 0,
+        id_stat_de: e.id_stat_de || null,
+        des_nb: e.des_nb || null,
+        des_faces: e.des_faces || null,
+        des_stat_id: e.des_stat_id || null,
+        est_cout: e.est_cout ? 1 : 0, // ADAPTATION Supabase→SQLite
+        est_jet_de: e.est_jet_de ? 1 : 0, // ADAPTATION Supabase→SQLite
         created_at: new Date().toISOString()
       });
     }
 
-    // Refresh et broadcast
-    const all = await competenceService.getCompetences(competenceData.id_session);
-    peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update_competences', competences: all } });
+    const competences = await competenceService.getCompetences(competenceData.id_session);
+    peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update_competences', competences } });
 
-    return all.find((c: any) => c.id === newId) || (finalData as any);
+    return competences.find((c: any) => c.id === newId) || (finalData as any);
   },
 
-  /**
-   * Supprime une compétence
-   */
   deleteCompetence: async (idCompetence: string): Promise<boolean> => {
     const db = getDB();
     if (!db) return false;
@@ -191,9 +212,6 @@ export const competenceService = {
     return res.success;
   },
 
-  /**
-   * Ajoute une compétence à un personnage
-   */
   apprendreCompetence: async (idPersonnage: string, idCompetence: string): Promise<boolean> => {
     const db = getDB();
     if (!db) return false;
@@ -207,9 +225,6 @@ export const competenceService = {
     return true;
   },
 
-  /**
-   * Oublier une compétence (retirer d'un personnage)
-   */
   oublierCompetence: async (idPersonnage: string, idCompetence: string): Promise<boolean> => {
     const db = getDB();
     if (!db) return false;
