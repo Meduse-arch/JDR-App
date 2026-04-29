@@ -125,7 +125,13 @@ export const personnageService = {
         const pStats = allPStats.filter((s: any) => s.id_personnage === p.id);
         
         // Inclure les stats brutes pour que le joueur puisse les voir
-        perso.stats = pStats;
+        perso.stats = pStats.map((ps: any) => {
+          const sRef = allRefs.find((st: any) => st.id === ps.id_stat);
+          return {
+            ...ps,
+            nom: sRef ? sRef.nom : undefined
+          };
+        });
 
         const getStatVal = (nom: string) => {
           const sRef = allRefs.find((st: any) => st.nom === nom);
@@ -173,6 +179,7 @@ export const personnageService = {
       // Stats complexes pour le joueur
       perso.stats = fullStats.map(s => ({
         id_stat: s.id,
+        nom: s.nom,
         valeur: s.valeur,
         base: s.base,
         bonus: s.bonus

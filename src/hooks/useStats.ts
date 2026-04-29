@@ -51,7 +51,7 @@ export function useStats() {
         const formattedStats = rawStats.map((s: any) => {
           const sid = String(s.id_stat);
           const ref = allStats.find((r: any) => String(r.id) === sid);
-          const nomStat = ref?.nom || FALLBACK_NAMES[sid] || `Stat ${sid}`;
+          const nomStat = s.nom || ref?.nom || FALLBACK_NAMES[sid] || `Stat ${sid}`;
           
           return {
             id: sid,
