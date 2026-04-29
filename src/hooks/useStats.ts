@@ -42,10 +42,22 @@ export function useStats() {
         
         const FALLBACK_NAMES: Record<string, string> = {
           '1': 'Force', '2': 'Agilité', '3': 'Constitution', 
-          '4': 'Intelligence', '5': 'Sagesse', '6': 'Charisme', '7': 'Perception'
+          '4': 'Intelligence', '5': 'Sagesse', '6': 'Charisme', '7': 'Perception',
+          'a1000000-0000-0000-0000-000000000001': 'Force',
+          'a1000000-0000-0000-0000-000000000002': 'Agilité',
+          'a1000000-0000-0000-0000-000000000003': 'Constitution',
+          'a1000000-0000-0000-0000-000000000004': 'Intelligence',
+          'a1000000-0000-0000-0000-000000000005': 'Sagesse',
+          'a1000000-0000-0000-0000-000000000006': 'Charisme',
+          'a1000000-0000-0000-0000-000000000007': 'Perception'
         };
 
-        const SYSTEM_STAT_IDS = ['101', '102', '103'];
+        const SYSTEM_STAT_IDS = [
+          '101', '102', '103',
+          'a1000000-0000-0000-0000-000000000101',
+          'a1000000-0000-0000-0000-000000000102',
+          'a1000000-0000-0000-0000-000000000103'
+        ];
         const SYSTEM_STAT_NAMES = ['PV Max', 'Mana Max', 'Stamina Max', 'hp_max', 'mana_max', 'stam_max', 'HP Max'];
 
         const formattedStats = rawStats.map((s: any) => {

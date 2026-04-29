@@ -129,9 +129,10 @@ export const personnageService = {
           const sRef = allRefs.find((st: any) => st.id === ps.id_stat);
           return {
             ...ps,
-            nom: sRef ? sRef.nom : undefined
+            nom: sRef ? sRef.nom : undefined,
+            is_systeme: sRef ? sRef.is_systeme : 0
           };
-        });
+        }).filter((ps: any) => ps.is_systeme !== 1);
 
         const getStatVal = (nom: string) => {
           const sRef = allRefs.find((st: any) => st.nom === nom);

@@ -197,7 +197,7 @@ export const statsService = {
 
     await statsService.cleanupObsoleteBuffRolls(idPersonnage, clesActives);
 
-    const statsCibles = baseStats.filter((d: any) => d.stats && !['PV Max', 'Mana Max', 'Stamina Max'].includes(d.stats.nom));
+    const statsCibles = baseStats.filter((d: any) => d.stats && d.stats.is_systeme !== 1 && !['PV Max', 'Mana Max', 'Stamina Max'].includes(d.stats.nom));
     const formatted = statsCibles.map((d: any) => {
       const fixe = bonusFixes[d.id_stat] || 0;
       const pct = bonusPct[d.id_stat] || 0;
