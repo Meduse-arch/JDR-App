@@ -280,6 +280,7 @@ export function useCompetenceUsage(
 
       const globalUpdates: any = {};
       const diceResults: any[] = [];
+      const newBuffRolls: Record<string, number> = {};
 
       if (nouveauStatut) {
         const erreurCout = verifierCoutsFixes(effets, personnage, labels, comp.nom);
@@ -382,11 +383,15 @@ export function useCompetenceUsage(
               
               // On met à jour le store local immédiatement pour l'UI
               setBuffRoll(cacheKey, rollRes.total);
+              newBuffRolls[cacheKey] = rollRes.total;
+
               // Sauvegarde en base ET on attend pour la cohérence du rechargement
-              try {
-                await statsService.saveBuffRoll(characterId, cacheKey, rollRes.total);
-              } catch (err) {
-                console.error("Erreur sauvegarde buff roll:", err);
+              if (peerService.isHost) {
+                try {
+                  await statsService.saveBuffRoll(characterId, cacheKey, rollRes.total);
+                } catch (err) {
+                  console.error("Erreur sauvegarde buff roll:", err);
+                }
               }
               
               diceResults.push({ ...rollRes, label: `Buff ${cibleStatName}`, color: '#10b981' });
@@ -439,7 +444,7 @@ export function useCompetenceUsage(
         peerService.sendToMJ({
           type: 'ACTION',
           kind: 'toggle_competence',
-          payload: { liaisonId: liaison.id, is_active: nouveauStatut }
+          payload: { liaisonId: liaison.id, is_active: nouveauStatut, buffRolls: newBuffRolls }
         });
       }
 

@@ -84,7 +84,7 @@ export function useMJResyncHandler() {
       }
 
       if (msg.kind === 'toggle_competence') {
-        const { liaisonId, is_active } = msg.payload;
+        const { liaisonId, is_active, buffRolls } = msg.payload;
         
         // Fetch liaison to get character ID
         const liaisonRes = await db.personnage_competences.getById(liaisonId).catch(() => ({ success: false, data: null }));
@@ -93,6 +93,18 @@ export function useMJResyncHandler() {
         
         if (liaisonRes && liaisonRes.success && liaisonRes.data) {
           const charId = liaisonRes.data.id_personnage;
+
+          if (buffRolls && Object.keys(buffRolls).length > 0) {
+            try {
+              const { statsService } = await import('../services/statsService');
+              for (const [key, value] of Object.entries(buffRolls)) {
+                await statsService.saveBuffRoll(charId, key, value as number);
+              }
+            } catch (err) {
+              console.error("[MJ] Erreur lors de la sauvegarde des buff rolls distants:", err);
+            }
+          }
+
           const fullPerso = await personnageService.recalculerStats(charId);
           if (fullPerso) {
             peerService.sendToJoueur(fromPeerId, {
