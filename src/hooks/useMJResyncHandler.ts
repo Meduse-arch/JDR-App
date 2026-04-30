@@ -64,7 +64,24 @@ export function useMJResyncHandler() {
 
       if (msg.kind === 'toggle_competence') {
         const { liaisonId, is_active } = msg.payload;
+        
+        // Fetch liaison to get character ID
+        const liaisonRes = await db.personnage_competences.getById(liaisonId).catch(() => ({ success: false, data: null }));
+        
         await db.personnage_competences.update(liaisonId, { is_active: is_active ? 1 : 0 });
+        
+        if (liaisonRes && liaisonRes.success && liaisonRes.data) {
+          const charId = liaisonRes.data.id_personnage;
+          const fullPerso = await personnageService.recalculerStats(charId);
+          if (fullPerso) {
+            peerService.sendToJoueur(fromPeerId, {
+              type: 'STATE_UPDATE',
+              entity: 'personnage',
+              payload: { id_personnage: charId, type: 'full', valeur: fullPerso }
+            });
+          }
+        }
+
         // On broadcast le changement à tout le monde
         peerService.broadcastToAll({
           type: 'STATE_UPDATE',
