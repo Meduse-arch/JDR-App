@@ -8,27 +8,40 @@ export function generateMJPeerId(sessionCode: string): string {
 
 export const sessionService = {
   creerSession: async (nom: string, description: string, idCompte: string, roleGlobale: string) => {
-    // MIGRATION Supabase -> SQLite : la session elle-même reste sur Supabase
-    // pour permettre la découverte en ligne. Par contre, le MJ crée un fichier SQLite.
-    
-    const { error, data: newSession } = await supabase
-      .from('sessions').insert({ nom, description, cree_par: idCompte }).select('id').single()
-    
-    if (error || !newSession) {
-      console.error(error)
-      return false
+    const { data: existing } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('cree_par', idCompte)
+      .eq('nom', nom)
+      .maybeSingle()
+
+    let sessionId: string
+
+    if (existing?.id) {
+      sessionId = existing.id
+    } else {
+      const { error, data: newSession } = await supabase
+        .from('sessions')
+        .insert({ nom, description, cree_par: idCompte })
+        .select('id')
+        .single()
+
+      if (error || !newSession) {
+        console.error(error)
+        return false
+      }
+
+      sessionId = newSession.id
+      await supabase.from('session_mj').insert({ id_session: sessionId, id_compte: idCompte })
     }
 
-    // Le créateur est systématiquement MJ de sa session
-    await supabase.from('session_mj').insert({ id_session: newSession.id, id_compte: idCompte })
-    
-    // Initialize the new session DB in the backend locally
-    const db = (window as any).db;
-      try {
-        await db.system.initSession(newSession.id);
-      } catch (err) {
-        console.error("Erreur initSession local SQLite:", err);
-      }
+    const db = (window as any).db
+    try {
+      await db.system.initSession(sessionId)
+    } catch (err) {
+      console.error("Erreur initSession local SQLite:", err)
+    }
+
     return true
   },
 
