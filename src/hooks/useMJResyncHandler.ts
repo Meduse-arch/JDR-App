@@ -3,6 +3,8 @@ import { peerService } from '../services/peerService';
 import { personnageService } from '../services/personnageService';
 import { itemsService } from '../services/itemsService';
 import { competenceService } from '../services/competenceService';
+import { queteService } from '../services/queteService';
+import { inventaireService } from '../services/inventaireService';
 import { useStore } from '../store/useStore';
 
 export function useMJResyncHandler() {
@@ -149,7 +151,42 @@ export function useMJResyncHandler() {
       }
     });
 
-    const unsubResync = peerService.onResyncRequest(async (characterId, fromPeerId) => {
+    const unsubResync = peerService.onResyncRequest(async (characterId, fromPeerId, dataType) => {
+      if (dataType === 'inventaire' && characterId) {
+        console.log(`[MJ] 🔄 Resync inventaire demandée pour ${characterId} par ${fromPeerId}`);
+        const inv = await inventaireService.getInventaire(characterId);
+        peerService.sendToJoueur(fromPeerId, { type: 'RESYNC_RESPONSE', dataType: 'inventaire', payload: inv });
+        return;
+      }
+
+      if (dataType === 'competences') {
+        console.log(`[MJ] 🔄 Resync compétences demandée pour ${characterId} par ${fromPeerId}`);
+        const lib = await competenceService.getCompetences(sessionActive.id);
+        let persoComps: any[] = [];
+        if (characterId) {
+          const res = await db.personnage_competences.getAll();
+          if (res.success) {
+            persoComps = res.data.filter((pc: any) => pc.id_personnage === characterId);
+          }
+        }
+        peerService.sendToJoueur(fromPeerId, { 
+          type: 'RESYNC_RESPONSE', 
+          dataType: 'competences', 
+          payload: { lib, persoComps } 
+        });
+        return;
+      }
+
+      if (dataType === 'quetes') {
+        console.log(`[MJ] 🔄 Resync quêtes demandée pour ${characterId} par ${fromPeerId}`);
+        const data = characterId 
+          ? await queteService.getQuetesPersonnage(characterId)
+          : await queteService.getQuetes(sessionActive.id);
+        peerService.sendToJoueur(fromPeerId, { type: 'RESYNC_RESPONSE', dataType: 'quetes', payload: data });
+        return;
+      }
+
+      // Default fallback (full character or global library)
       if (characterId) {
         console.log(`[MJ] 🔄 Resync demandée pour le personnage ${characterId} par ${fromPeerId}`);
         const fullPerso = await personnageService.recalculerStats(characterId);
@@ -163,7 +200,8 @@ export function useMJResyncHandler() {
           // Fallback compatibilité
           peerService.sendToJoueur(fromPeerId, {
             type: 'RESYNC_RESPONSE',
-            payload: fullPerso
+            payload: fullPerso,
+            dataType: 'full'
           });
         }
       } else {

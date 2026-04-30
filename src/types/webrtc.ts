@@ -17,15 +17,19 @@ export interface StateUpdateMessage {
   timestamp?: number;
 }
 
+export type ResyncDataType = 'inventaire' | 'competences' | 'quetes' | 'full';
+
 export interface ResyncRequestMessage {
   type: 'RESYNC_REQUEST';
   characterId?: string; // Optional character ID
   senderId?: string;
+  dataType?: ResyncDataType;
 }
 
 export interface ResyncResponseMessage {
   type: 'RESYNC_RESPONSE';
   payload: any; // The full state requested
+  dataType?: ResyncDataType;
 }
 
 export interface ListCharactersRequestMessage {

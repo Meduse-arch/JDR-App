@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore'
 import { queteService } from '../services/queteService'
 import { Quete } from '../types'
 import { useRealtimeQuery } from './useRealtimeQuery'
+import { peerService } from '../services/peerService'
 
 export function useQuetes(personnageId?: string) {
   const sessionActive = useStore(s => s.sessionActive)
@@ -14,17 +15,45 @@ export function useQuetes(personnageId?: string) {
     if (!sessionActive) return
     if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return
 
-    if (!isRealtime) setChargement(true)
-    const data = personnageId 
-      ? await queteService.getQuetesPersonnage(personnageId)
-      : await queteService.getQuetes(sessionActive.id)
-    setQuetes(data)
-    if (!isRealtime) setChargement(false)
+    if (peerService.isHost) {
+      if (!isRealtime) setChargement(true)
+      const data = personnageId 
+        ? await queteService.getQuetesPersonnage(personnageId)
+        : await queteService.getQuetes(sessionActive.id)
+      setQuetes(data)
+      if (!isRealtime) setChargement(false)
+    } else {
+      if (!isRealtime) setChargement(true)
+      peerService.requestResync(personnageId, 'quetes')
+    }
   }, [sessionActive, personnageId])
 
   useEffect(() => {
     charger()
   }, [charger])
+
+  // Abonnement WebRTC pour les joueurs
+  useEffect(() => {
+    if (peerService.isHost || !sessionActive) return;
+
+    const unsubResponse = peerService.onResyncResponse((msg) => {
+      if (msg.dataType === 'quetes') {
+        setQuetes(msg.payload);
+        setChargement(false);
+      }
+    });
+
+    const unsubUpdate = peerService.onStateUpdate((msg) => {
+      if (msg.entity === 'session') {
+        charger(true);
+      }
+    });
+
+    return () => {
+      unsubResponse();
+      unsubUpdate();
+    };
+  }, [sessionActive, charger]);
 
   const sessionActiveId = sessionActive?.id;
 
@@ -40,7 +69,7 @@ export function useQuetes(personnageId?: string) {
         ],
     sessionId: sessionActiveId,
     onReload: () => charger(true),
-    enabled: !!sessionActiveId
+    enabled: peerService.isHost && !!sessionActiveId
   })
 
   const supprimerQuete = async (id: string) => {

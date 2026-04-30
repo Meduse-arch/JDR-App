@@ -4,6 +4,7 @@ import { InventaireEntry } from '../types'
 import { useRealtimeQuery } from './useRealtimeQuery'
 import { useStore } from '../store/useStore'
 import { logService } from '../services/logService'
+import { peerService } from '../services/peerService'
 
 export function useInventaire(personnageId: string | undefined, nomPersonnage?: string) {
   const sessionActive = useStore(s => s.sessionActive)
@@ -16,10 +17,15 @@ export function useInventaire(personnageId: string | undefined, nomPersonnage?: 
     if (!personnageId) return
     if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return
     
-    if (!isRealtime) setChargement(true)
-    const data = await inventaireService.getInventaire(personnageId)
-    setInventaire(data)
-    if (!isRealtime) setChargement(false)
+    if (peerService.isHost) {
+      if (!isRealtime) setChargement(true)
+      const data = await inventaireService.getInventaire(personnageId)
+      setInventaire(data)
+      if (!isRealtime) setChargement(false)
+    } else {
+      if (!isRealtime) setChargement(true)
+      peerService.requestResync(personnageId, 'inventaire')
+    }
   }, [personnageId])
 
   useEffect(() => {
@@ -28,6 +34,29 @@ export function useInventaire(personnageId: string | undefined, nomPersonnage?: 
 
   const sessionActiveId = sessionActive?.id;
 
+  // Abonnement WebRTC pour les joueurs
+  useEffect(() => {
+    if (peerService.isHost || !personnageId) return;
+
+    const unsubResponse = peerService.onResyncResponse((msg) => {
+      if (msg.dataType === 'inventaire') {
+        setInventaire(msg.payload);
+        setChargement(false);
+      }
+    });
+
+    const unsubUpdate = peerService.onStateUpdate((msg) => {
+      if (msg.entity === 'inventaire' || (msg.entity === 'session' && msg.payload.type === 'character_created')) {
+        charger(true);
+      }
+    });
+
+    return () => {
+      unsubResponse();
+      unsubUpdate();
+    };
+  }, [personnageId, charger]);
+
   useRealtimeQuery({
     tables: [
       { table: 'inventaire', filtered: false },
@@ -35,7 +64,7 @@ export function useInventaire(personnageId: string | undefined, nomPersonnage?: 
     ],
     sessionId: sessionActiveId,
     onReload: () => charger(true),
-    enabled: !!personnageId
+    enabled: peerService.isHost && !!personnageId
   })
 
   const equiper = useCallback(async (entryId: string, equipe: boolean) => {

@@ -5,7 +5,7 @@ import { useStore } from '../store/useStore';
 import { useRealtimeQuery } from './useRealtimeQuery';
 import { peerService } from '../services/peerService';
 
-export function useCompetences() {
+export function useCompetences(personnageId?: string) {
   const sessionActive = useStore(s => s.sessionActive);
   const libCompetences = useStore(s => s.libCompetences);
   const setLibCompetences = useStore(s => s.setLibCompetences);
@@ -20,7 +20,10 @@ export function useCompetences() {
     if (!sessionActive?.id) return;
 
     if (!peerService.isHost && (window as any).db === undefined) {
-      setCompetences(libCompetences);
+      if (!isRealtime) setChargement(true);
+      // Determine character ID from store if not explicitly passed, wait useCompetences doesn't take an ID!
+      // I should update useCompetences to accept characterId
+      peerService.requestResync(personnageId, 'competences');
       return;
     }
 
@@ -37,7 +40,7 @@ export function useCompetences() {
     } finally {
       if (!isRealtime) setChargement(false);
     }
-  }, [sessionActive?.id, setLibCompetences]);
+  }, [sessionActive?.id, personnageId, setLibCompetences]);
 
   useEffect(() => {
     chargerCompetences();
@@ -47,6 +50,32 @@ export function useCompetences() {
   useEffect(() => {
     setCompetences(libCompetences);
   }, [libCompetences]);
+
+  // Synchronisation pour les joueurs
+  useEffect(() => {
+    if (peerService.isHost) return;
+
+    const unsubResponse = peerService.onResyncResponse((msg) => {
+      if (msg.dataType === 'competences') {
+        const { lib, persoComps } = msg.payload;
+        setLibCompetences(lib);
+        setCompetences(lib);
+        setChargement(false);
+      }
+    });
+
+    const unsubUpdate = peerService.onStateUpdate((msg) => {
+      if (msg.entity === 'session' && msg.payload.type === 'library_update_competences') {
+        setLibCompetences(msg.payload.competences);
+        setCompetences(msg.payload.competences);
+      }
+    });
+
+    return () => {
+      unsubResponse();
+      unsubUpdate();
+    };
+  }, [setLibCompetences]);
 
   useRealtimeQuery({
     tables: [
