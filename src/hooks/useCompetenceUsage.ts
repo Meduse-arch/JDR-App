@@ -281,37 +281,63 @@ export function useCompetenceUsage(
         // Bonus temporaires (similaire à utiliserCompetence)
         const bonusFixesStats: Record<string, number> = {};
         const bonusPctStats: Record<string, number> = {};
-        const { data: usedCompTags } = await supabase.from('competence_tags').select('id_tag').eq('id_competence', comp.id);
-        const compTags = usedCompTags?.map((ct: any) => ct.id_tag) || [];
-
-        // Récupérer les tags de l'équipement
-        const { data: equipInv } = await supabase.from('inventaire').select('items(item_tags(id_tag))').eq('id_personnage', characterId).eq('equipe', true);
+        
+        let compTags: string[] = [];
         const activeItemTags = new Set<string>();
-        equipInv?.forEach((inv: any) => inv.items?.item_tags?.forEach((it: any) => activeItemTags.add(it.id_tag)));
+
+        if (peerService.isHost) {
+          const db = (window as any).db;
+          const resTags = await db.competence_tags.getAll();
+          compTags = resTags.success ? resTags.data.filter((ct: any) => ct.id_competence === comp.id).map((ct: any) => ct.id_tag) : [];
+          
+          const resInv = await db.inventaire.getAll();
+          const resItemTags = await db.item_tags.getAll();
+          const equipInv = resInv.success ? resInv.data.filter((i: any) => i.id_personnage === characterId && i.equipe === 1) : [];
+          equipInv.forEach((inv: any) => {
+            const tags = resItemTags.success ? resItemTags.data.filter((it: any) => it.id_item === inv.id_item) : [];
+            tags.forEach((t: any) => activeItemTags.add(t.id_tag));
+          });
+        } else {
+          compTags = ((personnage.competences || []).find((c: any) => c.id_competence === comp.id)?.competence?.tags || []).map((t: any) => t.id);
+          (personnage.inventaire || []).filter((i: any) => i.equipe).forEach((inv: any) => {
+            (inv.items?.tags || []).forEach((t: any) => activeItemTags.add(t.id));
+          });
+        }
 
         if (compTags.length > 0) {
-          const { data: personnageComps } = await supabase.from('personnage_competences').select('id_competence, is_active').eq('id_personnage', characterId);
-          if (personnageComps && personnageComps.length > 0) {
-            const allCompIds = personnageComps.map((pc: any) => pc.id_competence);
-            const { data: conditionPassives } = await supabase.from('competences').select('id, type, nom, condition_type, modificateurs(*)').in('id', allCompIds).in('type', ['passive_auto', 'passive_toggle']).in('condition_type', ['skill', 'les_deux']);
-            if (conditionPassives) {
-              const uniquePassifs = Array.from(new Map(conditionPassives.map(p => [p.id, p])).values());
-              const { data: allCondTags } = await supabase.from('competence_tags').select('id_competence, id_tag').in('id_competence', uniquePassifs.map(p => p.id));
-              for (const passif of uniquePassifs) {
-                if (passif.id === comp.id) continue;
-                if (passif.type === 'passive_toggle') {
-                  const pcEntry = personnageComps.find((pc: any) => pc.id_competence === passif.id);
-                  if (!pcEntry || !pcEntry.is_active) continue;
-                }
-                const passifTagIds = allCondTags?.filter(t => t.id_competence === passif.id).map(t => t.id_tag) || [];
-                if (compTags.some(tid => passifTagIds.includes(tid))) {
-                  const alreadyActiveByItem = passif.condition_type === 'les_deux' && passifTagIds.some(tid => activeItemTags.has(tid));
-                  if (passif.condition_type === 'skill' || (passif.condition_type === 'les_deux' && !alreadyActiveByItem)) {
-                    passif.modificateurs?.forEach((m: any) => {
-                      if (m.type_calcul === 'pourcentage') bonusPctStats[m.id_stat] = (bonusPctStats[m.id_stat] || 0) + m.valeur;
-                      else bonusFixesStats[m.id_stat] = (bonusFixesStats[m.id_stat] || 0) + m.valeur;
-                    });
-                  }
+          let characterComps: any[] = [];
+          let allComps: any[] = [];
+
+          if (peerService.isHost) {
+            const db = (window as any).db;
+            const resPC = await db.personnage_competences.getAll();
+            characterComps = resPC.success ? resPC.data.filter((pc: any) => pc.id_personnage === characterId) : [];
+            allComps = await competenceService.getCompetences(sessionActive?.id || '');
+          } else {
+            characterComps = personnage.competences || [];
+            allComps = useStore.getState().libCompetences;
+          }
+
+          if (characterComps.length > 0) {
+            const conditionPassives = allComps.filter(c => 
+              (c.type === 'passive_auto' || c.type === 'passive_toggle') && 
+              (c.condition_type === 'skill' || c.condition_type === 'les_deux')
+            );
+            
+            for (const passif of conditionPassives) {
+              if (passif.id === comp.id) continue;
+              if (passif.type === 'passive_toggle') {
+                const pcEntry = characterComps.find((pc: any) => (pc.id_competence || pc.competence_id) === passif.id);
+                if (!pcEntry || !pcEntry.is_active) continue;
+              }
+              const passifTagIds = (passif.tags || []).map((t: any) => t.id || t);
+              if (compTags.some(tid => passifTagIds.includes(tid))) {
+                const alreadyActiveByItem = passif.condition_type === 'les_deux' && passifTagIds.some(tid => activeItemTags.has(tid));
+                if (passif.condition_type === 'skill' || (passif.condition_type === 'les_deux' && !alreadyActiveByItem)) {
+                  passif.modificateurs?.forEach((m: any) => {
+                    if (m.type_calcul === 'pourcentage') bonusPctStats[m.id_stat] = (bonusPctStats[m.id_stat] || 0) + m.valeur;
+                    else bonusFixesStats[m.id_stat] = (bonusFixesStats[m.id_stat] || 0) + m.valeur;
+                  });
                 }
               }
             }

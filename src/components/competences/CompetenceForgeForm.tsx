@@ -246,7 +246,7 @@ export default function CompetenceForgeForm(props: Props) {
                         {m.type_calcul === 'fixe' || m.type_calcul === 'pourcentage' ? (
                           <div className="col-span-full">
                             <label className={labelClass}>{m.type_calcul === 'pourcentage' ? "Valeur (%)" : "Valeur brute"}</label>
-                            <input type="number" className={inputClass} value={m.valeur || 0} onChange={e => props.updateModif(idx, { valeur: parseInt(e.target.value) || 0 })} />
+                            <input type="number" className={inputClass} value={m.valeur ?? 0} onChange={e => props.updateModif(idx, { valeur: isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber })} />
                           </div>
                         ) : m.type_calcul === 'roll_stat' ? (
                           <>
@@ -256,14 +256,14 @@ export default function CompetenceForgeForm(props: Props) {
                             </div>
                             <div className="col-span-1">
                               <label className={labelClass}>Bonus</label>
-                              <input type="number" className={inputClass} value={m.valeur || 0} onChange={e => props.updateModif(idx, { valeur: parseInt(e.target.value) || 0 })} />
+                              <input type="number" className={inputClass} value={m.valeur ?? 0} onChange={e => props.updateModif(idx, { valeur: isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber })} />
                             </div>
                           </>
                         ) : (
                           <>
-                            <div><label className={labelClass}>Nb Dés</label><input type="number" className={inputClass} value={m.des_nb || 1} onChange={e => props.updateModif(idx, { des_nb: parseInt(e.target.value) || 0 })} /></div>
-                            <div><label className={labelClass}>Faces</label><input type="number" className={inputClass} value={m.des_faces || 6} onChange={e => props.updateModif(idx, { des_faces: parseInt(e.target.value) || 0 })} /></div>
-                            <div><label className={labelClass}>Bonus</label><input type="number" className={inputClass} value={m.valeur || 0} onChange={e => props.updateModif(idx, { valeur: parseInt(e.target.value) || 0 })} /></div>
+                            <div><label className={labelClass}>Nb Dés</label><input type="number" className={inputClass} value={m.des_nb ?? 1} onChange={e => props.updateModif(idx, { des_nb: isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber })} /></div>
+                            <div><label className={labelClass}>Faces</label><input type="number" className={inputClass} value={m.des_faces ?? 6} onChange={e => props.updateModif(idx, { des_faces: isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber })} /></div>
+                            <div><label className={labelClass}>Bonus</label><input type="number" className={inputClass} value={m.valeur ?? 0} onChange={e => props.updateModif(idx, { valeur: isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber })} /></div>
                           </>
                         )}
                       </div>
@@ -328,7 +328,7 @@ export default function CompetenceForgeForm(props: Props) {
                           {!e.des_nb && !e.des_stat_id ? (
                             <div className="col-span-full">
                               <label className={labelClass}>{onglet === 'couts' ? "Coût spirituel" : "Amplitude de l'effet"}</label>
-                              <input type="number" className={inputClass} value={Math.abs(e.valeur || 0)} onChange={ev => props.updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, onglet as any)} />
+                              <input type="number" className={inputClass} value={Math.abs(e.valeur ?? 0)} onChange={ev => props.updateEffet(idx, { valeur: isNaN(ev.target.valueAsNumber) ? 0 : ev.target.valueAsNumber }, onglet as any)} />
                             </div>
                           ) : e.des_stat_id ? (
                             <>
@@ -338,14 +338,14 @@ export default function CompetenceForgeForm(props: Props) {
                               </div>
                               <div className="col-span-1">
                                 <label className={labelClass}>Bonus</label>
-                                <input type="number" className={inputClass} value={e.valeur} onChange={ev => props.updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, onglet as any)} />
+                                <input type="number" className={inputClass} value={e.valeur ?? 0} onChange={ev => props.updateEffet(idx, { valeur: isNaN(ev.target.valueAsNumber) ? 0 : ev.target.valueAsNumber }, onglet as any)} />
                               </div>
                             </>
                           ) : (
                             <>
-                              <div><label className={labelClass}>Nb Dés</label><input type="number" className={inputClass} value={e.des_nb || ''} onChange={ev => props.updateEffet(idx, { des_nb: parseInt(ev.target.value) || 0 }, onglet as any)} /></div>
-                              <div><label className={labelClass}>Faces</label><input type="number" className={inputClass} value={e.des_faces || ''} onChange={ev => props.updateEffet(idx, { des_faces: parseInt(ev.target.value) || 0 }, onglet as any)} /></div>
-                              <div><label className={labelClass}>Bonus</label><input type="number" className={inputClass} value={e.valeur} onChange={ev => props.updateEffet(idx, { valeur: parseInt(ev.target.value) || 0 }, onglet as any)} /></div>
+                              <div><label className={labelClass}>Nb Dés</label><input type="number" className={inputClass} value={e.des_nb ?? ''} onChange={ev => props.updateEffet(idx, { des_nb: isNaN(ev.target.valueAsNumber) ? 0 : ev.target.valueAsNumber }, onglet as any)} /></div>
+                              <div><label className={labelClass}>Faces</label><input type="number" className={inputClass} value={e.des_faces ?? ''} onChange={ev => props.updateEffet(idx, { des_faces: isNaN(ev.target.valueAsNumber) ? 0 : ev.target.valueAsNumber }, onglet as any)} /></div>
+                              <div><label className={labelClass}>Bonus</label><input type="number" className={inputClass} value={e.valeur ?? 0} onChange={ev => props.updateEffet(idx, { valeur: isNaN(ev.target.valueAsNumber) ? 0 : ev.target.valueAsNumber }, onglet as any)} /></div>
                             </>
                           )}
                         </div>
