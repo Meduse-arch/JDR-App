@@ -26,10 +26,8 @@ export function usePersonnageCompetences(personnageExterne?: Personnage | null) 
     
     // LOGIQUE JOUEUR : via Store WebRTC
     if (!peerService.isHost) {
-      if (personnage.competences) {
-        setCompetencesAcquises(personnage.competences as PersonnageCompetence[]);
-      }
-      setChargement(false);
+      if (!isRealtime) setChargement(true);
+      peerService.requestResync(personnage.id, 'competences');
       return;
     }
 
@@ -73,6 +71,45 @@ export function usePersonnageCompetences(personnageExterne?: Personnage | null) 
     chargerCompetencesAcquises();
   }, [chargerCompetencesAcquises]);
 
+  // Abonnement WebRTC pour les joueurs
+  useEffect(() => {
+    if (peerService.isHost || !personnage) return;
+
+    const unsubResponse = peerService.onResyncResponse((msg) => {
+      if (msg.dataType === 'competences') {
+        const { persoComps, lib } = msg.payload;
+        
+        if (persoComps && lib) {
+          const formated = persoComps.map((liaison: any) => {
+            const compInfo = lib.find((c: any) => c.id === liaison.id_competence);
+            if (!compInfo) return null;
+            return {
+              id: liaison.id,
+              id_personnage: liaison.id_personnage,
+              id_competence: liaison.id_competence,
+              is_active: liaison.is_active === 1,
+              competence: compInfo
+            };
+          }).filter((item: any) => item !== null);
+
+          setCompetencesAcquises(formated as PersonnageCompetence[]);
+        }
+        setChargement(false);
+      }
+    });
+
+    const unsubUpdate = peerService.onStateUpdate((msg) => {
+      if (msg.entity === 'session' && msg.payload.type === 'character_created') {
+        chargerCompetencesAcquises(true);
+      }
+    });
+
+    return () => {
+      unsubResponse();
+      unsubUpdate();
+    };
+  }, [personnage, chargerCompetencesAcquises]);
+
   useRealtimeQuery({
     tables: [
       { table: 'personnage_competences', filtered: false },
@@ -80,7 +117,7 @@ export function usePersonnageCompetences(personnageExterne?: Personnage | null) 
     ],
     sessionId: sessionActive?.id,
     onReload: () => chargerCompetencesAcquises(true, true),
-    enabled: !!personnage
+    enabled: peerService.isHost && !!personnage
   });
 
   const apprendre = async (idCompetence: string) => {

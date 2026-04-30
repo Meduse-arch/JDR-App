@@ -6,7 +6,7 @@ import { Personnage } from '../types'
 
 export function useCompetenceAttribution(personnage: Personnage | null) {
   const { competencesAcquises, chargerCompetencesAcquises, toggleActive } = usePersonnageCompetences(personnage)
-  const { competences: toutesCompetences } = useCompetences()
+  const { competences: toutesCompetences } = useCompetences(personnage?.id)
 
   const [selection, setSelection] = useState<string[]>([])
   const [recherche, setRecherche] = useState('')
