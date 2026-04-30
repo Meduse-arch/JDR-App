@@ -156,6 +156,20 @@ export default function App() {
 
     const { data: session } = await supabase.from('sessions').select('*').eq('id', enteringSession.id).single()
     
+    if (!session && enteringSession.id === 'remote-session') {
+      // Cas spécial : Session Distante (P2P uniquement)
+      setRoleEffectif('joueur')
+      setSessionActive({ 
+        id: 'remote-session', 
+        nom: enteringSession.nom, 
+        cree_par: 'remote-mj',
+        description: 'Session rejointe par code direct'
+      })
+      setPageCourante('dashboard')
+      setEnteringSession(null)
+      return
+    }
+
     if (session) {
       const role = await sessionService.getRoleDansSession(session.id, compte.id, compte.role)
       const mjPeerId = generateMJPeerId(session.id)
@@ -170,13 +184,17 @@ export default function App() {
       // La connexion PeerJS se fait en arrière-plan
       const startConnection = async () => {
         try {
+          const actualPeerId = session.folder_path || mjPeerId;
+
           if (role === 'mj' || role === 'admin') {
-            await peerService.initAsMJ(mjPeerId)
-            await supabase.from('sessions').update({ folder_path: mjPeerId }).eq('id', session.id)
+            await peerService.initAsMJ(actualPeerId)
+            if (!session.folder_path) {
+              await supabase.from('sessions').update({ folder_path: actualPeerId }).eq('id', session.id)
+            }
             console.log("✅ MJ prêt (fond)");
           } else {
             const { data: latest } = await supabase.from('sessions').select('folder_path').eq('id', session.id).single()
-            await peerService.initAsJoueur(latest?.folder_path || mjPeerId, instanceId)
+            await peerService.initAsJoueur(latest?.folder_path || actualPeerId, instanceId)
             console.log("✅ Joueur connecté (fond)");
 
             // SE PRÉSENTER AU MJ

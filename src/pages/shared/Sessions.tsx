@@ -78,7 +78,9 @@ export default function Sessions() {
     if (compte?.role === 'mj' || compte?.role === 'admin') {
       const db = (window as any).db;
       try {
-        await db.system.loadSession(session.folder_path || session.id);
+        // On utilise TOUJOURS l'ID réel (UUID) pour le dossier sur disque
+        // folder_path est réservé à l'identifiant PeerJS (WebRTC)
+        await db.system.loadSession(session.id);
       } catch (e) {
         console.error("Failed to load session DB", e);
       }
