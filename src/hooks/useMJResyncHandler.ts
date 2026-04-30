@@ -62,6 +62,27 @@ export function useMJResyncHandler() {
         peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'character_created' } });
       }
 
+      if (msg.kind === 'dice_roll') {
+        const payload = msg.payload;
+        // On rebroadcast le dé à tout le monde
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'dice',
+          payload
+        });
+      }
+
+      if (msg.kind === 'log_action') {
+        const payload = msg.payload;
+        try {
+          const { logService } = await import('../services/logService');
+          await logService.logAction(payload);
+          peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'character_created' } });
+        } catch (err) {
+          console.error("Erreur log_action:", err);
+        }
+      }
+
       if (msg.kind === 'toggle_competence') {
         const { liaisonId, is_active } = msg.payload;
         

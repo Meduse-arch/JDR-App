@@ -151,7 +151,7 @@ export function useCompetenceUsage(
         const typeLabel = isCout ? 'Coût' : 'Effet';
         const jaugeLabel = labels[e.cible_jauge] || '';
         const labelFinal = e.est_jet_de ? (statNom ? `Roll ${statNom}` : `Lancer de dés`) : (statNom ? `${typeLabel} ${jaugeLabel} (Dé ${statNom})` : `${typeLabel} ${jaugeLabel}`);
-        diceResults.push({ ...rollRes, label: labelFinal, color: colors[e.cible_jauge] || '#a855f7', bonus: 0 });
+        diceResults.push({ ...rollRes, label: labelFinal, color: colors[e.cible_jauge] || '#a855f7' });
       }
 
       if (isCout) {
@@ -233,7 +233,7 @@ export function useCompetenceUsage(
     if (Object.keys(globalUpdates).length > 0) await mettreAJourLocalement(globalUpdates);
     
     if (sessionActive && !pnjControle) {
-      await logService.logAction({
+      const logData = {
         id_session: sessionActive.id,
         id_personnage: personnage.id,
         nom_personnage: personnage.nom,
@@ -245,7 +245,17 @@ export function useCompetenceUsage(
           des: diceResults.map(d => ({ label: d.label, total: d.total })),
           resultat: diceResults
         }
-      }).catch(console.error);
+      };
+
+      if (peerService.isHost) {
+        await logService.logAction(logData as any).catch(console.error);
+      } else {
+        peerService.sendToMJ({
+          type: 'ACTION',
+          kind: 'log_action',
+          payload: logData
+        });
+      }
     }
     
     afficherToast(`Utilisation de ${comp.nom}`)
@@ -379,7 +389,7 @@ export function useCompetenceUsage(
                 console.error("Erreur sauvegarde buff roll:", err);
               }
               
-              diceResults.push({ ...rollRes, label: `Buff ${cibleStatName}`, color: '#10b981', bonus: 0 });
+              diceResults.push({ ...rollRes, label: `Buff ${cibleStatName}`, color: '#10b981' });
             }
           }
         }
@@ -405,7 +415,7 @@ export function useCompetenceUsage(
             const typeL = isCout ? 'Coût' : 'Effet';
             const jaugeL = labels[e.cible_jauge] || '';
             const labelF = e.est_jet_de ? (statNom ? `Roll ${statNom}` : `Lancer de dés`) : (statNom ? `${typeL} ${jaugeL} (Dé ${statNom})` : `${typeL} ${jaugeL}`);
-            diceResults.push({ ...rollRes, label: labelF, color: colors[e.cible_jauge] || '#a855f7', bonus: 0 });
+            diceResults.push({ ...rollRes, label: labelF, color: colors[e.cible_jauge] || '#a855f7' });
           }
           if (isCout) finalValue = -Math.abs(finalValue);
           if (e.est_jet_de || e.cible_jauge === 'dice') continue;
@@ -458,14 +468,24 @@ export function useCompetenceUsage(
           detailsLog.total = diceResults.reduce((acc, curr) => acc + (curr.total || 0), 0);
         }
 
-        await logService.logAction({
+        const logData = {
           id_session: sessionActive.id,
           id_personnage: personnage.id,
           nom_personnage: personnage.nom,
           type: 'competence',
           action: nouveauStatut ? `Active ${comp.nom}` : `Désactive ${comp.nom}`,
           details: Object.keys(detailsLog).length > 0 ? detailsLog : undefined
-        }).catch(console.error);
+        };
+
+        if (peerService.isHost) {
+          await logService.logAction(logData as any).catch(console.error);
+        } else {
+          peerService.sendToMJ({
+            type: 'ACTION',
+            kind: 'log_action',
+            payload: logData
+          });
+        }
       }
 
       if (nouveauStatut) {
