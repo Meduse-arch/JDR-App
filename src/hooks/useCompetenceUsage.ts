@@ -6,6 +6,8 @@ import { Competence } from '../types'
 import { verifierCoutsFixes } from '../utils/competenceUtils'
 import { useToast } from './useToast'
 import { logService } from '../services/logService'
+import { peerService } from '../services/peerService'
+import { competenceService } from '../services/competenceService'
 
 import { statsService, StatValeur } from '../services/statsService'
 
@@ -59,9 +61,9 @@ export function useCompetenceUsage(
       });
     } else {
       // Joueur: Données déjà présentes dans l'objet personnage hydraté
-      compTags = (personnage.competences?.find((c: any) => c.id_competence === comp.id)?.competence?.tags || []).map((t: any) => t.id);
-      personnage.inventaire?.filter((i: any) => i.equipe).forEach((inv: any) => {
-        inv.items?.tags?.forEach((t: any) => activeItemTags.add(t.id));
+      compTags = ((personnage.competences || []).find((c: any) => c.id_competence === comp.id)?.competence?.tags || []).map((t: any) => t.id);
+      (personnage.inventaire || []).filter((i: any) => i.equipe).forEach((inv: any) => {
+        (inv.items?.tags || []).forEach((t: any) => activeItemTags.add(t.id));
       });
     }
 
@@ -394,20 +396,30 @@ export function useCompetenceUsage(
       }
 
       // Mise à jour BDD
-      const dbObj = (window as any).db;
-      await dbObj.personnage_competences.update(liaison.id, { is_active: nouveauStatut ? 1 : 0 });
+      if (peerService.isHost) {
+        const dbObj = (window as any).db;
+        await dbObj.personnage_competences.update(liaison.id, { is_active: nouveauStatut ? 1 : 0 });
+      } else {
+        peerService.sendToMJ({
+          type: 'ACTION',
+          kind: 'toggle_competence',
+          payload: { liaisonId: liaison.id, is_active: nouveauStatut }
+        });
+      }
 
       if (rechargerCompsCb) await rechargerCompsCb(true);
       if (rechargerStatsCb) await rechargerStatsCb();
 
       // Après le toggle, on récupère les nouveaux Max depuis le store/service
-      const pRecalcule = await import('../services/personnageService').then(m => m.personnageService.recalculerStats(personnage.id));
-      if (pRecalcule) {
-        const updatedPerso = pRecalcule;
-        const final_hp = Math.max(0, Math.min(updatedPerso.hp_max || 100, globalUpdates.hp ?? personnage.hp));
-        const final_mana = Math.max(0, Math.min(updatedPerso.mana_max || 100, globalUpdates.mana ?? personnage.mana));
-        const final_stam = Math.max(0, Math.min(updatedPerso.stam_max || 100, globalUpdates.stam ?? personnage.stam));
-        globalUpdates.hp = final_hp; globalUpdates.mana = final_mana; globalUpdates.stam = final_stam;
+      if (peerService.isHost) {
+        const pRecalcule = await import('../services/personnageService').then(m => m.personnageService.recalculerStats(personnage.id));
+        if (pRecalcule) {
+          const updatedPerso = pRecalcule;
+          const final_hp = Math.max(0, Math.min(updatedPerso.hp_max || 100, globalUpdates.hp ?? personnage.hp));
+          const final_mana = Math.max(0, Math.min(updatedPerso.mana_max || 100, globalUpdates.mana ?? personnage.mana));
+          const final_stam = Math.max(0, Math.min(updatedPerso.stam_max || 100, globalUpdates.stam ?? personnage.stam));
+          globalUpdates.hp = final_hp; globalUpdates.mana = final_mana; globalUpdates.stam = final_stam;
+        }
       }
 
       if (Object.keys(globalUpdates).length > 0) await mettreAJourLocalement(globalUpdates);

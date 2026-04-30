@@ -162,13 +162,27 @@ export function usePersonnage() {
       delete dbUpdates.hp_max; delete dbUpdates.mana_max; delete dbUpdates.stam_max; delete dbUpdates.stats;
 
       if (Object.keys(dbUpdates).length > 0) {
-        await personnageService.updatePersonnage(personnage.id, dbUpdates)
+        if (peerService.isHost) {
+          await personnageService.updatePersonnage(personnage.id, dbUpdates)
+        } else {
+          for (const [key, value] of Object.entries(dbUpdates)) {
+            peerService.sendToMJ({
+              type: 'ACTION',
+              kind: 'update_resource',
+              payload: { id_personnage: personnage.id, type: key, valeur: value }
+            });
+          }
+        }
       }
-      const updated = await personnageService.recalculerStats(personnage.id);
-      if (updated) {
-        setPersonnage(updated as Personnage);
-        if (pnjControle && pnjControle.id === updated.id) setPnjControle(updated as Personnage);
-        if (personnageJoueur && personnageJoueur.id === updated.id) setPersonnageJoueur(updated as Personnage);
+      
+      if (peerService.isHost) {
+        const updated = await personnageService.recalculerStats(personnage.id);
+        if (updated) {
+          setPersonnage(updated as Personnage);
+          const state = useStore.getState();
+          if (state.pnjControle && state.pnjControle.id === updated.id) state.setPnjControle(updated as Personnage);
+          if (state.personnageJoueur && state.personnageJoueur.id === updated.id) state.setPersonnageJoueur(updated as Personnage);
+        }
       }
     } catch (e) {
       console.error(e)
@@ -179,9 +193,18 @@ export function usePersonnage() {
     if (!personnage || !sessionActive) return;
     lastUpdateRef.current = Date.now();
     setPersonnage(prev => prev ? { ...prev, [type]: valeur } : prev);
-    if (type === 'hp') personnageService.updatePVHybride(sessionActive.id, personnage.id, valeur, max);
-    else if (type === 'mana') personnageService.updateManaHybride(sessionActive.id, personnage.id, valeur, max);
-    else if (type === 'stam') personnageService.updateStaminaHybride(sessionActive.id, personnage.id, valeur, max);
+    
+    if (peerService.isHost) {
+      if (type === 'hp') personnageService.updatePVHybride(sessionActive.id, personnage.id, valeur, max);
+      else if (type === 'mana') personnageService.updateManaHybride(sessionActive.id, personnage.id, valeur, max);
+      else if (type === 'stam') personnageService.updateStaminaHybride(sessionActive.id, personnage.id, valeur, max);
+    } else {
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'update_resource',
+        payload: { id_personnage: personnage.id, type, valeur }
+      });
+    }
   }
 
   return { personnage, chargement, rechargerPersonnage: chargerPersonnage, mettreAJourLocalement, mettreAJourRessourceHybride }
