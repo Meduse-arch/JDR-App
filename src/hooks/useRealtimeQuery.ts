@@ -34,9 +34,21 @@ export function useRealtimeQuery({
   useEffect(() => {
     if (!enabled) return
 
-    const unsubscribe = peerService.onStateUpdate(() => {
+    const unsubscribe = peerService.onStateUpdate((msg) => {
       // Pour l'instant, on déclenche onReload sur tous les state updates pertinents.
       // Le composant vérifiera la DB locale (si MJ) ou recevra les données directement (si Joueur, via Zustand à l'avenir).
+      
+      // FIX: Ne déclencher onReload que si l'entité est potentiellement liée aux tables demandées
+      const isRelevant = !msg.entity || (
+        typeof msg.entity === 'string' && 
+        tables.some(t => {
+          const tableName = typeof t === 'string' ? t : t.table;
+          return tableName.includes(msg.entity as string) || (msg.entity as string).includes(tableName) || msg.entity === 'session';
+        })
+      );
+      
+      if (!isRelevant) return;
+
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => {
         onReloadRef.current()

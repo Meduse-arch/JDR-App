@@ -26,6 +26,8 @@ export function useQuetes(personnageId?: string) {
     charger()
   }, [charger])
 
+  const sessionActiveId = sessionActive?.id;
+
   useRealtimeQuery({
     tables: personnageId
       ? [
@@ -36,9 +38,9 @@ export function useQuetes(personnageId?: string) {
           { table: 'quetes', filtered: false },
           { table: 'quete_recompenses', filtered: false },
         ],
-    sessionId: sessionActive?.id,
+    sessionId: sessionActiveId,
     onReload: () => charger(true),
-    enabled: !!sessionActive
+    enabled: !!sessionActiveId
   })
 
   const supprimerQuete = async (id: string) => {

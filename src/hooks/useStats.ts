@@ -28,16 +28,21 @@ export function useStats() {
   }, [characterId, clearBuffRolls])
 
   const chargerStats = useCallback(async () => {
-    if (!characterId || !sessionActive) {
+    const state = useStore.getState();
+    const currentCharacterId = state.pnjControle?.id || state.personnageJoueur?.id;
+    const currentSession = state.sessionActive;
+    const currentRole = state.roleEffectif;
+
+    if (!currentCharacterId || !currentSession) {
       setStats([])
       setChargement(false)
       return
     }
 
     // --- LOGIQUE JOUEUR (Source: Store WebRTC) ---
-    if (roleEffectif === 'joueur') {
-      const perso = pnjControle || personnageJoueur;
-      if (perso && perso.id === characterId) {
+    if (currentRole === 'joueur') {
+      const perso = state.pnjControle || state.personnageJoueur;
+      if (perso && perso.id === currentCharacterId) {
         const rawStats = perso.stats || [];
         
         const FALLBACK_NAMES: Record<string, string> = {
@@ -62,7 +67,7 @@ export function useStats() {
 
         const formattedStats = rawStats.map((s: any) => {
           const sid = String(s.id_stat);
-          const ref = allStats.find((r: any) => String(r.id) === sid);
+          const ref = state.allStats.find((r: any) => String(r.id) === sid);
           const nomStat = s.nom || ref?.nom || FALLBACK_NAMES[sid] || `Stat ${sid}`;
           
           return {
@@ -85,20 +90,20 @@ export function useStats() {
     }
 
     // --- LOGIQUE MJ (Calcul complexe SQLite) ---
-    if (roleEffectif !== 'joueur') {
+    if (currentRole !== 'joueur') {
       setChargement(true)
       try {
-        const buffRollsBase = await statsService.getBuffRolls(characterId)
+        const buffRollsBase = await statsService.getBuffRolls(currentCharacterId)
         const currentBuffRolls = useStore.getState().buffRolls
         const buffRollsEffectifs = { ...currentBuffRolls, ...buffRollsBase }
-        const estMjSpectateur = roleEffectif === 'mj' && !pnjControle?.id
+        const estMjSpectateur = currentRole === 'mj' && !state.pnjControle?.id
 
         const calculatedStats = await statsService.calculateAllStats(
-          characterId, 
+          currentCharacterId, 
           buffRollsEffectifs,
           async (cacheKey, val) => {
-            if (!estMjSpectateur) await statsService.saveBuffRoll(characterId, cacheKey, val)
-            setBuffRoll(cacheKey, val)
+            if (!estMjSpectateur) await statsService.saveBuffRoll(currentCharacterId, cacheKey, val)
+            state.setBuffRoll(cacheKey, val)
           }
         )
         setStats(calculatedStats)
@@ -108,11 +113,14 @@ export function useStats() {
         setChargement(false)
       }
     }
-  }, [characterId, sessionActive?.id, setBuffRoll, pnjControle, personnageJoueur, allStats, roleEffectif, compte])
+  }, [])
+
+  const currentCharacterId = pnjControle?.id || personnageJoueur?.id;
+  const currentSessionId = sessionActive?.id;
 
   useEffect(() => {
     chargerStats()
-  }, [chargerStats])
+  }, [chargerStats, currentCharacterId, currentSessionId])
 
   return { stats, chargement, rechargerStats: chargerStats }
 }

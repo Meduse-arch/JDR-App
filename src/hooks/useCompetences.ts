@@ -32,15 +32,6 @@ export function useCompetences() {
       const data = await competenceService.getCompetences(sessionActive.id);
       setLibCompetences(data);
       setCompetences(data);
-
-      // Diffusion aux joueurs
-      if (peerService.isHost) {
-        peerService.broadcastToAll({
-          type: 'STATE_UPDATE',
-          entity: 'session',
-          payload: { type: 'library_update_competences', competences: data }
-        });
-      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -70,7 +61,17 @@ export function useCompetences() {
 
   const supprimerCompetence = async (id: string) => {
     const success = await competenceService.deleteCompetence(id);
-    if (success) await chargerCompetences();
+    if (success) {
+      await chargerCompetences();
+      if (peerService.isHost) {
+        const newData = await competenceService.getCompetences(sessionActive!.id);
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'library_update_competences', competences: newData }
+        });
+      }
+    }
     return success;
   };
 
@@ -81,7 +82,17 @@ export function useCompetences() {
     tagIds: string[] = []
   ) => {
     const newComp = await competenceService.createCompetence(data, modificateurs, effetsActifs, tagIds);
-    if (newComp) await chargerCompetences();
+    if (newComp) {
+      await chargerCompetences();
+      if (peerService.isHost) {
+        const newData = await competenceService.getCompetences(sessionActive!.id);
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'library_update_competences', competences: newData }
+        });
+      }
+    }
     return newComp;
   };
 
@@ -93,7 +104,17 @@ export function useCompetences() {
     tagIds: string[] = []
   ) => {
     const success = await competenceService.updateCompetence(id, data, modificateurs, effetsActifs, tagIds);
-    if (success) await chargerCompetences();
+    if (success) {
+      await chargerCompetences();
+      if (peerService.isHost) {
+        const newData = await competenceService.getCompetences(sessionActive!.id);
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'library_update_competences', competences: newData }
+        });
+      }
+    }
     return success;
   };
 

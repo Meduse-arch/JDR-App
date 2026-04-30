@@ -26,12 +26,14 @@ export function useInventaire(personnageId: string | undefined, nomPersonnage?: 
     charger()
   }, [charger])
 
+  const sessionActiveId = sessionActive?.id;
+
   useRealtimeQuery({
     tables: [
       { table: 'inventaire', filtered: false },
       { table: 'items', filtered: false },
     ],
-    sessionId: sessionActive?.id,
+    sessionId: sessionActiveId,
     onReload: () => charger(true),
     enabled: !!personnageId
   })

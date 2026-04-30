@@ -17,7 +17,13 @@ export function usePersonnage() {
   const lastUpdateRef = useRef<number>(0)
 
   const chargerPersonnage = useCallback(async (isRealtime = false) => {
-    if (!sessionActive) {
+    const state = useStore.getState();
+    const currentCompte = state.compte;
+    const currentPnj = state.pnjControle;
+    const currentPj = state.personnageJoueur;
+    const currentSession = state.sessionActive;
+
+    if (!currentSession) {
       setPersonnage(null)
       setChargement(false)
       return
@@ -25,12 +31,12 @@ export function usePersonnage() {
 
     // --- LOGIQUE JOUEUR (WebRTC) ---
     if (!peerService.isHost) {
-      const currentPerso = pnjControle || personnageJoueur;
+      const currentPerso = currentPnj || currentPj;
       
       if (currentPerso) {
         // Lénience session pour le mode P2P
-        const isCorrectSession = sessionActive.id === 'remote-session' || 
-                                 currentPerso.id_session === sessionActive.id;
+        const isCorrectSession = currentSession.id === 'remote-session' || 
+                                 currentPerso.id_session === currentSession.id;
 
         if (isCorrectSession) {
           setPersonnage(currentPerso);
@@ -56,16 +62,16 @@ export function usePersonnage() {
       const db = (window as any).db;
       let targetId: string | null = null;
 
-      if (pnjControle && pnjControle.id_session === sessionActive.id) {
-        targetId = pnjControle.id;
-      } else if (personnageJoueur && personnageJoueur.id_session === sessionActive.id) {
-        targetId = personnageJoueur.id;
-      } else if (compte) {
+      if (currentPnj && currentPnj.id_session === currentSession.id) {
+        targetId = currentPnj.id;
+      } else if (currentPj && currentPj.id_session === currentSession.id) {
+        targetId = currentPj.id;
+      } else if (currentCompte) {
         const res = await db.personnages.getAll();
         if (res.success) {
           const pj = res.data.find((p: any) => 
-            p.id_session === sessionActive.id && 
-            p.lie_au_compte === compte.id && 
+            p.id_session === currentSession.id && 
+            p.lie_au_compte === currentCompte.id && 
             p.type === 'Joueur' && 
             p.is_template === 0
           );
@@ -83,8 +89,8 @@ export function usePersonnage() {
           if (fullPerso) {
             setPersonnage(fullPerso as Personnage);
             // Sync store global
-            if (personnageJoueur && personnageJoueur.id === fullPerso.id) setPersonnageJoueur(fullPerso as Personnage);
-            if (pnjControle && pnjControle.id === fullPerso.id) setPnjControle(fullPerso as Personnage);
+            if (currentPj && currentPj.id === fullPerso.id) state.setPersonnageJoueur(fullPerso as Personnage);
+            if (currentPnj && currentPnj.id === fullPerso.id) state.setPnjControle(fullPerso as Personnage);
           }
         }
       } else {
@@ -96,11 +102,16 @@ export function usePersonnage() {
     } finally {
       if (!isRealtime) setChargement(false)
     }
-  }, [compte, pnjControle, personnageJoueur, sessionActive, setPersonnageJoueur, setPnjControle])
+  }, [])
+
+  const compteId = compte?.id;
+  const pnjControleId = pnjControle?.id;
+  const personnageJoueurId = personnageJoueur?.id;
+  const sessionId = sessionActive?.id;
 
   useEffect(() => {
     chargerPersonnage()
-  }, [chargerPersonnage])
+  }, [chargerPersonnage, compteId, pnjControleId, personnageJoueurId, sessionId])
 
   useEffect(() => {
     const unsubscribe = peerService.onStateUpdate((msg) => {
