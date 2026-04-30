@@ -90,11 +90,11 @@ interface JdrState {
 
 export const useStore = create<JdrState>((set, get) => ({
   compte: JSON.parse(localStorage.getItem('sigil-compte') || 'null'),
-  sessionActive: JSON.parse(localStorage.getItem('sigil-session-active') || 'null'),
-  roleEffectif: localStorage.getItem('sigil-role-effectif') as RoleId | null,
+  sessionActive: null,
+  roleEffectif: null,
   pageCourante: 'sessions',
-  pnjControle: JSON.parse(localStorage.getItem('sigil-pnj-controle') || 'null'),
-  personnageJoueur: JSON.parse(localStorage.getItem('sigil-personnage-joueur') || 'null'),
+  pnjControle: null,
+  personnageJoueur: null,
   mode: (localStorage.getItem('sigil-mode') as ModeId) || 'mode-dark',
   navigationMode: (localStorage.getItem('sigil-nav-mode') as NavigationMode) || 'basic',
   multiScreenEnabled: localStorage.getItem('sigil-multi-screen') === 'true',
