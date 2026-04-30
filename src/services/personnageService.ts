@@ -1,4 +1,5 @@
 import { peerService } from './peerService'
+import { statsService } from './statsService'
 
 const db = (window as any).db;
 
