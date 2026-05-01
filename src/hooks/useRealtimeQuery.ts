@@ -57,18 +57,9 @@ export function useRealtimeQuery({
       }, debounce)
     })
 
-    // On écoute aussi les ACTIONs côté MJ pour rafraîchir l'interface locale quand un joueur interagit
-    const unsubAction = peerService.onAction(() => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => {
-        onReloadRef.current()
-      }, debounce)
-    })
-
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
       unsubscribe()
-      unsubAction()
     }
-  }, [enabled, debounce])
+  }, [enabled, debounce, tables])
 }

@@ -103,14 +103,6 @@ export function useMapChat(channelId: string | null) {
 
   useEffect(() => { chargerMessages() }, [chargerMessages])
 
-  // ── Realtime ───────────────────────────────────────────────────────────────
-  useRealtimeQuery({
-    tables: [{ table: 'messages', filterColumn: 'id_canal', filterValue: canalId ?? undefined }],
-    onReload: chargerMessages,
-    debounce: 150,
-    enabled: !!canalId,
-  })
-
   // ── Nom affiché ────────────────────────────────────────────────────────────
   const nomAffiche = useCallback((modeIC = false): string => {
     if (modeIC && personnageJoueur) return personnageJoueur.nom

@@ -143,16 +143,6 @@ export function useChat() {
     else setMessages([])
   }, [canalActifId, chargerMessages])
 
-  // ── Realtime : messages du canal actif ────────────────────────────────────
-  useRealtimeQuery({
-    tables: [{ table: 'messages', filterColumn: 'id_canal', filterValue: canalActifId ?? undefined }],
-    onReload: () => {
-      if (canalActifRef.current) chargerMessages(canalActifRef.current)
-    },
-    debounce: 150,
-    enabled: !!canalActifId,
-  })
-
   // ── Realtime : canaux (id_session) ────────────────────────────────────────
   useRealtimeQuery({
     tables: [
