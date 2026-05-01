@@ -34,28 +34,18 @@ export default function CarteMap() {
   const [personnageLocal, setPersonnageLocal] = useState<Personnage | null>(null);
 
   useEffect(() => {
-    async function loadPersonnageLocal() {
-      // Priorité au personnage contrôlé (PNJ ou possession)
-      if (pnjControle) {
-        setPersonnageLocal(pnjControle);
-        return;
-      }
-
-      if (roleEffectif === 'joueur' && sessionActive && compte) {
-        const { data } = await supabase
-          .from('personnages').select('*')
-          .eq('id_session', sessionActive.id)
-          .eq('lie_au_compte', compte.id)
-          .single();
-        if (data) setPersonnageLocal(data as Personnage);
-      } else if (personnage) {
-        setPersonnageLocal(personnage);
-      } else {
-        setPersonnageLocal(null);
-      }
+    // Priorité au personnage contrôlé (PNJ ou possession)
+    if (pnjControle) {
+      setPersonnageLocal(pnjControle);
+      return;
     }
-    loadPersonnageLocal();
-  }, [roleEffectif, personnage, sessionActive, compte, pnjControle]);
+
+    if (personnage) {
+      setPersonnageLocal(personnage);
+    } else {
+      setPersonnageLocal(null);
+    }
+  }, [personnage, pnjControle]);
 
   const isMJ = (roleEffectif === 'admin' || roleEffectif === 'mj') && !pnjControle;
 
