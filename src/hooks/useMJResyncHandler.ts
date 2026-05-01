@@ -64,6 +64,30 @@ export function useMJResyncHandler() {
         });
       }
 
+      if (msg.kind === 'add_token') {
+        const { token } = msg.payload;
+        const { mapService } = await import('../services/mapService');
+        const newToken = await mapService.addToken(token);
+        if (newToken) {
+          // Re-fetch all tokens to send an updated list with images
+          const tokens = await mapService.getTokens(token.id_channel);
+          const { data: personnages } = await db.personnages.getAll();
+          const imageMap = new Map<string, string | null>(
+            (personnages || []).map((p: any) => [p.id, p.image_url ?? null])
+          );
+          const enrichedTokens = tokens.map(t => ({
+            ...t,
+            image_url: t.image_url || (t.id_personnage ? imageMap.get(t.id_personnage) : null) || t.image_url,
+          }));
+
+          peerService.broadcastToAll({
+            type: 'STATE_UPDATE',
+            entity: 'session',
+            payload: { type: 'map_tokens_update', channelId: token.id_channel, tokens: enrichedTokens }
+          });
+        }
+      }
+
       if (msg.kind === 'move_token') {
         const { id, x, y } = msg.payload;
         await db.map_tokens.update(id, { x, y });

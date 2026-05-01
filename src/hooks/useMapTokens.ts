@@ -74,9 +74,18 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
 
   // Actions tokens
   const ajouterToken = async (token: Omit<MapToken, 'id' | 'created_at'>) => {
-    const newToken = await mapService.addToken(token);
-    if (newToken && channelActif) {
-      chargerTokens(channelActif);
+    if (peerService.isHost) {
+      const newToken = await mapService.addToken(token);
+      if (newToken && channelActif) {
+        chargerTokens(channelActif);
+      }
+    } else {
+      // Le joueur envoie une ACTION au MJ pour ajouter son token
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'add_token',
+        payload: { token }
+      });
     }
   };
 

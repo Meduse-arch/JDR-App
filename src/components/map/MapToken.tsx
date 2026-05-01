@@ -123,6 +123,8 @@ export function MapToken({
       ? 'cursor-grab active:cursor-grabbing'
       : 'cursor-default';
 
+  const isMyToken = !!personnageLocal && t.id_personnage === personnageLocal.id;
+
   return (
     <div
       data-token="true"
@@ -132,7 +134,9 @@ export function MapToken({
           ? 'opacity-40 border-2 border-dashed border-[rgba(180,50,50,0.6)]'
           : isSelected || isBeingDragged
             ? 'border-2 border-[rgba(200,168,75,0.7)] shadow-[0_0_0_3px_rgba(200,168,75,0.15)]'
-            : 'border-2 border-[rgba(255,255,255,0.18)] hover:border-[rgba(200,168,75,0.5)] hover:scale-105'
+            : isMyToken
+              ? 'border-[3px] border-[#5de89e] shadow-[0_0_10px_rgba(93,232,158,0.5)] hover:scale-105'
+              : 'border-2 border-[rgba(255,255,255,0.18)] hover:border-[rgba(200,168,75,0.5)] hover:scale-105'
         }
         ${isBeingDragged ? 'z-50 scale-110 shadow-2xl' : 'z-10 hover:z-20 transition-transform duration-150'}
       `}
