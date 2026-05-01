@@ -183,6 +183,13 @@ export default function MapHub({
                 </button>
               </div>
 
+              {/* Statut Ouvert/Fermé visible pour le MJ */}
+              {isMJ && (
+                <div className={`absolute top-2 right-2 px-2 py-1 rounded-sm text-[8px] font-cinzel tracking-widest uppercase border ${c.active ? 'bg-[rgba(93,232,158,0.15)] text-[#5de89e] border-[#5de89e]/30' : 'bg-[rgba(180,50,50,0.15)] text-[#e87a7a] border-[#e87a7a]/30'}`}>
+                  {c.active ? 'Ouverte' : 'Fermée'}
+                </div>
+              )}
+
               <div className="absolute bottom-0 left-0 right-0 p-3">
                 <p className="text-[9px] font-cinzel tracking-[.1em] text-[rgba(200,168,75,0.35)] mb-0.5">{c.largeur} × {c.hauteur} cases</p>
                 <p className="font-cinzel text-[13px] font-semibold tracking-[.12em] text-[#e8d9b0] truncate">{c.nom}</p>
@@ -190,7 +197,9 @@ export default function MapHub({
                 {isMJ && (
                   <div className={`flex items-center justify-end gap-1.5 mt-2 transition-all ${hoveredId === c.id ? 'opacity-100' : 'opacity-0'}`}>
                     <button onClick={(e) => { e.stopPropagation(); onEditChannel(c.id); }} className="w-7 h-7 rounded bg-[rgba(0,0,0,0.7)] border border-[rgba(255,255,255,0.08)] flex items-center justify-center text-[rgba(255,255,255,0.4)] hover:text-[#c8a84b] transition-all"><PencilLine size={11} /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onToggleChannel(c.id, !c.active); }} className="w-7 h-7 rounded bg-[rgba(0,0,0,0.7)] border border-[rgba(255,255,255,0.08)] flex items-center justify-center transition-all"><Unlock size={11} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onToggleChannel(c.id, !c.active); }} className={`w-7 h-7 rounded bg-[rgba(0,0,0,0.7)] border border-[rgba(255,255,255,0.08)] flex items-center justify-center transition-all hover:bg-[rgba(255,255,255,0.1)] ${c.active ? 'text-[#5de89e]' : 'text-[#e87a7a]'}`}>
+                      {c.active ? <Unlock size={11} /> : <Lock size={11} />}
+                    </button>
                     <button onClick={(e) => handleDelete(e, c.id)} className="px-2 h-7 rounded bg-[rgba(180,50,50,0.3)] border border-[rgba(180,50,50,0.5)] text-[#e87a7a] text-[9px] font-cinzel tracking-wider">{confirmDeleteId === c.id ? 'Confirmer' : <Trash2 size={11} />}</button>
                   </div>
                 )}

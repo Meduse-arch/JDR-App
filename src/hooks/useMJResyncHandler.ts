@@ -33,6 +33,37 @@ export function useMJResyncHandler() {
         } catch (e) {}
       }
 
+      if (msg.kind === 'request_map_channels') {
+        const { mapService } = await import('../services/mapService');
+        const channels = await mapService.getChannels(sessionActive.id);
+        peerService.sendToJoueur(fromPeerId, {
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'map_update', channels }
+        });
+      }
+
+      if (msg.kind === 'request_map_tokens') {
+        const { channelId } = msg.payload;
+        const { mapService } = await import('../services/mapService');
+        const tokens = await mapService.getTokens(channelId);
+        // Enrichir basiquement
+        const { data: personnages } = await db.personnages.getAll();
+        const imageMap = new Map<string, string | null>(
+          (personnages || []).map((p: any) => [p.id, p.image_url ?? null])
+        );
+        const enrichedTokens = tokens.map(t => ({
+          ...t,
+          image_url: t.image_url || (t.id_personnage ? imageMap.get(t.id_personnage) : null) || t.image_url,
+        }));
+
+        peerService.sendToJoueur(fromPeerId, {
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'map_tokens_update', channelId, tokens: enrichedTokens }
+        });
+      }
+
       if (msg.kind === 'move_token') {
         const { id, x, y } = msg.payload;
         await db.map_tokens.update(id, { x, y });

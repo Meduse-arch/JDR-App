@@ -16,22 +16,33 @@ export function useMapChannels(sessionId: string | undefined) {
   const chargerChannels = useCallback(async () => {
     if (!sessionId) return;
     
-    let data: MapChannel[] = [];
     if (peerService.isHost) {
-      data = await mapService.getChannels(sessionId);
-    } else {
-      // Les joueurs reçoivent les channels via STATE_UPDATE (à implémenter dans ResyncHandler)
-      // Pour l'instant on laisse vide ou on attend le broadcast
-    }
-    
-    setChannels(data);
-    
-    if (!channelActifRef.current && data && data.length > 0) {
-      setChannelActif(data[0].id);
-    } else if (data && data.length === 0) {
-      setChannelActif(null);
+      const data = await mapService.getChannels(sessionId);
+      setChannels(data);
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update', channels: data } });
+      
+      if (!channelActifRef.current && data && data.length > 0) {
+        setChannelActif(data[0].id);
+      } else if (data && data.length === 0) {
+        setChannelActif(null);
+      }
     }
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!peerService.isHost) {
+      const unsub = peerService.onStateUpdate((msg) => {
+        if (msg.entity === 'session' && msg.payload.type === 'map_update') {
+          if (msg.payload.channels) {
+            setChannels(msg.payload.channels);
+          }
+        }
+      });
+      // Demander les channels à la connexion
+      peerService.sendToMJ({ type: 'ACTION', kind: 'request_map_channels', payload: {} });
+      return unsub;
+    }
+  }, []);
 
   // Init channels
   useEffect(() => {
@@ -43,7 +54,6 @@ export function useMapChannels(sessionId: string | undefined) {
   const creerCanalChatMap = useCallback(async (channelId: string) => {
     if (!sessionId) return;
     const nomCanal = `map_${channelId}`;
-    // Le chat reste partiellement sur SQLite via chatService
     const canal = await chatService.creerCanalPrive(sessionId, [], nomCanal);
     if (!canal) console.error('Erreur création canal chat map:', channelId);
   }, [sessionId]);
@@ -60,7 +70,6 @@ export function useMapChannels(sessionId: string | undefined) {
     if (newChan) {
       await creerCanalChatMap(newChan.id);
       chargerChannels();
-      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update' } });
       return newChan.id;
     }
     return null;
@@ -70,7 +79,6 @@ export function useMapChannels(sessionId: string | undefined) {
     const ok = await mapService.updateChannel(id, updates);
     if (ok) {
       chargerChannels();
-      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update' } });
     }
   };
 
@@ -79,7 +87,6 @@ export function useMapChannels(sessionId: string | undefined) {
     if (ok) {
       if (channelActif === id) setChannelActif(null);
       chargerChannels();
-      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update' } });
     }
   };
 
@@ -92,7 +99,7 @@ export function useMapChannels(sessionId: string | undefined) {
     tables: ['map_channels'],
     sessionId,
     onReload: chargerChannels,
-    enabled: !!sessionId,
+    enabled: !!sessionId && peerService.isHost,
   });
 
   return {

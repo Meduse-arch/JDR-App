@@ -44,26 +44,29 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
 
   // Chargement tokens
   const chargerTokens = useCallback(async (channelId: string) => {
-    let data: MapToken[] = [];
     if (peerService.isHost) {
-      data = await mapService.getTokens(channelId);
+      let data = await mapService.getTokens(channelId);
       data = await enrichirTokensAvecImages(data);
-    } else {
-      // Les joueurs attendent le broadcast ou le state update
+      
+      setTokens(prev => {
+        return data.map(t =>
+          pendingMovesRef.current.has(t.id)
+            ? { ...t, x: prev.find(p => p.id === t.id)?.x ?? t.x, y: prev.find(p => p.id === t.id)?.y ?? t.y }
+            : t
+        );
+      });
+      
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_tokens_update', channelId, tokens: data } });
     }
-
-    setTokens(prev => {
-      return data.map(t =>
-        pendingMovesRef.current.has(t.id)
-          ? { ...t, x: prev.find(p => p.id === t.id)?.x ?? t.x, y: prev.find(p => p.id === t.id)?.y ?? t.y }
-          : t
-      );
-    });
   }, [enrichirTokensAvecImages]);
 
   useEffect(() => {
     if (channelActif) {
-      chargerTokens(channelActif);
+      if (peerService.isHost) {
+        chargerTokens(channelActif);
+      } else {
+        peerService.sendToMJ({ type: 'ACTION', kind: 'request_map_tokens', payload: { channelId: channelActif } });
+      }
     } else {
       setTokens([]);
     }
@@ -74,7 +77,6 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
     const newToken = await mapService.addToken(token);
     if (newToken && channelActif) {
       chargerTokens(channelActif);
-      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update' } });
     }
   };
 
@@ -137,7 +139,6 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
     const ok = await mapService.deleteToken(id);
     if (ok && channelActif) {
       chargerTokens(channelActif);
-      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update' } });
     }
   };
 
@@ -145,7 +146,6 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
     const ok = await mapService.updateToken(id, { visible: visible ? 1 : 0 });
     if (ok && channelActif) {
       chargerTokens(channelActif);
-      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'map_update' } });
     }
   };
 
@@ -158,13 +158,15 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
           setTokens(prev => prev.map(t => t.id === id ? { ...t, x, y } : t));
         }
       }
-      if (msg.entity === 'session' && msg.payload.type === 'map_update') {
-        if (channelActifRef.current) chargerTokens(channelActifRef.current);
+      if (!peerService.isHost && msg.entity === 'session' && msg.payload.type === 'map_tokens_update') {
+        if (msg.payload.channelId === channelActifRef.current && msg.payload.tokens) {
+           setTokens(msg.payload.tokens);
+        }
       }
     });
 
     return () => unsub();
-  }, [chargerTokens]);
+  }, []);
 
   const setLocalAction = useCallback((id: string | null, active: boolean) => {
     if (id) {
@@ -174,6 +176,16 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
       pendingMovesRef.current.clear();
     }
   }, []);
+
+  // Realtime
+  useRealtimeQuery({
+    tables: ['map_tokens'],
+    sessionId,
+    onReload: () => {
+      if (channelActifRef.current) chargerTokens(channelActifRef.current);
+    },
+    enabled: !!channelActif && peerService.isHost,
+  });
 
   return {
     tokens,
