@@ -72,8 +72,9 @@ export function loadSessionDB(folderPath: string) {
   console.log(`[DB] Loading session database: ${sessionDbPath}`);
   sessionDb = new Database(sessionDbPath, { verbose: console.log });
   sessionDb.pragma('journal_mode = WAL');
+  sessionDb.pragma('foreign_keys = ON'); // INDISPENSABLE pour les CASCADE
 
-  // 1. Création des tables (Schéma cible définitif)
+  // 1. Création des tables (Schéma cible définitif avec CASCADE)
   const sessionCreateTablesScript = `
   CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY,
@@ -111,8 +112,8 @@ export function loadSessionDB(folderPath: string) {
     id_personnage TEXT,
     id_stat TEXT,
     valeur INTEGER DEFAULT 10,
-    FOREIGN KEY (id_personnage) REFERENCES personnages(id),
-    FOREIGN KEY (id_stat) REFERENCES stats(id)
+    FOREIGN KEY (id_personnage) REFERENCES personnages(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_stat) REFERENCES stats(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS competences (
@@ -149,15 +150,15 @@ export function loadSessionDB(folderPath: string) {
     id_canal TEXT NOT NULL,
     id_compte TEXT NOT NULL,
     PRIMARY KEY (id_canal, id_compte),
-    FOREIGN KEY (id_canal) REFERENCES chat_canaux(id)
+    FOREIGN KEY (id_canal) REFERENCES chat_canaux(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS competence_tags (
     id_competence TEXT NOT NULL,
     id_tag TEXT NOT NULL,
     PRIMARY KEY (id_competence, id_tag),
-    FOREIGN KEY (id_competence) REFERENCES competences(id),
-    FOREIGN KEY (id_tag) REFERENCES tags(id)
+    FOREIGN KEY (id_competence) REFERENCES competences(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_tag) REFERENCES tags(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS effets_actifs (
@@ -173,10 +174,10 @@ export function loadSessionDB(folderPath: string) {
     des_stat_id TEXT,
     est_cout INTEGER DEFAULT 0,
     est_jet_de INTEGER DEFAULT 0,
-    FOREIGN KEY (id_item) REFERENCES items(id),
-    FOREIGN KEY (id_competence) REFERENCES competences(id),
-    FOREIGN KEY (id_stat_de) REFERENCES stats(id),
-    FOREIGN KEY (des_stat_id) REFERENCES stats(id)
+    FOREIGN KEY (id_item) REFERENCES items(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_competence) REFERENCES competences(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_stat_de) REFERENCES stats(id) ON DELETE CASCADE,
+    FOREIGN KEY (des_stat_id) REFERENCES stats(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS images (
@@ -194,16 +195,16 @@ export function loadSessionDB(folderPath: string) {
     id_item TEXT,
     quantite INTEGER DEFAULT 1,
     equipe INTEGER DEFAULT 0,
-    FOREIGN KEY (id_personnage) REFERENCES personnages(id),
-    FOREIGN KEY (id_item) REFERENCES items(id)
+    FOREIGN KEY (id_personnage) REFERENCES personnages(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_item) REFERENCES items(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS item_tags (
     id_item TEXT NOT NULL,
     id_tag TEXT NOT NULL,
     PRIMARY KEY (id_item, id_tag),
-    FOREIGN KEY (id_item) REFERENCES items(id),
-    FOREIGN KEY (id_tag) REFERENCES tags(id)
+    FOREIGN KEY (id_item) REFERENCES items(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_tag) REFERENCES tags(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS logs_activite (
@@ -215,7 +216,7 @@ export function loadSessionDB(folderPath: string) {
     action TEXT NOT NULL,
     details TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_personnage) REFERENCES personnages(id)
+    FOREIGN KEY (id_personnage) REFERENCES personnages(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS map_channels (
@@ -243,8 +244,8 @@ export function loadSessionDB(folderPath: string) {
     couleur TEXT DEFAULT '#6366f1',
     visible INTEGER DEFAULT 1,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_channel) REFERENCES map_channels(id),
-    FOREIGN KEY (id_personnage) REFERENCES personnages(id)
+    FOREIGN KEY (id_channel) REFERENCES map_channels(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_personnage) REFERENCES personnages(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS messages (
@@ -256,7 +257,7 @@ export function loadSessionDB(folderPath: string) {
     contenu TEXT,
     image_url TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_canal) REFERENCES chat_canaux(id)
+    FOREIGN KEY (id_canal) REFERENCES chat_canaux(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS modificateurs (
@@ -273,12 +274,12 @@ export function loadSessionDB(folderPath: string) {
     des_stat_id TEXT,
     des_nb INTEGER,
     des_faces INTEGER,
-    FOREIGN KEY (des_stat_id) REFERENCES stats(id),
-    FOREIGN KEY (id_tag) REFERENCES tags(id),
-    FOREIGN KEY (id_stat) REFERENCES stats(id),
-    FOREIGN KEY (id_item) REFERENCES items(id),
-    FOREIGN KEY (id_competence) REFERENCES competences(id),
-    FOREIGN KEY (id_personnage) REFERENCES personnages(id)
+    FOREIGN KEY (des_stat_id) REFERENCES stats(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_tag) REFERENCES tags(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_stat) REFERENCES stats(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_item) REFERENCES items(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_competence) REFERENCES competences(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_personnage) REFERENCES personnages(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS personnage_buff_rolls (
@@ -287,7 +288,7 @@ export function loadSessionDB(folderPath: string) {
     cache_key TEXT NOT NULL,
     valeur INTEGER NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_personnage) REFERENCES personnages(id)
+    FOREIGN KEY (id_personnage) REFERENCES personnages(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS personnage_competences (
@@ -296,8 +297,8 @@ export function loadSessionDB(folderPath: string) {
     id_competence TEXT,
     niveau INTEGER DEFAULT 1,
     is_active INTEGER DEFAULT 0,
-    FOREIGN KEY (id_personnage) REFERENCES personnages(id),
-    FOREIGN KEY (id_competence) REFERENCES competences(id)
+    FOREIGN KEY (id_personnage) REFERENCES personnages(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_competence) REFERENCES competences(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS quetes (
@@ -315,8 +316,8 @@ export function loadSessionDB(folderPath: string) {
     id_quete TEXT NOT NULL,
     suivie INTEGER DEFAULT 0,
     PRIMARY KEY (id_personnage, id_quete),
-    FOREIGN KEY (id_quete) REFERENCES quetes(id),
-    FOREIGN KEY (id_personnage) REFERENCES personnages(id)
+    FOREIGN KEY (id_quete) REFERENCES quetes(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_personnage) REFERENCES personnages(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS quete_recompenses (
@@ -326,15 +327,15 @@ export function loadSessionDB(folderPath: string) {
     id_item TEXT,
     valeur INTEGER DEFAULT 0,
     description TEXT,
-    FOREIGN KEY (id_quete) REFERENCES quetes(id),
-    FOREIGN KEY (id_item) REFERENCES items(id)
+    FOREIGN KEY (id_quete) REFERENCES quetes(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_item) REFERENCES items(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS session_joueurs (
     id_session TEXT NOT NULL,
     id_personnage TEXT NOT NULL,
     PRIMARY KEY (id_session, id_personnage),
-    FOREIGN KEY (id_personnage) REFERENCES personnages(id)
+    FOREIGN KEY (id_personnage) REFERENCES personnages(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS session_comptes (

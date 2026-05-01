@@ -107,13 +107,15 @@ export default function CreerPersonnage({ type, isTemplate = false, lieAuCompte,
       stats: statsToSave
     };
 
+    const { stats: statsToSaveOnly, ...dbPersoData } = personnageData;
+
     try {
       const { peerService } = await import('../../services/peerService');
       
       if (peerService.isHost) {
         // LOGIQUE MJ : Sauvegarde locale directe
         const db = (window as any).db;
-        const resPerso = await db.personnages.create(personnageData);
+        const resPerso = await db.personnages.create(dbPersoData);
         if (resPerso.success) {
           for (const s of statsToSave) {
             await db.personnage_stats.create({ id: crypto.randomUUID(), id_personnage: personnageData.id, id_stat: s.id_stat, valeur: s.valeur });

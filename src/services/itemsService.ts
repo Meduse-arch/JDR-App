@@ -222,7 +222,29 @@ export const itemsService = {
   deleteItem: async (idItem: string): Promise<boolean> => {
     const db = getDB();
     if (!db) return false;
-    const res = await db.items.delete(idItem);
-    return res.success;
+    
+    try {
+      // Nettoyage manuel pour supporter les anciennes DB sans ON DELETE CASCADE
+      await db.modificateurs.deleteByFields({ id_item: idItem }).catch(() => {});
+      await db.effets_actifs.deleteByFields({ id_item: idItem }).catch(() => {});
+      await db.item_tags.deleteByFields({ id_item: idItem }).catch(() => {});
+      await db.inventaire.deleteByFields({ id_item: idItem }).catch(() => {});
+      await db.quete_recompenses.deleteByFields({ id_item: idItem }).catch(() => {});
+
+      const res = await db.items.delete(idItem);
+      if (res.success) {
+        const { peerService } = await import('./peerService');
+        const { sessionActive } = (await import('../store/useStore')).useStore.getState();
+        if (sessionActive) {
+          const items = await itemsService.getItems(sessionActive.id);
+          const stats = await itemsService.getStats();
+          peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update', items, stats } });
+        }
+      }
+      return res.success;
+    } catch (err) {
+      console.error("Erreur suppression item:", err);
+      return false;
+    }
   }
 };

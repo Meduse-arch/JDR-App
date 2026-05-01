@@ -69,7 +69,11 @@ export function setupIPC() {
           
           // Nettoyage et conversion pour SQLite
           const cleanedItem: any = {};
+          const ignoredKeys = ['stats', 'items', 'competences', 'inventaire', 'hp_max', 'mana_max', 'stam_max', 'participants', 'quete_recompenses', 'personnage_quetes'];
+          
           Object.keys(item).forEach(key => {
+            if (ignoredKeys.includes(key)) return; // Ignorer les champs virtuels/liés
+
             let val = item[key];
             if (val === undefined) val = null;
             if (typeof val === 'boolean') val = val ? 1 : 0;
@@ -95,7 +99,11 @@ export function setupIPC() {
           const db = getDbForEntity(entity);
           
           const cleanedItem: any = {};
+          const ignoredKeys = ['stats', 'items', 'competences', 'inventaire', 'hp_max', 'mana_max', 'stam_max', 'participants', 'quete_recompenses', 'personnage_quetes'];
+
           Object.keys(item).forEach(key => {
+            if (ignoredKeys.includes(key)) return;
+
             let val = item[key];
             if (val === undefined) val = null;
             if (typeof val === 'boolean') val = val ? 1 : 0;
@@ -119,22 +127,34 @@ export function setupIPC() {
 
       ipcMain.handle(`db:${entity}:delete`, async (_, id: string) => {
         try {
+          console.log(`[IPC] 🗑️ Deleting from ${entity} where id =`, id);
           const db = getDbForEntity(entity);
-          db.prepare(`DELETE FROM ${entity} WHERE id = ?`).run(id);
-          return { success: true };
-        } catch (error: any) { return { success: false, error: error.message }; }
+          const info = db.prepare(`DELETE FROM ${entity} WHERE id = ?`).run(id);
+          console.log(`[IPC] ✅ Delete result:`, info);
+          return { success: true, changes: info.changes };
+        } catch (error: any) { 
+          console.error(`[IPC] ❌ Error deleting from ${entity}:`, error);
+          return { success: false, error: error.message }; 
+        }
       });
 
       // Ajout systématique de deleteByFields pour toutes les tables (crucial pour forges)
       ipcMain.handle(`db:${entity}:deleteByFields`, async (_, conditions: Record<string, any>) => {
         try {
+          console.log(`[IPC] 🗑️ DeletingByFields from ${entity}:`, conditions);
           const db = getDbForEntity(entity);
           const keys = Object.keys(conditions);
+          if (keys.length === 0) return { success: false, error: "No conditions provided" };
+          
           const whereClause = keys.map((key) => `${key} = ?`).join(' AND ');
           const stmt = db.prepare(`DELETE FROM ${entity} WHERE ${whereClause}`);
-          stmt.run(...Object.values(conditions));
-          return { success: true };
-        } catch (error: any) { return { success: false, error: error.message }; }
+          const info = stmt.run(...Object.values(conditions));
+          console.log(`[IPC] ✅ DeleteByFields result:`, info);
+          return { success: true, changes: info.changes };
+        } catch (error: any) { 
+          console.error(`[IPC] ❌ Error deletingByFields from ${entity}:`, error);
+          return { success: false, error: error.message }; 
+        }
       });
     });
 

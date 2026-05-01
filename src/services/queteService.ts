@@ -158,12 +158,28 @@ export const queteService = {
   supprimerQuete: async (queteId: string) => {
     const db = getDB();
     if (!db) return false;
-    const res = await db.quetes.delete(queteId);
-    if (res.success) {
-      const { peerService } = await import('./peerService');
-      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'quetes_update' } });
+    
+    try {
+      // 1. Nettoyage manuel des dépendances (pour éviter les erreurs de clés étrangères)
+      await db.quete_recompenses.deleteByFields({ id_quete: queteId }).catch(() => {});
+      await db.personnage_quetes.deleteByFields({ id_quete: queteId }).catch(() => {});
+
+      // 2. Suppression de la quête
+      const res = await db.quetes.delete(queteId);
+      
+      if (res.success) {
+        const { peerService } = await import('./peerService');
+        peerService.broadcastToAll({ 
+          type: 'STATE_UPDATE', 
+          entity: 'session', 
+          payload: { type: 'quetes_update' } 
+        });
+      }
+      return res.success;
+    } catch (err) {
+      console.error("Erreur fatale lors de la suppression de la quête:", err);
+      return false;
     }
-    return res.success;
   },
 
   toggleSuivreQuete: async (personnageId: string, queteId: string, suivie: boolean) => {

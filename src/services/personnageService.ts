@@ -248,31 +248,25 @@ export const personnageService = {
   deletePersonnage: async (idPersonnage: string) => {
     const db = getDB();
     if (!db) return false;
-    await db.session_joueurs.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
     
-    const resPStats = await db.personnage_stats.getAll();
-    if (resPStats.success) {
-       for (const s of resPStats.data.filter((x: any) => x.id_personnage === idPersonnage)) await db.personnage_stats.delete(s.id);
-    }
-    
-    const resInv = await db.inventaire.getAll();
-    if (resInv.success) {
-       for (const i of resInv.data.filter((x: any) => x.id_personnage === idPersonnage)) await db.inventaire.delete(i.id);
-    }
-    
-    const resPComp = await db.personnage_competences.getAll();
-    if (resPComp.success) {
-       for (const c of resPComp.data.filter((x: any) => x.id_personnage === idPersonnage)) await db.personnage_competences.delete(c.id);
-    }
-    
-    await db.personnage_quetes.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
-    
-    const resMapTok = await db.map_tokens.getAll();
-    if (resMapTok.success) {
-       for (const t of resMapTok.data.filter((x: any) => x.id_personnage === idPersonnage)) await db.map_tokens.delete(t.id);
-    }
+    try {
+      // 1. Nettoyage des tables de liaison et dépendantes
+      await db.session_joueurs.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
+      await db.personnage_stats.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
+      await db.inventaire.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
+      await db.personnage_competences.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
+      await db.personnage_quetes.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
+      await db.map_tokens.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
+      await db.modificateurs.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
+      await db.personnage_buff_rolls.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
+      await db.logs_activite.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
 
-    const res = await db.personnages.delete(idPersonnage);
-    return res.success;
+      // 2. Suppression du personnage lui-même
+      const res = await db.personnages.delete(idPersonnage);
+      return res.success;
+    } catch (err) {
+      console.error("Erreur suppression personnage complexe:", err);
+      return false;
+    }
   }
 }

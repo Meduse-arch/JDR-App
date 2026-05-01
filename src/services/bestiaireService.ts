@@ -124,16 +124,10 @@ export const bestiaireService = {
    * Supprimer
    */
   supprimerTemplate: async (id: string) => {
-    const db = getDB();
-    if (!db) return false;
-    const res = await db.personnages.delete(id);
-    return res.success;
+    return await personnageService.deletePersonnage(id);
   },
 
   supprimerInstance: async (id: string) => {
-    const db = getDB();
-    if (!db) return false;
-    const res = await db.personnages.delete(id);
-    return res.success;
+    return await personnageService.deletePersonnage(id);
   }
 }

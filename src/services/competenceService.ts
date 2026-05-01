@@ -201,15 +201,27 @@ export const competenceService = {
   deleteCompetence: async (idCompetence: string): Promise<boolean> => {
     const db = getDB();
     if (!db) return false;
-    const res = await db.competences.delete(idCompetence);
-    if (res.success) {
-      const { sessionActive } = (await import('../store/useStore')).useStore.getState();
-      if (sessionActive) {
-        const data = await competenceService.getCompetences(sessionActive.id);
-        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update_competences', competences: data } });
+    
+    try {
+      // Nettoyage manuel pour supporter les anciennes DB sans ON DELETE CASCADE
+      await db.modificateurs.deleteByFields({ id_competence: idCompetence }).catch(() => {});
+      await db.effets_actifs.deleteByFields({ id_competence: idCompetence }).catch(() => {});
+      await db.competence_tags.deleteByFields({ id_competence: idCompetence }).catch(() => {});
+      await db.personnage_competences.deleteByFields({ id_competence: idCompetence }).catch(() => {});
+
+      const res = await db.competences.delete(idCompetence);
+      if (res.success) {
+        const { sessionActive } = (await import('../store/useStore')).useStore.getState();
+        if (sessionActive) {
+          const data = await competenceService.getCompetences(sessionActive.id);
+          peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update_competences', competences: data } });
+        }
       }
+      return res.success;
+    } catch (err) {
+      console.error("Erreur suppression compétence:", err);
+      return false;
     }
-    return res.success;
   },
 
   apprendreCompetence: async (idPersonnage: string, idCompetence: string): Promise<boolean> => {
