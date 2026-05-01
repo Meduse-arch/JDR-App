@@ -11,7 +11,7 @@ export function setupIPC() {
     'items', 'inventaire', 'competences', 'personnage_competences',
     'tags', 'map_channels', 'map_tokens', 'chat_canaux', 'messages',
     'quetes', 'quete_recompenses', 'effets_actifs', 'modificateurs',
-    'logs_activite', 'personnage_buff_rolls'
+    'logs_activite', 'personnage_buff_rolls', 'images'
   ];
 
   const sessionCompositeEntities = [
@@ -36,7 +36,13 @@ export function setupIPC() {
           const data = db.prepare(`SELECT * FROM ${entity}`).all();
           // ADAPTATION Supabase→SQLite : Parser les JSON stockés en TEXT
           if (entity === 'logs_activite') {
-            return { success: true, data: data.map((d: any) => ({ ...d, details: d.details ? JSON.parse(d.details) : null })) };
+            return { success: true, data: data.map((d: any) => {
+              let details = null;
+              if (d.details) {
+                try { details = JSON.parse(d.details); } catch(e) { console.error("Err parse logs_activite", e); }
+              }
+              return { ...d, details };
+            }) };
           }
           return { success: true, data };
         } catch (error: any) { return { success: false, error: error.message }; }
@@ -47,7 +53,11 @@ export function setupIPC() {
           const db = getDbForEntity(entity);
           const data = db.prepare(`SELECT * FROM ${entity} WHERE id = ?`).get(id);
           if (entity === 'logs_activite' && data) {
-            data.details = data.details ? JSON.parse(data.details) : null;
+            let details = null;
+            if (data.details) {
+              try { details = JSON.parse(data.details); } catch(e) { console.error("Err parse logs_activite byId", e); }
+            }
+            data.details = details;
           }
           return { success: true, data };
         } catch (error: any) { return { success: false, error: error.message }; }
@@ -56,29 +66,55 @@ export function setupIPC() {
       ipcMain.handle(`db:${entity}:create`, async (_, item: any) => {
         try {
           const db = getDbForEntity(entity);
-          // ADAPTATION Supabase→SQLite : Stringifier les JSON pour SQLite
-          if (entity === 'logs_activite' && item.details) {
-            item.details = JSON.stringify(item.details);
+          
+          // Nettoyage et conversion pour SQLite
+          const cleanedItem: any = {};
+          Object.keys(item).forEach(key => {
+            let val = item[key];
+            if (val === undefined) val = null;
+            if (typeof val === 'boolean') val = val ? 1 : 0;
+            cleanedItem[key] = val;
+          });
+
+          if (entity === 'logs_activite' && cleanedItem.details) {
+            cleanedItem.details = JSON.stringify(cleanedItem.details);
           }
-          const keys = Object.keys(item);
+          
+          const keys = Object.keys(cleanedItem);
           const stmt = db.prepare(`INSERT INTO ${entity} (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`);
-          stmt.run(...Object.values(item));
-          return { success: true, data: item };
-        } catch (error: any) { return { success: false, error: error.message }; }
+          stmt.run(...Object.values(cleanedItem));
+          return { success: true, data: cleanedItem };
+        } catch (error: any) { 
+          console.error(`Error creating ${entity}:`, error);
+          return { success: false, error: error.message }; 
+        }
       });
 
       ipcMain.handle(`db:${entity}:update`, async (_, id: string, item: any) => {
         try {
           const db = getDbForEntity(entity);
-          if (entity === 'logs_activite' && item.details) {
-            item.details = JSON.stringify(item.details);
+          
+          const cleanedItem: any = {};
+          Object.keys(item).forEach(key => {
+            let val = item[key];
+            if (val === undefined) val = null;
+            if (typeof val === 'boolean') val = val ? 1 : 0;
+            cleanedItem[key] = val;
+          });
+
+          if (entity === 'logs_activite' && cleanedItem.details) {
+            cleanedItem.details = JSON.stringify(cleanedItem.details);
           }
-          const keys = Object.keys(item);
+          
+          const keys = Object.keys(cleanedItem);
           const setClause = keys.map((key) => `${key} = ?`).join(', ');
           const stmt = db.prepare(`UPDATE ${entity} SET ${setClause} WHERE id = ?`);
-          stmt.run(...Object.values(item), id);
-          return { success: true, data: { ...item, id } };
-        } catch (error: any) { return { success: false, error: error.message }; }
+          stmt.run(...Object.values(cleanedItem), id);
+          return { success: true, data: { ...cleanedItem, id } };
+        } catch (error: any) { 
+          console.error(`Error updating ${entity}:`, error);
+          return { success: false, error: error.message }; 
+        }
       });
 
       ipcMain.handle(`db:${entity}:delete`, async (_, id: string) => {
@@ -114,11 +150,23 @@ export function setupIPC() {
       ipcMain.handle(`db:${entity}:create`, async (_, item: any) => {
         try {
           const db = getDbForEntity(entity);
-          const keys = Object.keys(item);
+          
+          const cleanedItem: any = {};
+          Object.keys(item).forEach(key => {
+            let val = item[key];
+            if (val === undefined) val = null;
+            if (typeof val === 'boolean') val = val ? 1 : 0;
+            cleanedItem[key] = val;
+          });
+
+          const keys = Object.keys(cleanedItem);
           const stmt = db.prepare(`INSERT INTO ${entity} (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`);
-          stmt.run(...Object.values(item));
-          return { success: true, data: item };
-        } catch (error: any) { return { success: false, error: error.message }; }
+          stmt.run(...Object.values(cleanedItem));
+          return { success: true, data: cleanedItem };
+        } catch (error: any) { 
+          console.error(`Error creating composite ${entity}:`, error);
+          return { success: false, error: error.message }; 
+        }
       });
 
       ipcMain.handle(`db:${entity}:deleteByFields`, async (_, conditions: Record<string, any>) => {

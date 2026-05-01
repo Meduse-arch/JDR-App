@@ -1,12 +1,15 @@
 import { Quete, Recompense } from '../types'
 
-const db = (window as any).db;
+const getDB = () => (window as any).db;
 
 export const queteService = {
   /**
    * Récupère toutes les quêtes d'une session (Admin/MJ)
    */
   getQuetes: async (sessionId: string): Promise<Quete[]> => {
+    const db = getDB();
+    if (!db) return [];
+    
     // MIGRATION: jointure SQL en JS
     const resQuetes = await db.quetes.getAll();
     if (!resQuetes.success) return [];
@@ -41,6 +44,9 @@ export const queteService = {
    * Récupère les quêtes assignées à un personnage (Joueur)
    */
   getQuetesPersonnage: async (personnageId: string): Promise<Quete[]> => {
+    const db = getDB();
+    if (!db) return [];
+
     // MIGRATION: jointure SQL en JS
     const resPersoQuetes = await db.personnage_quetes.getAll();
     if (!resPersoQuetes.success) return [];
@@ -76,6 +82,9 @@ export const queteService = {
     participantsIds: string[], 
     recompenses: Partial<Recompense>[]
   ): Promise<boolean> => {
+    const db = getDB();
+    if (!db) return false;
+
     const isUpdate = !!quete.id;
     
     const queteData = { 
@@ -133,16 +142,22 @@ export const queteService = {
   },
 
   modifierStatut: async (queteId: string, statut: string) => {
+    const db = getDB();
+    if (!db) return false;
     const res = await db.quetes.update(queteId, { statut });
     return res.success;
   },
 
   supprimerQuete: async (queteId: string) => {
+    const db = getDB();
+    if (!db) return false;
     const res = await db.quetes.delete(queteId);
     return res.success;
   },
 
   toggleSuivreQuete: async (personnageId: string, queteId: string, suivie: boolean) => {
+    const db = getDB();
+    if (!db) return false;
     await db.personnage_quetes.deleteByFields({ id_personnage: personnageId, id_quete: queteId });
     const res = await db.personnage_quetes.create({
       id_personnage: personnageId,
@@ -153,6 +168,8 @@ export const queteService = {
   },
 
   assignerQuete: async (personnageId: string, queteId: string): Promise<boolean> => {
+    const db = getDB();
+    if (!db) return false;
     const resAll = await db.personnage_quetes.getAll();
     if (resAll.success && resAll.data.some((pq: any) => pq.id_personnage === personnageId && pq.id_quete === queteId)) {
       return true;
@@ -162,6 +179,8 @@ export const queteService = {
   },
 
   desassignerQuete: async (personnageId: string, queteId: string): Promise<boolean> => {
+    const db = getDB();
+    if (!db) return false;
     const res = await db.personnage_quetes.deleteByFields({ id_personnage: personnageId, id_quete: queteId });
     return res.success;
   },

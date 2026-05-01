@@ -1,7 +1,7 @@
 import { rollDice, rollStatDice } from '../utils/rollDice'
 import { statsEngine } from '../utils/statsEngine'
 
-const db = (window as any).db;
+const getDB = () => (window as any).db;
 
 export interface StatValeur {
   id: string
@@ -14,7 +14,8 @@ export interface StatValeur {
 
 export const statsService = {
   getBuffRolls: async (idPersonnage: string): Promise<Record<string, number>> => {
-    if (!idPersonnage) return {}
+    const db = getDB();
+    if (!idPersonnage || !db) return {}
     const res = await db.personnage_buff_rolls.getAll();
     if (!res.success) return {};
 
@@ -24,7 +25,8 @@ export const statsService = {
   },
 
   saveBuffRoll: async (idPersonnage: string, cacheKey: string, valeur: number) => {
-    if (!idPersonnage || !cacheKey) return;
+    const db = getDB();
+    if (!idPersonnage || !cacheKey || !db) return;
     const res = await db.personnage_buff_rolls.getAll();
     if (!res.success) return;
     const existing = res.data.find((r: any) => r.id_personnage === idPersonnage && r.cache_key === cacheKey);
@@ -43,6 +45,8 @@ export const statsService = {
   },
 
   cleanupObsoleteBuffRolls: async (idPersonnage: string, activeKeys: Set<string>) => {
+    const db = getDB();
+    if (!db) return;
     const res = await db.personnage_buff_rolls.getAll();
     if (!res.success) return;
     const obsoletes = res.data
@@ -58,6 +62,8 @@ export const statsService = {
     buffRollsCache: Record<string, number>,
     onNewRoll: (cacheKey: string, val: number) => Promise<void>
   ): Promise<StatValeur[]> => {
+    const db = getDB();
+    if (!db) return [];
     const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme'];
 
     // MIGRATION: était des jointures SQL complexes

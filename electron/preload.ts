@@ -26,7 +26,7 @@ const singleIdEntities = [
   'items', 'inventaire', 'competences', 'personnage_competences',
   'tags', 'map_channels', 'map_tokens', 'chat_canaux', 'messages',
   'quetes', 'quete_recompenses', 'effets_actifs', 'modificateurs',
-  'logs_activite', 'personnage_buff_rolls'
+  'logs_activite', 'personnage_buff_rolls', 'images'
 ];
 
 const compositeKeyEntities = [

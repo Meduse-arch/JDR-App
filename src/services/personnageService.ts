@@ -1,7 +1,7 @@
 import { peerService } from './peerService'
 import { statsService } from './statsService'
 
-const db = (window as any).db;
+const getDB = () => (window as any).db;
 
 // Stockage global des timers pour le debouncing
 const debounceTimers: Record<string, NodeJS.Timeout> = {};
@@ -17,6 +17,7 @@ const executerDebounced = (key: string, action: () => Promise<void>, delay = 300
 export const personnageService = {
   updatePVHybride: (_sessionId: string, idPersonnage: string, nouvelleValeur: number, max: number) => {
     const pvSecurises = Math.max(0, Math.min(max, nouvelleValeur));
+    const db = getDB();
     
     // MIGRATION WebRTC
     if (peerService.isHost) {
@@ -27,7 +28,7 @@ export const personnageService = {
         payload: { id_personnage: idPersonnage, type: 'hp', valeur: pvSecurises }
       });
       executerDebounced(`pv-${idPersonnage}`, async () => {
-        await db.personnages.update(idPersonnage, { hp: pvSecurises });
+        if (db) await db.personnages.update(idPersonnage, { hp: pvSecurises });
       });
     } else {
       // Côté Joueur : envoyer une intention d'action
@@ -41,6 +42,7 @@ export const personnageService = {
 
   updateManaHybride: (_sessionId: string, idPersonnage: string, nouvelleValeur: number, max: number) => {
     const manaSecurise = Math.max(0, Math.min(max, nouvelleValeur));
+    const db = getDB();
     
     // MIGRATION WebRTC
     if (peerService.isHost) {
@@ -50,7 +52,7 @@ export const personnageService = {
         payload: { id_personnage: idPersonnage, type: 'mana', valeur: manaSecurise }
       });
       executerDebounced(`mana-${idPersonnage}`, async () => {
-        await db.personnages.update(idPersonnage, { mana: manaSecurise });
+        if (db) await db.personnages.update(idPersonnage, { mana: manaSecurise });
       });
     } else {
       peerService.sendToMJ({
@@ -63,6 +65,7 @@ export const personnageService = {
 
   updateStaminaHybride: (_sessionId: string, idPersonnage: string, nouvelleValeur: number, max: number) => {
     const stamSecurise = Math.max(0, Math.min(max, nouvelleValeur));
+    const db = getDB();
     
     // MIGRATION WebRTC
     if (peerService.isHost) {
@@ -72,7 +75,7 @@ export const personnageService = {
         payload: { id_personnage: idPersonnage, type: 'stam', valeur: stamSecurise }
       });
       executerDebounced(`stam-${idPersonnage}`, async () => {
-        await db.personnages.update(idPersonnage, { stam: stamSecurise });
+        if (db) await db.personnages.update(idPersonnage, { stam: stamSecurise });
       });
     } else {
       peerService.sendToMJ({
@@ -83,25 +86,33 @@ export const personnageService = {
     }
   },
 
-  updatePV: async (idPersonnage: string, nouvelleValeur: number, max: number) => {
-    const pvSecurises = Math.max(0, Math.min(max, nouvelleValeur));
+  updatePV: async (idPersonnage: string, nouvelleValeur: number, _max: number) => {
+    const db = getDB();
+    if (!db) return false;
+    const pvSecurises = Math.max(0, Math.min(_max, nouvelleValeur));
     const res = await db.personnages.update(idPersonnage, { hp: pvSecurises });
     return res.success;
   },
 
-  updateMana: async (idPersonnage: string, nouvelleValeur: number, max: number) => {
-    const manaSecurise = Math.max(0, Math.min(max, nouvelleValeur));
+  updateMana: async (idPersonnage: string, nouvelleValeur: number, _max: number) => {
+    const db = getDB();
+    if (!db) return false;
+    const manaSecurise = Math.max(0, Math.min(_max, nouvelleValeur));
     const res = await db.personnages.update(idPersonnage, { mana: manaSecurise });
     return res.success;
   },
 
-  updateStamina: async (idPersonnage: string, nouvelleValeur: number, max: number) => {
-    const stamSecurise = Math.max(0, Math.min(max, nouvelleValeur));
+  updateStamina: async (idPersonnage: string, nouvelleValeur: number, _max: number) => {
+    const db = getDB();
+    if (!db) return false;
+    const stamSecurise = Math.max(0, Math.min(_max, nouvelleValeur));
     const res = await db.personnages.update(idPersonnage, { stam: stamSecurise });
     return res.success;
   },
 
   updatePersonnage: async (idPersonnage: string, updates: Partial<any>) => {
+    const db = getDB();
+    if (!db) return false;
     const res = await db.personnages.update(idPersonnage, updates);
     return res.success;
   },
@@ -110,8 +121,9 @@ export const personnageService = {
    * Hydrate une liste de personnages avec leurs stats calculées en minimisant les appels BDD
    */
   hydraterPersonnages: async (personnages: any[]) => {
+    const db = getDB();
     if (!personnages || personnages.length === 0) return [];
-    if (!peerService.isHost) return personnages; // Les joueurs ne peuvent pas hydrater via BDD
+    if (!peerService.isHost || !db) return personnages; // Les joueurs ne peuvent pas hydrater via BDD
     
     try {
       const resStats = await db.personnage_stats.getAll();
@@ -165,7 +177,8 @@ export const personnageService = {
   },
 
   recalculerStats: async (idPersonnage: string) => {
-    if (!peerService.isHost) return null;
+    const db = getDB();
+    if (!peerService.isHost || !db) return null;
     try {
       const resPerso = await db.personnages.getById(idPersonnage);
       if (!resPerso.success || !resPerso.data) return null;
@@ -218,6 +231,8 @@ export const personnageService = {
   },
 
   updateBaseStat: async (idPersonnage: string, idStat: string, delta: number) => {
+    const db = getDB();
+    if (!db) return false;
     const resStats = await db.personnage_stats.getAll();
     if (!resStats.success) return false;
     const data = resStats.data.find((s: any) => s.id_personnage === idPersonnage && s.id_stat === idStat);
@@ -231,6 +246,8 @@ export const personnageService = {
   },
 
   deletePersonnage: async (idPersonnage: string) => {
+    const db = getDB();
+    if (!db) return false;
     await db.session_joueurs.deleteByFields({ id_personnage: idPersonnage }).catch(() => {});
     
     const resPStats = await db.personnage_stats.getAll();

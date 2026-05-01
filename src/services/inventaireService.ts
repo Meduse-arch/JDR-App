@@ -2,13 +2,14 @@ import { InventaireEntry } from '../types'
 import { peerService } from './peerService'
 import { useStore } from '../store/useStore'
 
-const db = (window as any).db;
+const getDB = () => (window as any).db;
 
 export const inventaireService = {
   /**
    * Récupère l'inventaire complet d'un personnage
    */
   getInventaire: async (personnageId: string): Promise<InventaireEntry[]> => {
+    const db = getDB();
     if (!peerService.isHost) {
       // LOGIQUE JOUEUR : via personnage hydraté
       const { personnageJoueur, pnjControle } = useStore.getState();
@@ -19,6 +20,7 @@ export const inventaireService = {
       return [];
     }
 
+    if (!db) return [];
     // LOGIQUE MJ : SQLite
     const resInv = await db.inventaire.getAll();
     if (!resInv.success) return [];
@@ -54,7 +56,8 @@ export const inventaireService = {
    * Ajoute ou incrémente un item dans l'inventaire
    */
   ajouterItem: async (personnageId: string, itemId: string, quantite: number = 1) => {
-    if (peerService.isHost) {
+    const db = getDB();
+    if (peerService.isHost && db) {
       const resInv = await db.inventaire.getAll();
       if (!resInv.success) return false;
       const existing = resInv.data.find((i: any) => i.id_personnage === personnageId && i.id_item === itemId);
@@ -79,7 +82,8 @@ export const inventaireService = {
    * Change l'état d'équipement d'un objet
    */
   toggleEquipement: async (entryId: string, equipe: boolean) => {
-    if (peerService.isHost) {
+    const db = getDB();
+    if (peerService.isHost && db) {
       const res = await db.inventaire.update(entryId, { equipe: equipe ? 1 : 0 });
       return res.success;
     } else {
@@ -92,7 +96,8 @@ export const inventaireService = {
    * Retire une quantité d'un objet
    */
   retirerItem: async (entryId: string, quantiteARetirer: number = 1) => {
-    if (peerService.isHost) {
+    const db = getDB();
+    if (peerService.isHost && db) {
       const res = await db.inventaire.getById(entryId);
       if (!res.success || !res.data) return false;
       const nouvelleQuantite = res.data.quantite - quantiteARetirer;

@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import { peerService } from './peerService';
-const db = (window as any).db;
+
+const getDB = () => (window as any).db;
 
 export type ChatCanal = {
   id: string
@@ -34,7 +35,9 @@ export const chatService = {
   // ── Canaux ──────────────────────────────────────────────────────────────────
 
   async getCanaux(sessionId: string, compteId: string, isMJ: boolean): Promise<ChatCanal[]> {
-    // MIGRATION SQLite
+    const db = getDB();
+    if (!db) return [];
+    
     const resCanaux = await db.chat_canaux.getAll();
     if (!resCanaux.success) return [];
     let canaux = resCanaux.data.filter((c: any) => c.id_session === sessionId).sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -62,7 +65,9 @@ export const chatService = {
   },
 
   async creerCanalGeneral(sessionId: string): Promise<ChatCanal | null> {
-    // MIGRATION SQLite
+    const db = getDB();
+    if (!db) return null;
+
     const resCanaux = await db.chat_canaux.getAll();
     if (resCanaux.success) {
       const existing = resCanaux.data.find((c: any) => c.id_session === sessionId && c.type === 'general');
@@ -82,7 +87,9 @@ export const chatService = {
   },
 
   async creerCanalPrive(sessionId: string, compteIds: string[], nom?: string): Promise<ChatCanal | null> {
-    // MIGRATION SQLite
+    const db = getDB();
+    if (!db) return null;
+
     const type = compteIds.length === 2 && !nom ? 'prive' : 'groupe';
     const newCanal = {
       id: crypto.randomUUID(),
@@ -102,7 +109,9 @@ export const chatService = {
   },
 
   async majParticipants(canalId: string, compteIds: string[]): Promise<boolean> {
-    // MIGRATION SQLite
+    const db = getDB();
+    if (!db) return false;
+
     await db.chat_participants.deleteByFields({ id_canal: canalId });
     for (const id of compteIds) {
       await db.chat_participants.create({ id_canal: canalId, id_compte: id });
@@ -111,13 +120,17 @@ export const chatService = {
   },
 
   async renommerCanal(canalId: string, nouveauNom: string): Promise<boolean> {
-    // MIGRATION SQLite
+    const db = getDB();
+    if (!db) return false;
+
     const res = await db.chat_canaux.update(canalId, { nom: nouveauNom.trim() || null });
     return res.success;
   },
 
   async supprimerCanal(canalId: string): Promise<boolean> {
-    // MIGRATION SQLite
+    const db = getDB();
+    if (!db) return false;
+
     const msgRes = await db.messages.getAll();
     if (msgRes.success) {
       const msgs = msgRes.data.filter((m: any) => m.id_canal === canalId);
@@ -132,7 +145,9 @@ export const chatService = {
   // ── Messages ────────────────────────────────────────────────────────────────
 
   async getMessages(canalId: string, limit = 50): Promise<ChatMessage[]> {
-    // MIGRATION SQLite
+    const db = getDB();
+    if (!db) return [];
+
     const res = await db.messages.getAll();
     if (!res.success) return [];
     const msgs = res.data.filter((m: any) => m.id_canal === canalId).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -147,7 +162,9 @@ export const chatService = {
     contenu?: string
     image_url?: string
   }): Promise<ChatMessage | null> {
-    // MIGRATION SQLite
+    const db = getDB();
+    if (!db) return null;
+
     const newMsg = {
       ...msg,
       id: crypto.randomUUID(),
@@ -168,7 +185,9 @@ export const chatService = {
   // ── Participants ─────────────────────────────────────────────────────────────
 
   async mettreAJourParticipants(canalId: string, ancienIds: string[], nouveauxIds: string[]): Promise<boolean> {
-    // MIGRATION SQLite
+    const db = getDB();
+    if (!db) return false;
+
     const aAjouter = nouveauxIds.filter(id => !ancienIds.includes(id));
     const aRetirer = ancienIds.filter(id => !nouveauxIds.includes(id));
 
@@ -184,11 +203,12 @@ export const chatService = {
   // ── Membres disponibles ──────────────────────────────────────────────────────
 
   async getMembresSession(sessionId: string): Promise<{ id: string; pseudo: string; role: string }[]> {
-    // MIGRATION Mixte: MJs sur Supabase, Joueurs sur SQLite
     const { data: mjData } = await supabase.from('session_mj').select('id_compte').eq('id_session', sessionId);
     const mjIds = mjData ? mjData.map((m: any) => m.id_compte) : [];
 
-    const db = (window as any).db;
+    const db = getDB();
+    if (!db) return [];
+
     const resPerso = await db.personnages.getAll();
     const persosLieIds = resPerso.success ? resPerso.data
       .filter((p: any) => p.id_session === sessionId && p.type === 'Joueur' && p.is_template === 0 && p.lie_au_compte)

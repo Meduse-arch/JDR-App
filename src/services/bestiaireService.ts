@@ -1,13 +1,15 @@
 import { PersonnageType } from '../store/useStore'
 import { personnageService } from './personnageService'
 
-const db = (window as any).db;
+const getDB = () => (window as any).db;
 
 export const bestiaireService = {
   /**
    * Récupère les modèles
    */
   getTemplates: async (sessionId: string, type: PersonnageType) => {
+    const db = getDB();
+    if (!db) return [];
     const res = await db.personnages.getAll();
     if (!res.success) return [];
     const raw = res.data.filter((p: any) => p.id_session === sessionId && p.is_template === 1 && p.type === type);
@@ -18,6 +20,8 @@ export const bestiaireService = {
    * Récupère les instances actives
    */
   getInstances: async (sessionId: string, type: PersonnageType | PersonnageType[]) => {
+    const db = getDB();
+    if (!db) return [];
     const res = await db.personnages.getAll();
     if (!res.success) return [];
     const raw = res.data.filter((p: any) => {
@@ -32,6 +36,8 @@ export const bestiaireService = {
    * Invoque (copie) un modèle vers une instance
    */
   instancier: async (template: any, sessionId: string, count: number, options?: { nom?: string, type?: PersonnageType }) => {
+    const db = getDB();
+    if (!db) return false;
     try {
       for (let i = 0; i < count; i++) {
         const nomFinal = count > 1 ? `${options?.nom || template.nom} ${i + 1}` : (options?.nom || template.nom)
@@ -118,11 +124,15 @@ export const bestiaireService = {
    * Supprimer
    */
   supprimerTemplate: async (id: string) => {
+    const db = getDB();
+    if (!db) return false;
     const res = await db.personnages.delete(id);
     return res.success;
   },
 
   supprimerInstance: async (id: string) => {
+    const db = getDB();
+    if (!db) return false;
     const res = await db.personnages.delete(id);
     return res.success;
   }

@@ -33,24 +33,28 @@ export function MapCreationModal({ sessionId, onClose, onSubmit, initialData }: 
 
   const loadGalerie = async () => {
     setLoadingGalerie(true);
-    const { data } = await supabase
-      .from('images')
-      .select('*')
-      .eq('id_session', sessionId)
-      .eq('type', 'map');
-    if (data) setImages(data as ImageGalerie[]);
+    const db = (window as any).db;
+    const { data, success } = await db.images.getAll();
+    if (success && data) {
+      const filtered = data.filter((img: any) => img.id_session === sessionId && img.type === 'map');
+      setImages(filtered as ImageGalerie[]);
+    }
     setLoadingGalerie(false);
   };
 
   const handleAjouterGalerie = async () => {
     if (!newImageGalerie) return;
-    const { data } = await supabase
-      .from('images')
-      .insert({ id_session: sessionId, url: newImageGalerie, type: 'map' })
-      .select()
-      .single();
-    if (data) {
-      setImages([...images, data as ImageGalerie]);
+    const db = (window as any).db;
+    const newItem = { 
+      id: crypto.randomUUID(),
+      id_session: sessionId, 
+      url: newImageGalerie, 
+      type: 'map',
+      created_at: new Date().toISOString()
+    };
+    const { success } = await db.images.create(newItem);
+    if (success) {
+      setImages([...images, newItem as ImageGalerie]);
       setNewImageGalerie('');
     }
   };

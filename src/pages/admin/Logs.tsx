@@ -6,7 +6,28 @@ import { peerService } from '../../services/peerService'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Dices, Zap, Backpack, Heart, Package, ChevronDown } from 'lucide-react'
 
-// ... (formatRelativeTime reste inchangé) ...
+const TYPE_ICONS: Record<string, { Icon: any; color: string; bg: string }> = {
+  des: { Icon: Dices, color: 'text-theme-main', bg: 'bg-theme-main/10' },
+  competence: { Icon: Zap, color: 'text-amber-400', bg: 'bg-amber-400/10' },
+  item: { Icon: Package, color: 'text-theme-main', bg: 'bg-theme-main/10' },
+  ressource: { Icon: Heart, color: 'text-red-500', bg: 'bg-red-500/10' },
+  inventaire: { Icon: Backpack, color: 'text-primary', bg: 'bg-primary/10' },
+}
+
+function formatRelativeTime(dateStr: string) {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (days > 0) return `Il y a ${days} j`
+  if (hours > 0) return `Il y a ${hours} h`
+  if (minutes > 0) return `Il y a ${minutes} min`
+  return "À l'instant"
+}
 
 export default function Logs() {
   const sessionActive = useStore(s => s.sessionActive)

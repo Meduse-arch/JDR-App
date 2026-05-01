@@ -1,9 +1,11 @@
 import { LogActivite } from '../types'
 
-const db = (window as any).db;
+const getDB = () => (window as any).db;
 
 export const logService = {
   async logAction(entry: Omit<LogActivite, 'id' | 'created_at'>) {
+    const db = getDB();
+    if (!db) return;
     await db.logs_activite.create({
       ...entry,
       id: crypto.randomUUID(),
@@ -12,6 +14,8 @@ export const logService = {
   },
   
   async getLogs(sessionId: string, personnageId?: string) {
+    const db = getDB();
+    if (!db) return [];
     const res = await db.logs_activite.getAll();
     if (!res.success) return [];
     
