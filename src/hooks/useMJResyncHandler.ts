@@ -138,6 +138,26 @@ export function useMJResyncHandler() {
         }
       }
 
+      if (msg.kind === 'chat_message') {
+        const payload = msg.payload;
+        try {
+          const { chatService } = await import('../services/chatService');
+          const result = await chatService.envoyerMessage({
+            id_canal: payload.id_canal,
+            id_session: payload.id_session,
+            id_compte: payload.id_compte,
+            nom_affiche: payload.nom_affiche,
+            contenu: payload.contenu || undefined,
+            image_url: payload.image_url || undefined,
+          });
+          if (result) {
+            peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'chat', payload: result });
+          }
+        } catch (err) {
+          console.error("Erreur chat_message:", err);
+        }
+      }
+
       if (msg.kind === 'toggle_competence') {
         const { liaisonId, is_active, buffRolls } = msg.payload;
         
