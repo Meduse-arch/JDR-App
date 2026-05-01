@@ -263,6 +263,13 @@ export const personnageService = {
 
       // 2. Suppression du personnage lui-même
       const res = await db.personnages.delete(idPersonnage);
+      if (res.success) {
+        peerService.broadcastToAll({ 
+          type: 'STATE_UPDATE', 
+          entity: 'session', 
+          payload: { type: 'character_deleted', id: idPersonnage } 
+        });
+      }
       return res.success;
     } catch (err) {
       console.error("Erreur suppression personnage complexe:", err);

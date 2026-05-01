@@ -99,7 +99,7 @@ export function usePersonnageCompetences(personnageExterne?: Personnage | null) 
     });
 
     const unsubUpdate = peerService.onStateUpdate((msg) => {
-      if (msg.entity === 'session' && msg.payload.type === 'character_created') {
+      if (msg.entity === 'session' && (msg.payload.type === 'character_created' || msg.payload.type === 'library_update_competences')) {
         chargerCompetencesAcquises(true);
       }
     });

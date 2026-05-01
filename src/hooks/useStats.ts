@@ -115,12 +115,29 @@ export function useStats() {
     }
   }, [])
 
-  const currentCharacterId = pnjControle?.id || personnageJoueur?.id;
+  // Synchronisation pour les joueurs via WebRTC
+  useEffect(() => {
+    if (peerService.isHost) return;
+
+    const unsubUpdate = peerService.onStateUpdate((msg) => {
+      if (msg.entity === 'session' && (msg.payload.type === 'library_update' || msg.payload.type === 'library_update_competences')) {
+        console.log("[useStats] Bibliothèque modifiée, demande de resync...");
+        // usePersonnage s'occupe déjà de demander le resync 'full'
+        // On n'a qu'à attendre que le personnageJoueur change dans le store.
+      }
+    });
+
+    return () => unsubUpdate();
+  }, []);
+
+  const currentCharacter = pnjControle || personnageJoueur;
+  const currentCharacterId = currentCharacter?.id;
   const currentSessionId = sessionActive?.id;
 
+  // Déclenche chargerStats dès que l'ID change OU que l'objet complet change (pour les joueurs)
   useEffect(() => {
     chargerStats()
-  }, [chargerStats, currentCharacterId, currentSessionId])
+  }, [chargerStats, currentCharacterId, currentSessionId, currentCharacter])
 
   useEffect(() => {
     // Si on est MJ, on doit recharger les stats locales de la fiche quand un item ou une compétence change

@@ -46,7 +46,7 @@ export function useInventaire(personnageId: string | undefined, nomPersonnage?: 
     });
 
     const unsubUpdate = peerService.onStateUpdate((msg) => {
-      if (msg.entity === 'inventaire' || (msg.entity === 'session' && msg.payload.type === 'character_created')) {
+      if (msg.entity === 'inventaire' || (msg.entity === 'session' && (msg.payload.type === 'character_created' || msg.payload.type === 'library_update'))) {
         charger(true);
       }
     });

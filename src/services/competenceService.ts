@@ -210,13 +210,17 @@ export const competenceService = {
       await db.personnage_competences.deleteByFields({ id_competence: idCompetence }).catch(() => {});
 
       const res = await db.competences.delete(idCompetence);
-      if (res.success) {
-        const { sessionActive } = (await import('../store/useStore')).useStore.getState();
-        if (sessionActive) {
-          const data = await competenceService.getCompetences(sessionActive.id);
-          peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update_competences', competences: data } });
-        }
+      
+      const { sessionActive } = (await import('../store/useStore')).useStore.getState();
+      if (sessionActive) {
+        const data = await competenceService.getCompetences(sessionActive.id);
+        peerService.broadcastToAll({ 
+          type: 'STATE_UPDATE', 
+          entity: 'session', 
+          payload: { type: 'library_update_competences', competences: data } 
+        });
       }
+      
       return res.success;
     } catch (err) {
       console.error("Erreur suppression compétence:", err);
