@@ -122,5 +122,20 @@ export function useStats() {
     chargerStats()
   }, [chargerStats, currentCharacterId, currentSessionId])
 
+  useEffect(() => {
+    // Si on est MJ, on doit recharger les stats locales de la fiche quand un item ou une compétence change
+    const state = useStore.getState();
+    if (state.roleEffectif !== 'joueur') {
+      const { peerService } = require('../services/peerService');
+      const unsubscribe = peerService.onStateUpdate((msg: any) => {
+        if (msg.entity === 'session' && (msg.payload.type === 'library_update' || msg.payload.type === 'library_update_competences')) {
+          console.log("[useStats] Bibliothèque modifiée, rechargement des stats de la fiche MJ...");
+          chargerStats();
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [chargerStats]);
+
   return { stats, chargement, rechargerStats: chargerStats }
 }

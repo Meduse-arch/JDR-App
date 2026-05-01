@@ -115,34 +115,46 @@ export function usePersonnage() {
 
   useEffect(() => {
     const unsubscribe = peerService.onStateUpdate((msg) => {
-      if (msg.entity !== 'personnage') return;
-      const payload = msg.payload;
-      
       const state = useStore.getState();
       const currentId = state.pnjControle?.id || state.personnageJoueur?.id;
 
-      if (payload.id_personnage === currentId) {
-        if (payload.type === 'full') {
-          const updated = payload.valeur;
-          console.log("[usePersonnage] Mise à jour complète reçue:", updated.nom);
-          
-          setPersonnage(updated);
-          if (state.personnageJoueur && state.personnageJoueur.id === updated.id) state.setPersonnageJoueur(updated);
-          if (state.pnjControle && state.pnjControle.id === updated.id) state.setPnjControle(updated);
-        } else if (payload.type) {
-           setPersonnage(prev => {
-             if (!prev) return prev;
-             const next = { ...prev, [payload.type]: payload.valeur };
-             if (state.personnageJoueur && state.personnageJoueur.id === next.id) state.setPersonnageJoueur(next);
-             if (state.pnjControle && state.pnjControle.id === next.id) state.setPnjControle(next);
-             return next;
-           });
+      if (msg.entity === 'personnage') {
+        const payload = msg.payload;
+        if (payload.id_personnage === currentId) {
+          if (payload.type === 'full') {
+            const updated = payload.valeur;
+            console.log("[usePersonnage] Mise à jour complète reçue:", updated.nom);
+            
+            setPersonnage(updated);
+            if (state.personnageJoueur && state.personnageJoueur.id === updated.id) state.setPersonnageJoueur(updated);
+            if (state.pnjControle && state.pnjControle.id === updated.id) state.setPnjControle(updated);
+          } else if (payload.type) {
+             setPersonnage(prev => {
+               if (!prev) return prev;
+               const next = { ...prev, [payload.type]: payload.valeur };
+               if (state.personnageJoueur && state.personnageJoueur.id === next.id) state.setPersonnageJoueur(next);
+               if (state.pnjControle && state.pnjControle.id === next.id) state.setPnjControle(next);
+               return next;
+             });
+          }
+        }
+      }
+
+      // Si la bibliothèque d'items ou de compétences change, le personnage doit recalculer ses stats
+      if (msg.entity === 'session' && (msg.payload.type === 'library_update' || msg.payload.type === 'library_update_competences')) {
+        if (currentId) {
+          console.log("[usePersonnage] Bibliothèque modifiée, demande de resync pour le personnage...");
+          if (peerService.isHost) {
+            chargerPersonnage(true);
+          } else {
+            peerService.requestResync(currentId);
+          }
         }
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [chargerPersonnage]);
 
   useRealtimeQuery({
     tables: [{ table: 'personnages', filtered: false }, { table: 'personnage_stats', filtered: false }],
