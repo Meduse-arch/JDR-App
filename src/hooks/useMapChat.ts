@@ -3,7 +3,6 @@ import { useStore } from '../store/useStore'
 import { useRealtimeQuery } from './useRealtimeQuery'
 import { chatService, ChatMessage } from '../services/chatService'
 import { peerService } from '../services/peerService'
-import { supabase } from '../supabase'
 
 /**
  * Hook dédié au chat contextuel d'une map.
@@ -26,60 +25,60 @@ export function useMapChat(channelId: string | null) {
   useEffect(() => {
     if (!compte) return;
     const unsubscribe = peerService.onStateUpdate((msg) => {
-      if (msg.entity !== 'chat') return;
-      const chatMsg = msg.payload as ChatMessage;
-      if (canalIdRef.current === chatMsg.id_canal && chatMsg.id_compte !== compte.id) {
-        setMessages(prev => {
-          if (prev.some(m => m.id === chatMsg.id)) return prev;
-          return [...prev, chatMsg];
-        });
+      if (msg.entity === 'chat') {
+        const chatMsg = msg.payload as ChatMessage;
+        if (canalIdRef.current === chatMsg.id_canal && chatMsg.id_compte !== compte.id) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === chatMsg.id)) return prev;
+            return [...prev, chatMsg];
+          });
+        }
+      }
+
+      if (msg.entity === 'map_chat_canal_update' && msg.payload.channelId === channelId) {
+         setCanalId(msg.payload.canalId);
+      }
+
+      if (msg.entity === 'chat_messages_update' && msg.payload.canalId === canalIdRef.current) {
+         setMessages(msg.payload.messages);
+         setChargement(false);
       }
     });
     return () => unsubscribe();
-  }, [compte]);
+  }, [compte, channelId]);
 
   // ── Résoudre l'id du canal chat à partir du channelId map ─────────────────
   const resoudreCanalId = useCallback(async () => {
     if (!channelId || !sessionActive) { setCanalId(null); return }
 
-    const nomCanal = `map_${channelId}`
-    const { data } = await supabase
-      .from('chat_canaux')
-      .select('id')
-      .eq('id_session', sessionActive.id)
-      .eq('nom', nomCanal)
-      .maybeSingle()
-
-    if (data?.id) {
-      setCanalId(data.id)
-    } else {
-      // Si le canal n'existe pas, on le crée
-      try {
-        const membres = await chatService.getMembresSession(sessionActive.id)
-        const ids = membres.map(m => m.id)
-        const nouveauCanal = await chatService.creerCanalPrive(sessionActive.id, ids, nomCanal)
-        
-        if (nouveauCanal) {
-          setCanalId(nouveauCanal.id)
-        } else {
-          const { data: retryData } = await supabase
-            .from('chat_canaux')
-            .select('id')
-            .eq('id_session', sessionActive.id)
-            .eq('nom', nomCanal)
-            .maybeSingle()
-          
-          if (retryData?.id) {
-            setCanalId(retryData.id)
-          } else {
-            console.warn('Impossible de créer ou trouver le canal chat pour la map:', channelId)
-            setCanalId(null)
-          }
+    if (peerService.isHost) {
+      const nomCanal = `map_${channelId}`;
+      const db = (window as any).db;
+      if (!db) return;
+      const resCanaux = await db.chat_canaux.getAll();
+      let exist = resCanaux.data?.find((c: any) => c.id_session === sessionActive.id && c.nom === nomCanal);
+      
+      if (!exist) {
+        try {
+          const membres = await chatService.getMembresSession(sessionActive.id);
+          const ids = membres.map(m => m.id);
+          exist = await chatService.creerCanalPrive(sessionActive.id, ids, nomCanal);
+        } catch (err) {
+          console.error('Erreur lors de la résolution/création du canal chat map:', err);
         }
-      } catch (err) {
-        console.error('Erreur lors de la résolution/création du canal chat map:', err)
-        setCanalId(null)
       }
+      
+      if (exist) {
+        setCanalId(exist.id);
+      } else {
+        setCanalId(null);
+      }
+    } else {
+      peerService.sendToMJ({
+         type: 'ACTION',
+         kind: 'request_map_chat_canal',
+         payload: { channelId }
+      });
     }
   }, [channelId, sessionActive])
 
@@ -89,9 +88,17 @@ export function useMapChat(channelId: string | null) {
   const chargerMessages = useCallback(async () => {
     if (!canalId) { setMessages([]); return }
     setChargement(true)
-    const data = await chatService.getMessages(canalId, 50)
-    setMessages(data)
-    setChargement(false)
+    if (peerService.isHost) {
+      const data = await chatService.getMessages(canalId, 50)
+      setMessages(data)
+      setChargement(false)
+    } else {
+      peerService.sendToMJ({
+         type: 'ACTION',
+         kind: 'request_chat_messages',
+         payload: { canalId }
+      })
+    }
   }, [canalId])
 
   useEffect(() => { chargerMessages() }, [chargerMessages])

@@ -138,6 +138,69 @@ export function useMJResyncHandler() {
         }
       }
 
+      if (msg.kind === 'request_chat_canaux') {
+        const { targetCompteId } = msg.payload;
+        const { chatService } = await import('../services/chatService');
+        const canaux = await chatService.getCanaux(sessionActive.id, targetCompteId, false);
+        peerService.sendToJoueur(fromPeerId, {
+          type: 'STATE_UPDATE',
+          entity: 'chat_canaux_update',
+          payload: { canaux: canaux.filter(c => !c.nom?.startsWith('map_')) }
+        });
+      }
+
+      if (msg.kind === 'request_chat_messages') {
+        const { canalId } = msg.payload;
+        const { chatService } = await import('../services/chatService');
+        const messages = await chatService.getMessages(canalId, 50);
+        peerService.sendToJoueur(fromPeerId, {
+          type: 'STATE_UPDATE',
+          entity: 'chat_messages_update',
+          payload: { canalId, messages }
+        });
+      }
+
+      if (msg.kind === 'request_chat_membres') {
+        const { chatService } = await import('../services/chatService');
+        const membres = await chatService.getMembresSession(sessionActive.id);
+        peerService.sendToJoueur(fromPeerId, {
+          type: 'STATE_UPDATE',
+          entity: 'chat_membres_update',
+          payload: { membres }
+        });
+      }
+
+      if (msg.kind === 'request_map_chat_canal') {
+        const { channelId } = msg.payload;
+        const { chatService } = await import('../services/chatService');
+        const nomCanal = `map_${channelId}`;
+        const resCanaux = await db.chat_canaux.getAll();
+        let canal = resCanaux.data?.find((c: any) => c.id_session === sessionActive.id && c.nom === nomCanal);
+        if (!canal) {
+           const membres = await chatService.getMembresSession(sessionActive.id)
+           const ids = membres.map(m => m.id)
+           canal = await chatService.creerCanalPrive(sessionActive.id, ids, nomCanal)
+        }
+        if (canal) {
+           peerService.sendToJoueur(fromPeerId, {
+              type: 'STATE_UPDATE',
+              entity: 'map_chat_canal_update',
+              payload: { channelId, canalId: canal.id }
+           });
+        }
+      }
+
+      if (msg.kind === 'create_chat_canal') {
+        const { compteIds, nom } = msg.payload;
+        const { chatService } = await import('../services/chatService');
+        await chatService.creerCanalPrive(sessionActive.id, compteIds, nom);
+        peerService.broadcastToAll({
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'chat_updated' }
+        });
+      }
+
       if (msg.kind === 'chat_message') {
         const payload = msg.payload;
         try {

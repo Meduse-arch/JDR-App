@@ -24,13 +24,39 @@ export function useChat() {
   useEffect(() => {
     if (!compte) return;
     const unsubscribe = peerService.onStateUpdate((msg) => {
-      if (msg.entity !== 'chat') return;
-      const chatMsg = msg.payload as ChatMessage;
-      if (canalActifRef.current === chatMsg.id_canal && chatMsg.id_compte !== compte.id) {
-        setMessages(prev => {
-          if (prev.some(m => m.id === chatMsg.id)) return prev;
-          return [...prev, chatMsg];
-        });
+      // Pour un seul message
+      if (msg.entity === 'chat') {
+        const chatMsg = msg.payload as ChatMessage;
+        if (canalActifRef.current === chatMsg.id_canal && chatMsg.id_compte !== compte.id) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === chatMsg.id)) return prev;
+            return [...prev, chatMsg];
+          });
+        }
+      }
+
+      // Pour la liste des canaux
+      if (msg.entity === 'chat_canaux_update') {
+        const canauxData = msg.payload.canaux;
+        setCanaux(canauxData);
+        if (!canalActifRef.current && canauxData.length > 0) {
+          const general = canauxData.find((c: any) => c.type === 'general');
+          setCanalActifId(general?.id || canauxData[0].id);
+        }
+        setChargementCanaux(false);
+      }
+
+      // Pour la liste complète des messages d'un canal
+      if (msg.entity === 'chat_messages_update') {
+        if (msg.payload.canalId === canalActifRef.current) {
+          setMessages(msg.payload.messages);
+          setChargementMessages(false);
+        }
+      }
+
+      // Pour les membres
+      if (msg.entity === 'chat_membres_update') {
+        setMembres(msg.payload.membres);
       }
     });
     return () => unsubscribe();
@@ -55,20 +81,28 @@ export function useChat() {
       ? pnjControle.lie_au_compte 
       : compte.id
 
-    const data = await chatService.getCanaux(sessionActive.id, targetCompteId, isMJ)
+    if (peerService.isHost) {
+      const data = await chatService.getCanaux(sessionActive.id, targetCompteId, isMJ)
 
-    // ── Filtre : on exclut les canaux réservés aux maps (préfixe "map_") ──
-    const canauxVisibles = data.filter(c => !c.nom?.startsWith('map_'))
+      // ── Filtre : on exclut les canaux réservés aux maps (préfixe "map_") ──
+      const canauxVisibles = data.filter(c => !c.nom?.startsWith('map_'))
 
-    setCanaux(canauxVisibles)
+      setCanaux(canauxVisibles)
 
-    if (!canalActifRef.current && canauxVisibles.length > 0) {
-      const general = canauxVisibles.find(c => c.type === 'general')
-      setCanalActifId(general?.id || canauxVisibles[0].id)
+      if (!canalActifRef.current && canauxVisibles.length > 0) {
+        const general = canauxVisibles.find(c => c.type === 'general')
+        setCanalActifId(general?.id || canauxVisibles[0].id)
+      }
+
+      setChargementCanaux(false)
+    } else {
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'request_chat_canaux',
+        payload: { targetCompteId }
+      })
     }
-
-    setChargementCanaux(false)
-  }, [sessionActive, compte, isMJ])
+  }, [sessionActive, compte, isMJ, pnjControle])
 
   // ── Init unique ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -79,17 +113,29 @@ export function useChat() {
     }
 
     generalInitDone.current = sessionActive.id
-    chatService.creerCanalGeneral(sessionActive.id).then(() => {
+    if (peerService.isHost) {
+      chatService.creerCanalGeneral(sessionActive.id).then(() => {
+        chargerCanaux()
+      })
+    } else {
       chargerCanaux()
-    })
-  }, [sessionActive?.id, compte?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    }
+  }, [sessionActive?.id, compte?.id, chargerCanaux])
 
   // ── Charger les messages du canal actif ───────────────────────────────────
   const chargerMessages = useCallback(async (canalId: string) => {
     setChargementMessages(true)
-    const data = await chatService.getMessages(canalId, 50)
-    setMessages(data)
-    setChargementMessages(false)
+    if (peerService.isHost) {
+      const data = await chatService.getMessages(canalId, 50)
+      setMessages(data)
+      setChargementMessages(false)
+    } else {
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'request_chat_messages',
+        payload: { canalId }
+      })
+    }
   }, [])
 
   useEffect(() => {
@@ -174,10 +220,20 @@ export function useChat() {
   ) => {
     if (!sessionActive || !compte) return
     const ids = Array.from(new Set([compte.id, ...compteIds]))
-    const canal = await chatService.creerCanalPrive(sessionActive.id, ids, nom)
-    if (canal) {
-      await chargerCanaux()
-      setCanalActifId(canal.id)
+    
+    if (peerService.isHost) {
+      const canal = await chatService.creerCanalPrive(sessionActive.id, ids, nom)
+      if (canal) {
+        await chargerCanaux()
+        setCanalActifId(canal.id)
+      }
+    } else {
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'create_chat_canal',
+        payload: { compteIds: ids, nom }
+      })
+      // Optimistiquement on recharge, mais ça sera forcé par le MJ via STATE_UPDATE
     }
   }, [sessionActive, compte, chargerCanaux])
 
@@ -203,8 +259,16 @@ export function useChat() {
 
   const chargerMembres = useCallback(async () => {
     if (!sessionActive) return
-    const data = await chatService.getMembresSession(sessionActive.id)
-    setMembres(data)
+    if (peerService.isHost) {
+      const data = await chatService.getMembresSession(sessionActive.id)
+      setMembres(data)
+    } else {
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'request_chat_membres',
+        payload: {}
+      })
+    }
   }, [sessionActive])
 
   const canalActif = canaux.find(c => c.id === canalActifId) || null
