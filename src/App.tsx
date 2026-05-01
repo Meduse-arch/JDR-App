@@ -104,10 +104,13 @@ export default function App() {
   const renderPageContent = (page = pageCourante) => {
     // On récupère les rôles depuis le store ou le localStorage pour les popouts
     const role = roleEffectif || localStorage.getItem('sigil-role-effectif')
-    const isMJ = role === 'admin' || role === 'mj'
+    const { pnjControle } = useStore.getState()
+    
+    // Un MJ qui possède un personnage doit voir l'interface Joueur (Dashboard, etc.)
+    const isMJMaster = (role === 'admin' || role === 'mj') && !pnjControle
 
     switch (page) {
-      case 'dashboard':      return isMJ ? <DashboardAdmin /> : <DashboardJoueur />
+      case 'dashboard':      return isMJMaster ? <DashboardAdmin /> : <DashboardJoueur />
       case 'selection-personnage': return <SelectionPersonnage />
       case 'mon-personnage': return <MonPersonnage />
       case 'mon-inventaire': return <MonInventaire />

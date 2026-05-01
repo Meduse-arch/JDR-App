@@ -9,6 +9,7 @@ import { QueteDetailModal } from '../../components/ui/modal'
 import { DashboardJoueurs } from './dashboard/DashboardJoueurs'
 import { DashboardEntites } from './dashboard/DashboardEntites'
 import { generateMJPeerId } from '../../services/sessionService'
+import { personnageService } from '../../services/personnageService'
 
 type Quete = {
   id: string
