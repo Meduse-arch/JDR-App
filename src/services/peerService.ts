@@ -177,6 +177,9 @@ class PeerService {
   broadcastToAll(message: StateUpdateMessage): void {
     if (this.isHost) {
       this.connections.forEach(conn => conn.send(message));
+      // Notify the host's own local listeners so their UI updates immediately
+      // when a player's action causes a broadcast.
+      this.stateUpdateHandlers.forEach(cb => cb(message));
     }
   }
 
