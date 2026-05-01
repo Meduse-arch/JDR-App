@@ -48,6 +48,7 @@ singleIdEntities.forEach((entity) => {
     create: (item: any) => ipcRenderer.invoke(`db:${entity}:create`, item),
     update: (id: string, item: any) => ipcRenderer.invoke(`db:${entity}:update`, id, item),
     delete: (id: string) => ipcRenderer.invoke(`db:${entity}:delete`, id),
+    deleteByFields: (conditions: Record<string, any>) => ipcRenderer.invoke(`db:${entity}:deleteByFields`, conditions),
   };
 });
 

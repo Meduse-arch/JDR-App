@@ -138,6 +138,9 @@ export const queteService = {
       await db.personnage_quetes.create({ id_personnage: pid, id_quete: queteId, suivie: 0 });
     }
 
+    const { peerService } = await import('./peerService');
+    peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'quetes_update' } });
+
     return true;
   },
 
@@ -145,6 +148,10 @@ export const queteService = {
     const db = getDB();
     if (!db) return false;
     const res = await db.quetes.update(queteId, { statut });
+    if (res.success) {
+      const { peerService } = await import('./peerService');
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'quetes_update' } });
+    }
     return res.success;
   },
 
@@ -152,6 +159,10 @@ export const queteService = {
     const db = getDB();
     if (!db) return false;
     const res = await db.quetes.delete(queteId);
+    if (res.success) {
+      const { peerService } = await import('./peerService');
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'quetes_update' } });
+    }
     return res.success;
   },
 
@@ -164,6 +175,10 @@ export const queteService = {
       id_quete: queteId,
       suivie: suivie ? 1 : 0
     });
+    if (res.success) {
+      const { peerService } = await import('./peerService');
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'quetes_update' } });
+    }
     return res.success;
   },
 
@@ -175,6 +190,10 @@ export const queteService = {
       return true;
     }
     const res = await db.personnage_quetes.create({ id_personnage: personnageId, id_quete: queteId, suivie: 0 });
+    if (res.success) {
+      const { peerService } = await import('./peerService');
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'quetes_update' } });
+    }
     return res.success;
   },
 
@@ -182,6 +201,10 @@ export const queteService = {
     const db = getDB();
     if (!db) return false;
     const res = await db.personnage_quetes.deleteByFields({ id_personnage: personnageId, id_quete: queteId });
+    if (res.success) {
+      const { peerService } = await import('./peerService');
+      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'quetes_update' } });
+    }
     return res.success;
   },
 }

@@ -13,7 +13,6 @@ export function useQuetes(personnageId?: string) {
 
   const charger = useCallback(async (isRealtime = false) => {
     if (!sessionActive) return
-    if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return
 
     if (peerService.isHost) {
       if (!isRealtime) setChargement(true)
@@ -32,19 +31,19 @@ export function useQuetes(personnageId?: string) {
     charger()
   }, [charger])
 
-  // Abonnement WebRTC pour les joueurs
+  // Abonnement WebRTC pour tous (MJ et joueurs)
   useEffect(() => {
-    if (peerService.isHost || !sessionActive) return;
+    if (!sessionActive) return;
 
     const unsubResponse = peerService.onResyncResponse((msg) => {
-      if (msg.dataType === 'quetes') {
+      if (!peerService.isHost && msg.dataType === 'quetes') {
         setQuetes(msg.payload);
         setChargement(false);
       }
     });
 
     const unsubUpdate = peerService.onStateUpdate((msg) => {
-      if (msg.entity === 'session') {
+      if (msg.entity === 'session' && (msg.payload.type === 'quetes_update' || msg.payload.type === 'library_update')) {
         charger(true);
       }
     });

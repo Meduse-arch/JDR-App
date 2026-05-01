@@ -28,8 +28,6 @@ export function useItems() {
        return;
     }
     
-    if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return;
-    lastUpdateRef.current = Date.now(); // FIX boucle infinie : mise à jour du timer
     if (!isRealtime) setChargement(true);
     
     try {
@@ -57,12 +55,34 @@ export function useItems() {
     } finally {
       if (!isRealtime) setChargement(false);
     }
-  // FIX boucle infinie : libItems et allStats RETIRÉS des dépendances
   }, [sessionActive, setLibItems, setAllStats]);
 
   useEffect(() => {
     charger();
   }, [charger]);
+
+  // Synchronisation pour les joueurs via WebRTC
+  useEffect(() => {
+    if (peerService.isHost) return;
+
+    const unsubUpdate = peerService.onStateUpdate((msg) => {
+      if (msg.entity === 'session' && msg.payload.type === 'library_update') {
+        const { items: newItems, stats: newStats } = msg.payload;
+        if (newItems) {
+          setLibItems(newItems);
+          setItems(newItems);
+        }
+        if (newStats) {
+          setAllStats(newStats);
+          setStats(newStats);
+        }
+      }
+    });
+
+    return () => {
+      unsubUpdate();
+    };
+  }, [setLibItems, setAllStats]);
 
   // Sync locale quand le store change (via WebRTC pour les joueurs)
   useEffect(() => {

@@ -27,9 +27,6 @@ export function useCompetences(personnageId?: string) {
       return;
     }
 
-    if (isRealtime && Date.now() - lastUpdateRef.current < 1000) return;
-    lastUpdateRef.current = Date.now();
-
     if (!isRealtime) setChargement(true);
     try {
       const data = await competenceService.getCompetences(sessionActive.id);

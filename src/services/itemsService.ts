@@ -146,7 +146,10 @@ export const itemsService = {
    */
   updateItem: async (idItem: string, itemData: any, modificateurs: any[], effetsActifs: any[] = [], tagIds: string[] = []) => {
     const db = getDB();
-    if (!db) return false;
+    if (!db) {
+      console.error("updateItem: db not found");
+      return false;
+    }
     
     // Nettoyer data
     const dataClean = {
@@ -156,56 +159,64 @@ export const itemsService = {
       image_url: itemData.image_url || null,
     };
 
-    const resItem = await db.items.update(idItem, dataClean);
-    if (!resItem.success) return false;
+    try {
+      const resItem = await db.items.update(idItem, dataClean);
+      if (!resItem.success) {
+        console.error("updateItem: failed to update items table", resItem.error);
+        return false;
+      }
 
-    await tagsService.setTagsForItem(idItem, tagIds);
-    await db.modificateurs.deleteByFields({ id_item: idItem });
-    await db.effets_actifs.deleteByFields({ id_item: idItem });
+      await tagsService.setTagsForItem(idItem, tagIds);
+      await db.modificateurs.deleteByFields({ id_item: idItem });
+      await db.effets_actifs.deleteByFields({ id_item: idItem });
 
-    for (const m of modificateurs) {
-      if (!m.id_stat) continue;
-      await db.modificateurs.create({
-        id: crypto.randomUUID(),
-        id_item: idItem,
-        id_stat: String(m.id_stat),
-        valeur: Number(m.valeur) || 0,
-        type_calcul: m.type_calcul || 'fixe',
-        id_competence: null,
-        id_personnage: null,
-        nom_affiche: m.nom_affiche || null,
-        id_tag: m.id_tag || null,
-        des_stat_id: m.des_stat_id || null,
-        des_nb: m.des_nb || null,
-        des_faces: m.des_faces || null,
-        created_at: new Date().toISOString()
-      });
-    }
-    for (const e of effetsActifs) {
-      if (!e.cible_jauge) continue;
-      await db.effets_actifs.create({
-        id: crypto.randomUUID(),
-        id_item: idItem,
-        id_competence: null,
-        cible_jauge: e.cible_jauge,
-        valeur: Number(e.valeur) || 0,
-        id_stat_de: e.id_stat_de || null,
-        des_nb: e.des_nb || null,
-        des_faces: e.des_faces || null,
-        des_stat_id: e.des_stat_id || null,
-        est_cout: e.est_cout ? 1 : 0, // ADAPTATION Supabase→SQLite
-        est_jet_de: e.est_jet_de ? 1 : 0, // ADAPTATION Supabase→SQLite
-        created_at: new Date().toISOString()
-      });
-    }
+      for (const m of modificateurs) {
+        if (!m.id_stat) continue;
+        await db.modificateurs.create({
+          id: crypto.randomUUID(),
+          id_item: idItem,
+          id_stat: String(m.id_stat),
+          valeur: Number(m.valeur) || 0,
+          type_calcul: m.type_calcul || 'fixe',
+          id_competence: null,
+          id_personnage: null,
+          nom_affiche: m.nom_affiche || null,
+          id_tag: m.id_tag || null,
+          des_stat_id: m.des_stat_id || null,
+          des_nb: m.des_nb || null,
+          des_faces: m.des_faces || null,
+          created_at: new Date().toISOString()
+        });
+      }
+      for (const e of effetsActifs) {
+        if (!e.cible_jauge) continue;
+        await db.effets_actifs.create({
+          id: crypto.randomUUID(),
+          id_item: idItem,
+          id_competence: null,
+          cible_jauge: e.cible_jauge,
+          valeur: Number(e.valeur) || 0,
+          id_stat_de: e.id_stat_de || null,
+          des_nb: e.des_nb || null,
+          des_faces: e.des_faces || null,
+          des_stat_id: e.des_stat_id || null,
+          est_cout: e.est_cout ? 1 : 0,
+          est_jet_de: e.est_jet_de ? 1 : 0,
+          created_at: new Date().toISOString()
+        });
+      }
 
-    const { sessionActive } = (await import('../store/useStore')).useStore.getState();
-    if (sessionActive) {
-      const items = await itemsService.getItems(sessionActive.id);
-      const stats = await itemsService.getStats();
-      peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update', items, stats } });
+      const { sessionActive } = (await import('../store/useStore')).useStore.getState();
+      if (sessionActive) {
+        const items = await itemsService.getItems(sessionActive.id);
+        const stats = await itemsService.getStats();
+        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'library_update', items, stats } });
+      }
+      return true;
+    } catch (err) {
+      console.error("updateItem exception:", err);
+      return false;
     }
-    return true;
   },
 
   deleteItem: async (idItem: string): Promise<boolean> => {
