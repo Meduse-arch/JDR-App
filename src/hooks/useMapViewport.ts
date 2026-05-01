@@ -55,13 +55,32 @@ export function useMapViewport({ activeChannelData, canvasRef, channelActif }: M
     viewportSize.current = { w: vW, h: vH };
   }, [activeChannelData, getMapNatSize]);
 
+  const fitDoneForChannel = useRef<string | null>(null);
+
   // Initial fit when map is loaded
   useEffect(() => {
-    if (!activeChannelData || !channelActif) return;
-    const el = canvasRef.current;
-    if (el && el.clientWidth > 0) {
-      applyFit(el);
+    if (!activeChannelData || !channelActif) {
+      fitDoneForChannel.current = null;
+      return;
     }
+    
+    if (fitDoneForChannel.current === channelActif) return;
+
+    let isMounted = true;
+    const tryFit = () => {
+      const el = canvasRef.current;
+      if (el && el.clientWidth > 0 && el.clientHeight > 0) {
+        applyFit(el);
+        fitDoneForChannel.current = channelActif;
+      } else if (isMounted) {
+        requestAnimationFrame(() => setTimeout(tryFit, 10));
+      }
+    };
+    
+    // On laisse le temps au DOM de se peindre (surtout Flexbox)
+    setTimeout(tryFit, 50);
+    
+    return () => { isMounted = false; };
   }, [channelActif, activeChannelData, applyFit, canvasRef]);
 
   // Observer les changements de taille du viewport pour compenser le pan
