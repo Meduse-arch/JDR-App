@@ -20,10 +20,13 @@ export function useCompetences(personnageId?: string) {
     if (!sessionActive?.id) return;
 
     if (!peerService.isHost && (window as any).db === undefined) {
+      const state = useStore.getState();
+      const currentCharacterId = state.pnjControle?.id || state.personnageJoueur?.id;
+      
       if (!isRealtime) setChargement(true);
-      // Determine character ID from store if not explicitly passed, wait useCompetences doesn't take an ID!
-      // I should update useCompetences to accept characterId
-      peerService.requestResync(personnageId, 'competences');
+      if (currentCharacterId) {
+        peerService.requestResync(currentCharacterId, 'competences');
+      }
       return;
     }
 

@@ -3,9 +3,9 @@ import { useStore } from '../store/useStore'
 import { useRealtimeQuery } from './useRealtimeQuery'
 import { statsService, type StatValeur } from '../services/statsService'
 import { statsEngine } from '../utils/statsEngine'
+import { peerService } from '../services/peerService'
 
 export function useStats() {
-  const compte = useStore(s => s.compte) // AJOUTÉ : manquait au tour précédent
   const pnjControle = useStore(s => s.pnjControle)
   const personnageJoueur = useStore(s => s.personnageJoueur)
   const allStats = useStore(s => s.allStats)
@@ -121,38 +121,31 @@ export function useStats() {
 
     const unsubUpdate = peerService.onStateUpdate((msg) => {
       if (msg.entity === 'session' && (msg.payload.type === 'library_update' || msg.payload.type === 'library_update_competences')) {
-        console.log("[useStats] Bibliothèque modifiée, demande de resync...");
         // usePersonnage s'occupe déjà de demander le resync 'full'
-        // On n'a qu'à attendre que le personnageJoueur change dans le store.
       }
     });
 
     return () => unsubUpdate();
   }, []);
 
-  const currentCharacter = pnjControle || personnageJoueur;
-  const currentCharacterId = currentCharacter?.id;
+  const currentCharacterId = pnjControle?.id || personnageJoueur?.id;
   const currentSessionId = sessionActive?.id;
 
-  // Déclenche chargerStats dès que l'ID change OU que l'objet complet change (pour les joueurs)
+  // Déclenche chargerStats dès que l'ID change
   useEffect(() => {
     chargerStats()
-  }, [chargerStats, currentCharacterId, currentSessionId, currentCharacter])
+  }, [chargerStats, currentCharacterId, currentSessionId])
 
   useEffect(() => {
     // Si on est MJ, on doit recharger les stats locales de la fiche quand un item ou une compétence change
     const state = useStore.getState();
     if (state.roleEffectif !== 'joueur') {
-      let unsub: (() => void) | null = null;
-      import('../services/peerService').then(({ peerService }) => {
-        unsub = peerService.onStateUpdate((msg: any) => {
-          if (msg.entity === 'session' && (msg.payload.type === 'library_update' || msg.payload.type === 'library_update_competences')) {
-            console.log("[useStats] Bibliothèque modifiée, rechargement des stats de la fiche MJ...");
-            chargerStats();
-          }
-        });
+      const unsub = peerService.onStateUpdate((msg: any) => {
+        if (msg.entity === 'session' && (msg.payload.type === 'library_update' || msg.payload.type === 'library_update_competences')) {
+          chargerStats();
+        }
       });
-      return () => { if (unsub) (unsub as any)(); };
+      return () => unsub();
     }
   }, [chargerStats]);
 
