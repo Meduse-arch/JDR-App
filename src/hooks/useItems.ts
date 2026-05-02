@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { itemsService } from '../services/itemsService';
 import { Item, Stat } from '../types';
 import { useStore } from '../store/useStore';
@@ -15,7 +15,6 @@ export function useItems() {
   const [items, setItems] = useState<Item[]>(libItems);
   const [stats, setStats] = useState<Stat[]>(allStats);
   const [chargement, setChargement] = useState(false);
-  const lastUpdateRef = useRef<number>(0);
 
   const charger = useCallback(async (isRealtime = false) => {
     // FIX Items affichage UI : Ne pas bloquer si pas host, tant qu'on a une session (pour le MJ local)

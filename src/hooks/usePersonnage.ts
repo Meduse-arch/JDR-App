@@ -8,8 +8,6 @@ export function usePersonnage() {
   const compte = useStore(s => s.compte)
   const pnjControle = useStore(s => s.pnjControle)
   const personnageJoueur = useStore(s => s.personnageJoueur)
-  const setPnjControle = useStore(s => s.setPnjControle)
-  const setPersonnageJoueur = useStore(s => s.setPersonnageJoueur)
   const sessionActive = useStore(s => s.sessionActive)
   
   const [personnage, setPersonnage] = useState<Personnage | null>(null)

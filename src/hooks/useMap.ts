@@ -18,7 +18,6 @@ export function useMap(sessionId: string | undefined) {
     deplacerToken,
     supprimerToken,
     toggleVisibilite,
-    broadcastPosition,
     setLocalAction,
   } = useMapTokens(sessionId, channelActif);
 
@@ -35,7 +34,6 @@ export function useMap(sessionId: string | undefined) {
     deplacerToken,
     supprimerToken,
     toggleVisibilite,
-    broadcastPosition,
     setLocalAction,
   };
 }

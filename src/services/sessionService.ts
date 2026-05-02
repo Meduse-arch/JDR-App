@@ -7,7 +7,7 @@ export function generateMJPeerId(sessionCode: string): string {
 }
 
 export const sessionService = {
-  creerSession: async (nom: string, description: string, idCompte: string, roleGlobale: string) => {
+  creerSession: async (nom: string, description: string, idCompte: string) => {
     const { data: existing } = await supabase
       .from('sessions')
       .select('id')

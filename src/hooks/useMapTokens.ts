@@ -152,7 +152,7 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
   };
 
   const toggleVisibilite = async (id: string, visible: boolean) => {
-    const ok = await mapService.updateToken(id, { visible: visible ? 1 : 0 });
+    const ok = await mapService.updateToken(id, { visible });
     if (ok && channelActif) {
       chargerTokens(channelActif);
     }
@@ -161,13 +161,13 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
   // ── Realtime tokens via WebRTC
   useEffect(() => {
     const unsub = peerService.onStateUpdate((msg) => {
-      if (msg.entity === 'map_token') {
+      if ((msg.entity as string) === 'map_token') {
         const { id, x, y } = msg.payload;
         if (!pendingMovesRef.current.has(id)) {
           setTokens(prev => prev.map(t => t.id === id ? { ...t, x, y } : t));
         }
       }
-      if (!peerService.isHost && msg.entity === 'session' && msg.payload.type === 'map_tokens_update') {
+      if (!peerService.isHost && (msg.entity as string) === 'session' && msg.payload.type === 'map_tokens_update') {
         if (msg.payload.channelId === channelActifRef.current && msg.payload.tokens) {
            setTokens(msg.payload.tokens);
         }

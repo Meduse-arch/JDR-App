@@ -1,39 +1,40 @@
 import { useEffect } from 'react';
 import { peerService } from '../services/peerService';
 import { personnageService } from '../services/personnageService';
-import { itemsService } from '../services/itemsService';
+import { inventaireService } from '../services/inventaireService';
 import { competenceService } from '../services/competenceService';
 import { queteService } from '../services/queteService';
-import { inventaireService } from '../services/inventaireService';
 import { useStore } from '../store/useStore';
 
+/**
+ * Hook réservé au MJ (Host).
+ * Intercepte les ACTIONs des joueurs, les traite en DB SQLite locale,
+ * et rediffuse les STATE_UPDATE ou répond via RESYNC_RESPONSE.
+ */
 export function useMJResyncHandler() {
-  const db = (window as any).db;
-  const sessionActive = useStore(s => s.sessionActive);
-  const roleEffectif = useStore(s => s.roleEffectif);
+  const { sessionActive, roleEffectif } = useStore();
 
   useEffect(() => {
-    if (!peerService.isHost || !sessionActive) return;
+    if (!sessionActive || (roleEffectif !== 'admin' && roleEffectif !== 'mj')) return;
 
-    console.log("📡 MJ Resync Handler : Activation de l'écoute...");
+    const db = (window as any).db;
+    if (!db) return;
+
+    // ── 1. GESTION DES ACTIONS (Ordres des joueurs) ───────────────────────────
     const unsubAction = peerService.onAction(async (msg, fromPeerId) => {
+      
       if (msg.kind === 'player_identity') {
         const { id, pseudo } = msg.payload;
         try {
-          // 1. Assurer l'existence du compte dans le masterDb
-          await db.comptes.create({ id, pseudo, mot_de_passe: 'external', role: 'joueur' }).catch(() => {});
-          
-          // 2. Lier le compte à la session active (sessionDb)
-          if (sessionActive) {
-            // Utiliser l'ID REEL de la session du MJ, pas celui envoyé par le joueur si possible
-            await db.session_comptes.create({ id_session: sessionActive.id, id_compte: id }).catch(() => {});
+          const res = await db.comptes.getById(id);
+          if (!res.data) {
+            await db.comptes.create({ id, pseudo, role: 'joueur' });
           }
-          
           console.log(`👤 Joueur '${pseudo}' identifié et lié à la session ${sessionActive?.id}.`);
         } catch (e) {}
       }
 
-      if (msg.kind === 'request_map_channels') {
+      if ((msg.kind as string) === 'request_map_channels') {
         const { mapService } = await import('../services/mapService');
         const channels = await mapService.getChannels(sessionActive.id);
         peerService.sendToJoueur(fromPeerId, {
@@ -43,12 +44,14 @@ export function useMJResyncHandler() {
         });
       }
 
-      if (msg.kind === 'request_map_tokens') {
+      if ((msg.kind as string) === 'request_map_tokens') {
         const { channelId } = msg.payload;
         const { mapService } = await import('../services/mapService');
         const tokens = await mapService.getTokens(channelId);
-        // Enrichir basiquement
-        const { data: personnages } = await db.personnages.getAll();
+        
+        const resPerso = await db.personnages.getAll();
+        const personnages = resPerso.success ? resPerso.data : [];
+        
         const imageMap = new Map<string, string | null>(
           (personnages || []).map((p: any) => [p.id, p.image_url ?? null])
         );
@@ -64,14 +67,15 @@ export function useMJResyncHandler() {
         });
       }
 
-      if (msg.kind === 'add_token') {
+      if ((msg.kind as string) === 'add_token') {
         const { token } = msg.payload;
         const { mapService } = await import('../services/mapService');
         const newToken = await mapService.addToken(token);
         if (newToken) {
-          // Re-fetch all tokens to send an updated list with images
           const tokens = await mapService.getTokens(token.id_channel);
-          const { data: personnages } = await db.personnages.getAll();
+          const resPerso = await db.personnages.getAll();
+          const personnages = resPerso.success ? resPerso.data : [];
+          
           const imageMap = new Map<string, string | null>(
             (personnages || []).map((p: any) => [p.id, p.image_url ?? null])
           );
@@ -91,91 +95,83 @@ export function useMJResyncHandler() {
       if (msg.kind === 'move_token') {
         const { id, x, y } = msg.payload;
         await db.map_tokens.update(id, { x, y });
-        // On rebroadcast pour que tous les autres joueurs voient le mouvement
         peerService.broadcastToAll({
           type: 'STATE_UPDATE',
-          entity: 'map_token',
+          entity: ('map_token' as any),
           payload: { id, x, y }
         });
       }
 
-      if (msg.kind === 'add_item') {
+      if ((msg.kind as string) === 'add_item') {
         const { personnageId, itemId, quantite } = msg.payload;
-        await itemsService.ajouterItem(personnageId, itemId, quantite);
-        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'character_created' } });
+        await inventaireService.ajouterItem(personnageId, itemId, quantite);
+        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'inventaire', payload: { type: 'item_added' } });
       }
 
-      if (msg.kind === 'toggle_equip') {
+      if ((msg.kind as string) === 'toggle_equip') {
         const { entryId, equipe } = msg.payload;
         await inventaireService.toggleEquipement(entryId, equipe);
-        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'character_created' } });
+        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'inventaire', payload: { type: 'equip_toggled' } });
       }
 
-      if (msg.kind === 'remove_item') {
+      if ((msg.kind as string) === 'remove_item') {
         const { entryId, quantite } = msg.payload;
         await inventaireService.retirerItem(entryId, quantite);
-        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'character_created' } });
+        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'inventaire', payload: { type: 'item_removed' } });
       }
 
       if (msg.kind === 'dice_roll') {
-        const payload = msg.payload;
-        // On rebroadcast le dé à tout le monde
-        peerService.broadcastToAll({
-          type: 'STATE_UPDATE',
-          entity: 'dice',
-          payload
-        });
+        peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'dice', payload: msg.payload });
       }
 
       if (msg.kind === 'log_action') {
-        const payload = msg.payload;
         try {
           const { logService } = await import('../services/logService');
-          await logService.logAction(payload);
-          peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'session', payload: { type: 'character_created' } });
+          await logService.logAction(msg.payload);
         } catch (err) {
           console.error("Erreur log_action:", err);
         }
       }
 
-      if (msg.kind === 'request_chat_canaux') {
+      if ((msg.kind as string) === 'request_chat_canaux') {
         const { targetCompteId } = msg.payload;
         const { chatService } = await import('../services/chatService');
         const canaux = await chatService.getCanaux(sessionActive.id, targetCompteId, false);
         peerService.sendToJoueur(fromPeerId, {
           type: 'STATE_UPDATE',
-          entity: 'chat_canaux_update',
+          entity: ('chat_canaux_update' as any),
           payload: { canaux: canaux.filter(c => !c.nom?.startsWith('map_')) }
         });
       }
 
-      if (msg.kind === 'request_chat_messages') {
+      if ((msg.kind as string) === 'request_chat_messages') {
         const { canalId } = msg.payload;
         const { chatService } = await import('../services/chatService');
         const messages = await chatService.getMessages(canalId, 50);
         peerService.sendToJoueur(fromPeerId, {
           type: 'STATE_UPDATE',
-          entity: 'chat_messages_update',
+          entity: ('chat_messages_update' as any),
           payload: { canalId, messages }
         });
       }
 
-      if (msg.kind === 'request_chat_membres') {
+      if ((msg.kind as string) === 'request_chat_membres') {
         const { chatService } = await import('../services/chatService');
         const membres = await chatService.getMembresSession(sessionActive.id);
         peerService.sendToJoueur(fromPeerId, {
           type: 'STATE_UPDATE',
-          entity: 'chat_membres_update',
+          entity: ('chat_membres_update' as any),
           payload: { membres }
         });
       }
 
-      if (msg.kind === 'request_map_chat_canal') {
+      if ((msg.kind as string) === 'request_map_chat_canal') {
         const { channelId } = msg.payload;
         const { chatService } = await import('../services/chatService');
         const nomCanal = `map_${channelId}`;
         const resCanaux = await db.chat_canaux.getAll();
-        let canal = resCanaux.data?.find((c: any) => c.id_session === sessionActive.id && c.nom === nomCanal);
+        const rawCanaux = resCanaux.success ? resCanaux.data : [];
+        let canal = rawCanaux.find((c: any) => c.id_session === sessionActive.id && c.nom === nomCanal);
         if (!canal) {
            const membres = await chatService.getMembresSession(sessionActive.id)
            const ids = membres.map(m => m.id)
@@ -184,13 +180,13 @@ export function useMJResyncHandler() {
         if (canal) {
            peerService.sendToJoueur(fromPeerId, {
               type: 'STATE_UPDATE',
-              entity: 'map_chat_canal_update',
+              entity: ('map_chat_canal_update' as any),
               payload: { channelId, canalId: canal.id }
            });
         }
       }
 
-      if (msg.kind === 'create_chat_canal') {
+      if ((msg.kind as string) === 'create_chat_canal') {
         const { compteIds, nom } = msg.payload;
         const { chatService } = await import('../services/chatService');
         await chatService.creerCanalPrive(sessionActive.id, compteIds, nom);
@@ -202,17 +198,9 @@ export function useMJResyncHandler() {
       }
 
       if (msg.kind === 'chat_message') {
-        const payload = msg.payload;
         try {
           const { chatService } = await import('../services/chatService');
-          const result = await chatService.envoyerMessage({
-            id_canal: payload.id_canal,
-            id_session: payload.id_session,
-            id_compte: payload.id_compte,
-            nom_affiche: payload.nom_affiche,
-            contenu: payload.contenu || undefined,
-            image_url: payload.image_url || undefined,
-          });
+          const result = await chatService.envoyerMessage(msg.payload);
           if (result) {
             peerService.broadcastToAll({ type: 'STATE_UPDATE', entity: 'chat', payload: result });
           }
@@ -222,43 +210,21 @@ export function useMJResyncHandler() {
       }
 
       if (msg.kind === 'toggle_competence') {
-        const { liaisonId, is_active, buffRolls } = msg.payload;
-        
-        // Fetch liaison to get character ID
-        const liaisonRes = await db.personnage_competences.getById(liaisonId).catch(() => ({ success: false, data: null }));
-        
+        const { liaisonId, is_active } = msg.payload;
         await db.personnage_competences.update(liaisonId, { is_active: is_active ? 1 : 0 });
         
+        const liaisonRes = await db.personnage_competences.getById(liaisonId);
         if (liaisonRes && liaisonRes.success && liaisonRes.data) {
-          const charId = liaisonRes.data.id_personnage;
-
-          if (buffRolls && Object.keys(buffRolls).length > 0) {
-            try {
-              const { statsService } = await import('../services/statsService');
-              for (const [key, value] of Object.entries(buffRolls)) {
-                await statsService.saveBuffRoll(charId, key, value as number);
-              }
-            } catch (err) {
-              console.error("[MJ] Erreur lors de la sauvegarde des buff rolls distants:", err);
-            }
-          }
-
+          const charId = (liaisonRes.data as any).id_personnage;
           const fullPerso = await personnageService.recalculerStats(charId);
           if (fullPerso) {
-            peerService.sendToJoueur(fromPeerId, {
+            peerService.broadcastToAll({
               type: 'STATE_UPDATE',
               entity: 'personnage',
               payload: { id_personnage: charId, type: 'full', valeur: fullPerso }
             });
           }
         }
-
-        // On broadcast le changement à tout le monde
-        peerService.broadcastToAll({
-          type: 'STATE_UPDATE',
-          entity: 'session',
-          payload: { type: 'character_created' } // Force refresh pour tout le monde
-        });
       }
 
       if (msg.kind === 'update_resource') {
@@ -270,198 +236,91 @@ export function useMJResyncHandler() {
           payload: { id_personnage, type, valeur }
         });
       }
-      
+
       if (msg.kind === 'create_character') {
         const payload = msg.payload;
-        if (!sessionActive) return;
-
         try {
-          console.log(`[MJ] 🏗️ Création personnage pour ${fromPeerId}:`, payload.nom);
-          
-          // 1. Créer le personnage (SQLite)
-          const res = await db.personnages.create({
-            id: payload.id,
-            id_session: sessionActive.id, 
-            nom: payload.nom,
-            type: payload.type || 'Joueur',
-            is_template: payload.is_template ? 1 : 0,
-            lie_au_compte: payload.lie_au_compte,
-            hp: payload.hp || 10,
-            mana: payload.mana || 10,
-            stam: payload.stam || 10,
-            created_at: payload.created_at || new Date().toISOString()
-          });
-
+          const { stats, ...dbData } = payload;
+          const res = await db.personnages.create(dbData);
           if (res.success) {
-            // 2. Sauvegarde des stats
-            if (payload.stats && Array.isArray(payload.stats)) {
-              console.log(`[MJ] 📊 Sauvegarde de ${payload.stats.length} statistiques...`);
-              for (const s of payload.stats) {
-                await db.personnage_stats.create({ 
-                  id: crypto.randomUUID(), 
-                  id_personnage: payload.id, 
-                  id_stat: s.id_stat, 
-                  valeur: s.valeur 
-                }).catch(err => console.error("[MJ] Erreur stat:", err));
-              }
+            for (const s of (stats || [])) {
+              await db.personnage_stats.create({
+                id: crypto.randomUUID(),
+                id_personnage: payload.id,
+                id_stat: s.id_stat,
+                valeur: s.valeur
+              }).catch((err: any) => console.error("[MJ] Erreur stat:", err));
             }
-
-            // 3. Lien session/joueur
             if (payload.type === 'Joueur') {
-              await db.session_joueurs.create({ 
-                id_session: sessionActive.id, 
-                id_personnage: payload.id 
-              }).catch(() => {});
+              await db.session_joueurs.create({
+                id_session: sessionActive.id,
+                id_personnage: payload.id
+              });
             }
-
-            console.log(`✅ [MJ] Personnage '${payload.nom}' créé avec succès.`);
-            
-            // 4. Recalculer les stats max et renvoyer le perso COMPLET au joueur
             const fullPerso = await personnageService.recalculerStats(payload.id);
-            
-            peerService.sendToJoueur(fromPeerId, {
+            if (fullPerso) {
+               peerService.sendToJoueur(fromPeerId, {
+                 type: 'STATE_UPDATE',
+                 entity: 'personnage',
+                 payload: { id_personnage: payload.id, type: 'full', valeur: fullPerso }
+               });
+            }
+            peerService.broadcastToAll({
               type: 'STATE_UPDATE',
               entity: 'session',
-              payload: { type: 'character_created', personnage: fullPerso }
+              payload: { type: 'character_created' }
             });
-            
-            // Re-demander la liste pour rafraîchir l'écran de sélection
-            peerService.sendToJoueur(fromPeerId, {
-              type: 'LIST_CHARACTERS_RESPONSE',
-              personnages: fullPerso ? [fullPerso] : []
-            });
-          } else {
-            console.error("[MJ] ❌ Échec création personnage SQLite:", res.error);
           }
-        } catch (e) {
-          console.error("[MJ] ❌ Erreur critique création personnage:", e);
+        } catch (e: any) {
+          console.error("❌ [MJ] Erreur création personnage:", e);
         }
       }
     });
 
-    const unsubResync = peerService.onResyncRequest(async (characterId, fromPeerId, dataType) => {
-      if (dataType === 'inventaire' && characterId) {
-        console.log(`[MJ] 🔄 Resync inventaire demandée pour ${characterId} par ${fromPeerId}`);
-        const inv = await inventaireService.getInventaire(characterId);
-        peerService.sendToJoueur(fromPeerId, { type: 'RESYNC_RESPONSE', dataType: 'inventaire', payload: inv });
-        return;
-      }
-
-      if (dataType === 'competences') {
-        console.log(`[MJ] 🔄 Resync compétences demandée pour ${characterId} par ${fromPeerId}`);
-        const lib = await competenceService.getCompetences(sessionActive.id);
-        let persoComps: any[] = [];
-        if (characterId) {
-          const res = await db.personnage_competences.getAll();
-          if (res.success) {
-            persoComps = res.data.filter((pc: any) => pc.id_personnage === characterId);
+    // ── 2. GESTION DES RESYNC (Demandes d'état complet) ────────────────────────
+    const unsubResync = peerService.onResyncRequest(async (charId, fromPeerId, dataType) => {
+      if (charId) {
+        if (!dataType || dataType === 'full') {
+          const fullPerso = await personnageService.recalculerStats(charId);
+          if (fullPerso) {
+            peerService.sendToJoueur(fromPeerId, { type: 'RESYNC_RESPONSE', dataType: 'full', payload: fullPerso });
           }
         }
-        peerService.sendToJoueur(fromPeerId, { 
-          type: 'RESYNC_RESPONSE', 
-          dataType: 'competences', 
-          payload: { lib, persoComps } 
-        });
-        return;
+        
+        if (dataType === 'inventaire') {
+          const data = await inventaireService.getInventaire(charId);
+          peerService.sendToJoueur(fromPeerId, { type: 'RESYNC_RESPONSE', dataType: 'inventaire', payload: data });
+        }
+
+        if (dataType === 'competences') {
+          const resPC = await db.personnage_competences.getAll();
+          const rawPC = resPC.success ? resPC.data : [];
+          const persoComps = rawPC.filter((l: any) => l.id_personnage === charId);
+          const lib = await competenceService.getCompetences(sessionActive.id);
+          peerService.sendToJoueur(fromPeerId, { type: 'RESYNC_RESPONSE', dataType: 'competences', payload: { persoComps, lib } });
+        }
       }
 
       if (dataType === 'quetes') {
-        console.log(`[MJ] 🔄 Resync quêtes demandée pour ${characterId} par ${fromPeerId}`);
-        const data = characterId 
-          ? await queteService.getQuetesPersonnage(characterId)
-          : await queteService.getQuetes(sessionActive.id);
+        const data = await queteService.getQuetes(sessionActive.id);
         peerService.sendToJoueur(fromPeerId, { type: 'RESYNC_RESPONSE', dataType: 'quetes', payload: data });
-        return;
-      }
-
-      // Default fallback (full character or global library)
-      if (characterId) {
-        console.log(`[MJ] 🔄 Resync demandée pour le personnage ${characterId} par ${fromPeerId}`);
-        const fullPerso = await personnageService.recalculerStats(characterId);
-        if (fullPerso) {
-          // On envoie via STATE_UPDATE car c'est mieux géré par les hooks des joueurs
-          peerService.sendToJoueur(fromPeerId, {
-            type: 'STATE_UPDATE',
-            entity: 'personnage',
-            payload: { id_personnage: characterId, type: 'full', valeur: fullPerso }
-          });
-          // Fallback compatibilité
-          peerService.sendToJoueur(fromPeerId, {
-            type: 'RESYNC_RESPONSE',
-            payload: fullPerso,
-            dataType: 'full'
-          });
-        }
-      } else {
-        // RESYNC GLOBALE (Bibliothèques)
-        const sessionActive = useStore.getState().sessionActive;
-        if (!sessionActive) return;
-        
-        console.log(`[MJ] 📚 Envoi des bibliothèques à ${fromPeerId}...`);
-
-        const [items, stats, competences] = await Promise.all([
-          itemsService.getItems(sessionActive.id),
-          itemsService.getStats(), // Récupère la table 'stats' complète (id, nom, desc)
-          competenceService.getCompetences(sessionActive.id)
-        ]);
-
-        peerService.sendToJoueur(fromPeerId, {
-          type: 'STATE_UPDATE',
-          entity: 'session',
-          payload: { type: 'library_update', items, stats }
-        });
-        peerService.sendToJoueur(fromPeerId, {
-          type: 'STATE_UPDATE',
-          entity: 'session',
-          payload: { type: 'library_update_competences', competences }
-        });
       }
     });
 
-    // Gestion de la demande de liste de personnages d'un compte
+    // ── 3. LISTE DES PERSONNAGES DISPONIBLES ─────────────────────────────────
     const unsubList = peerService.onListCharactersRequest(async (compteId, fromPeerId) => {
-      console.log(`[MJ] 📩 Requête LIST_CHARACTERS de ${fromPeerId} pour ${compteId}`);
       try {
-        const sessionActive = useStore.getState().sessionActive;
-        if (!sessionActive) return;
-
         const res = await db.personnages.getAll();
-        if (!res.success) {
-          peerService.sendToJoueur(fromPeerId, { type: 'LIST_CHARACTERS_RESPONSE', personnages: [] });
-          return;
-        }
-
-        // Filtrage simple par compte et session
-        const myPersosRaw = res.data.filter((p: any) => 
-          p.lie_au_compte === compteId && 
-          (p.id_session === sessionActive.id || p.id_session === 'remote-session' || !p.id_session) && 
-          p.is_template === 0
-        );
-
-        // On calcule au moins les ressources de base (HP Max etc.) pour ne pas casser l'UI du joueur
-        const basicHydrated = await personnageService.hydraterPersonnages(myPersosRaw);
-
-        console.log(`[MJ] 🔍 Trouvé ${basicHydrated.length} persos. Envoi avec ressources MAX.`);
-
-        // On envoie la version hydratée pour que les barres HP/Mana s'affichent correctement
-        peerService.sendToJoueur(fromPeerId, {
-          type: 'LIST_CHARACTERS_RESPONSE',
-          personnages: basicHydrated
-        });
-
-        // Puis on hydrate et on envoie les détails un par un (plus fiable sur réseau instable)
-        for (const p of myPersosRaw) {
-          const full = await personnageService.recalculerStats(p.id);
-          if (full) {
-            peerService.sendToJoueur(fromPeerId, {
-              type: 'STATE_UPDATE',
-              entity: 'personnage',
-              payload: { id_personnage: p.id, type: 'full', valeur: full }
-            });
-          }
+        if (res.success && res.data) {
+          const data = res.data.filter((p: any) => 
+            p.id_session === sessionActive.id && 
+            p.lie_au_compte === compteId &&
+            p.is_template === 0
+          );
+          const hydrated = await personnageService.hydraterPersonnages(data);
+          peerService.sendToJoueur(fromPeerId, { type: 'LIST_CHARACTERS_RESPONSE', personnages: hydrated });
         }
       } catch (e) {
-        console.error("[MJ] Erreur ListCharactersRequest:", e);
         peerService.sendToJoueur(fromPeerId, { type: 'LIST_CHARACTERS_RESPONSE', personnages: [] });
       }
     });

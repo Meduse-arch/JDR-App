@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
-import { useRealtimeQuery } from './useRealtimeQuery'
 import { chatService, ChatMessage } from '../services/chatService'
 import { peerService } from '../services/peerService'
 
@@ -35,11 +34,11 @@ export function useMapChat(channelId: string | null) {
         }
       }
 
-      if (msg.entity === 'map_chat_canal_update' && msg.payload.channelId === channelId) {
+      if ((msg.entity as string) === 'map_chat_canal_update' && msg.payload.channelId === channelId) {
          setCanalId(msg.payload.canalId);
       }
 
-      if (msg.entity === 'chat_messages_update' && msg.payload.canalId === canalIdRef.current) {
+      if ((msg.entity as string) === 'chat_messages_update' && msg.payload.canalId === canalIdRef.current) {
          setMessages(msg.payload.messages);
          setChargement(false);
       }

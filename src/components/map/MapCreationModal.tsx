@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { supabase } from '../../supabase';
 import { ImageGalerie } from '../../types';
 import { X, ImageIcon, Layout, Grid3X3, Save, Plus, Maximize2 } from 'lucide-react';
 

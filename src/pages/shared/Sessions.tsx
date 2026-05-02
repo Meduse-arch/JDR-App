@@ -59,7 +59,7 @@ export default function Sessions() {
   const creerSession = async () => {
     if (!nom || !compte) return
     const { sessionService } = await import('../../services/sessionService')
-    const success = await sessionService.creerSession(nom, description, compte.id, compte.role)
+    const success = await sessionService.creerSession(nom, description, compte.id)
     if (success) {
       setNom(''); setDescription(''); setAfficherFormulaire(false); chargerSessions()
     } else {
@@ -222,7 +222,6 @@ export default function Sessions() {
                 <Button
                   variant="ghost"
                   onClick={async () => {
-                    const { generateMJPeerId } = await import('../../services/sessionService');
                     // On prend une session au hasard ou on demande à l'utilisateur d'entrer dans une session d'abord ?
                     // Plus simple : si on clique ici, on affiche le code de la dernière session créée ou on explique.
                     alert("Entrez dans une session pour que votre code soit actif. Le code sera : sigil-[ID_DE_SESSION]");

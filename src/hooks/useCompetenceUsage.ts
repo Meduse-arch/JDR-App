@@ -1,5 +1,4 @@
 import { useCallback } from 'react'
-import { supabase } from '../supabase'
 import { useStore } from '../store/useStore'
 import { rollDice, rollStatDice } from '../utils/rollDice'
 import { Competence } from '../types'
@@ -96,7 +95,7 @@ export function useCompetenceUsage(
 
           const passifTagIds = (passif.tags || []).map((t: any) => t.id || t);
           if (compTags.some(tid => passifTagIds.includes(tid))) {
-            const alreadyActiveByItem = passif.condition_type === 'les_deux' && passifTagIds.some(tid => activeItemTags.has(tid));
+            const alreadyActiveByItem = passif.condition_type === 'les_deux' && passifTagIds.some((tid: string) => activeItemTags.has(tid));
             if (passif.condition_type === 'skill' || !alreadyActiveByItem) {
               passif.modificateurs?.forEach((m: any) => {
                 if (m.type_calcul === 'pourcentage') bonusPctStats[m.id_stat] = (bonusPctStats[m.id_stat] || 0) + m.valeur;
@@ -264,7 +263,6 @@ export function useCompetenceUsage(
 
   const toggleCompetence = useCallback(async (liaison: any, rechargerStatsCb?: () => Promise<void>, rechargerCompsCb?: (silencieux?: boolean) => Promise<void>) => {
     try {
-      // Priorité à l'ID du store pour être raccordé
       const characterId = pnjControle?.id || personnage?.id;
       
       if (!characterId) {
@@ -289,7 +287,6 @@ export function useCompetenceUsage(
           return;
         }
 
-        // Bonus temporaires (similaire à utiliserCompetence)
         const bonusFixesStats: Record<string, number> = {};
         const bonusPctStats: Record<string, number> = {};
         
@@ -297,12 +294,12 @@ export function useCompetenceUsage(
         const activeItemTags = new Set<string>();
 
         if (peerService.isHost) {
-          const db = (window as any).db;
-          const resTags = await db.competence_tags.getAll();
+          const dbObj = (window as any).db;
+          const resTags = await dbObj.competence_tags.getAll();
           compTags = resTags.success ? resTags.data.filter((ct: any) => ct.id_competence === comp.id).map((ct: any) => ct.id_tag) : [];
           
-          const resInv = await db.inventaire.getAll();
-          const resItemTags = await db.item_tags.getAll();
+          const resInv = await dbObj.inventaire.getAll();
+          const resItemTags = await dbObj.item_tags.getAll();
           const equipInv = resInv.success ? resInv.data.filter((i: any) => i.id_personnage === characterId && i.equipe === 1) : [];
           equipInv.forEach((inv: any) => {
             const tags = resItemTags.success ? resItemTags.data.filter((it: any) => it.id_item === inv.id_item) : [];
@@ -320,8 +317,8 @@ export function useCompetenceUsage(
           let allComps: any[] = [];
 
           if (peerService.isHost) {
-            const db = (window as any).db;
-            const resPC = await db.personnage_competences.getAll();
+            const dbObj = (window as any).db;
+            const resPC = await dbObj.personnage_competences.getAll();
             characterComps = resPC.success ? resPC.data.filter((pc: any) => pc.id_personnage === characterId) : [];
             allComps = await competenceService.getCompetences(sessionActive?.id || '');
           } else {
@@ -343,7 +340,7 @@ export function useCompetenceUsage(
               }
               const passifTagIds = (passif.tags || []).map((t: any) => t.id || t);
               if (compTags.some(tid => passifTagIds.includes(tid))) {
-                const alreadyActiveByItem = passif.condition_type === 'les_deux' && passifTagIds.some(tid => activeItemTags.has(tid));
+                const alreadyActiveByItem = passif.condition_type === 'les_deux' && passifTagIds.some((tid: string) => activeItemTags.has(tid));
                 if (passif.condition_type === 'skill' || (passif.condition_type === 'les_deux' && !alreadyActiveByItem)) {
                   passif.modificateurs?.forEach((m: any) => {
                     if (m.type_calcul === 'pourcentage') bonusPctStats[m.id_stat] = (bonusPctStats[m.id_stat] || 0) + m.valeur;
@@ -355,9 +352,7 @@ export function useCompetenceUsage(
           }
         }
 
-        // 1. Gérer les buffs de stats (dés)
         if (comp.modificateurs) {
-          // Ajouter ses propres modificateurs au pool s'ils sont fixes ou % pour ses propres jets de dés
           comp.modificateurs.forEach((m: any) => {
             if (m.type_calcul === 'pourcentage') bonusPctStats[m.id_stat] = (bonusPctStats[m.id_stat] || 0) + m.valeur;
             else if (m.type_calcul === 'fixe') bonusFixesStats[m.id_stat] = (bonusFixesStats[m.id_stat] || 0) + m.valeur;
@@ -381,11 +376,9 @@ export function useCompetenceUsage(
                 rollRes = rollStatDice(finalValeurStat, m.valeur || 0, baseStat?.nom || 'Stat');
               }
               
-              // On met à jour le store local immédiatement pour l'UI
               setBuffRoll(cacheKey, rollRes.total);
               newBuffRolls[cacheKey] = rollRes.total;
 
-              // Sauvegarde en base ET on attend pour la cohérence du rechargement
               if (peerService.isHost) {
                 try {
                   await statsService.saveBuffRoll(characterId, cacheKey, rollRes.total);
@@ -393,14 +386,11 @@ export function useCompetenceUsage(
                   console.error("Erreur sauvegarde buff roll:", err);
                 }
               }
-              
               diceResults.push({ ...rollRes, label: `Buff ${cibleStatName}`, color: '#10b981' });
             }
           }
         }
 
-
-        // 2. Gérer les effets de ressources
         for (const e of effets) {
           let finalValue = e.valeur || 0
           const isCout = e.valeur < 0 || e.est_cout === true;
@@ -436,7 +426,6 @@ export function useCompetenceUsage(
         }
       }
 
-      // Mise à jour BDD
       if (peerService.isHost) {
         const dbObj = (window as any).db;
         await dbObj.personnage_competences.update(liaison.id, { is_active: nouveauStatut ? 1 : 0 });
@@ -451,7 +440,6 @@ export function useCompetenceUsage(
       if (rechargerCompsCb) await rechargerCompsCb(true);
       if (rechargerStatsCb) await rechargerStatsCb();
 
-      // Après le toggle, on récupère les nouveaux Max depuis le store/service
       if (peerService.isHost) {
         const pRecalcule = await import('../services/personnageService').then(m => m.personnageService.recalculerStats(personnage.id));
         if (pRecalcule) {

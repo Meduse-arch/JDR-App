@@ -36,7 +36,7 @@ export function useChat() {
       }
 
       // Pour la liste des canaux
-      if (msg.entity === 'chat_canaux_update') {
+      if ((msg.entity as string) === 'chat_canaux_update') {
         const canauxData = msg.payload.canaux;
         setCanaux(canauxData);
         if (!canalActifRef.current && canauxData.length > 0) {
@@ -47,7 +47,7 @@ export function useChat() {
       }
 
       // Pour la liste complète des messages d'un canal
-      if (msg.entity === 'chat_messages_update') {
+      if ((msg.entity as string) === 'chat_messages_update') {
         if (msg.payload.canalId === canalActifRef.current) {
           setMessages(msg.payload.messages);
           setChargementMessages(false);
@@ -55,7 +55,7 @@ export function useChat() {
       }
 
       // Pour les membres
-      if (msg.entity === 'chat_membres_update') {
+      if ((msg.entity as string) === 'chat_membres_update') {
         setMembres(msg.payload.membres);
       }
     });

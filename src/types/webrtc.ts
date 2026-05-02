@@ -1,4 +1,27 @@
-export type ActionKind = 'use_item' | 'update_resource' | 'move_token' | 'chat_message' | 'request_settings' | 'dice_roll' | 'toggle_spectateur' | 'settings_update' | 'create_character' | 'player_identity' | 'log_action' | 'toggle_competence';
+export type ActionKind = 
+  | 'use_item' 
+  | 'update_resource' 
+  | 'move_token' 
+  | 'chat_message' 
+  | 'request_settings' 
+  | 'dice_roll' 
+  | 'toggle_spectateur' 
+  | 'settings_update' 
+  | 'create_character' 
+  | 'player_identity' 
+  | 'log_action' 
+  | 'toggle_competence'
+  | 'add_token'
+  | 'request_map_channels'
+  | 'request_map_tokens'
+  | 'add_item'
+  | 'toggle_equip'
+  | 'remove_item'
+  | 'request_chat_canaux'
+  | 'request_chat_messages'
+  | 'request_chat_membres'
+  | 'request_map_chat_canal'
+  | 'create_chat_canal';
 
 export interface ActionMessage {
   type: 'ACTION';
@@ -8,7 +31,17 @@ export interface ActionMessage {
   senderId?: string; // The player ID
 }
 
-export type StateUpdateEntity = 'personnage' | 'token' | 'inventaire' | 'chat' | 'dice' | 'session';
+export type StateUpdateEntity = 
+  | 'personnage' 
+  | 'map_token' 
+  | 'inventaire' 
+  | 'chat' 
+  | 'dice' 
+  | 'session'
+  | 'chat_canaux_update'
+  | 'chat_messages_update'
+  | 'chat_membres_update'
+  | 'map_chat_canal_update';
 
 export interface StateUpdateMessage {
   type: 'STATE_UPDATE';

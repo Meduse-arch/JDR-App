@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useStore, Personnage } from '../../store/useStore';
 import { useMap } from '../../hooks/useMap';
-import { supabase } from '../../supabase';
 import { Lock, X } from 'lucide-react';
 import MapHub from './MapHub';
 import { MapCreationModal } from '../../components/map/MapCreationModal';
@@ -13,7 +12,7 @@ import { MapToolbar } from '../../components/map/MapToolbar';
 import { Input } from '../../components/ui/Input';
 
 export default function CarteMap() {
-  const { sessionActive, roleEffectif, personnageJoueur: personnage, compte, pnjControle } = useStore();
+  const { sessionActive, roleEffectif, personnageJoueur: personnage, pnjControle } = useStore();
   const {
     channels,
     tokens,
@@ -27,7 +26,6 @@ export default function CarteMap() {
     deplacerToken,
     supprimerToken,
     toggleVisibilite,
-    broadcastPosition,
   } = useMap(sessionActive?.id);
 
   const [personnages, setPersonnages] = useState<Personnage[]>([]);
@@ -119,7 +117,6 @@ export default function CarteMap() {
     handleTouchStart, handleTouchMove, handleTouchEnd,
   } = useMapDrag({
     zoom, activeChannelData, mapRef, deplacerToken,
-    onBroadcastPosition: broadcastPosition,
     isMJ, personnageLocal, isRulerActive,
     selectedTokenId, tokens,
   });

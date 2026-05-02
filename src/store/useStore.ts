@@ -29,6 +29,9 @@ export type Personnage = {
   created_at?: string
   image_url?: string | null
   couleur?: string | null
+  stats?: any[]
+  competences?: any[]
+  inventaire?: any[]
 }
 
 export type DiceResult = { 

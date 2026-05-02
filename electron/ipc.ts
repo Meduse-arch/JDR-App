@@ -51,7 +51,7 @@ export function setupIPC() {
       ipcMain.handle(`db:${entity}:getById`, async (_, id: string) => {
         try {
           const db = getDbForEntity(entity);
-          const data = db.prepare(`SELECT * FROM ${entity} WHERE id = ?`).get(id);
+          const data = db.prepare(`SELECT * FROM ${entity} WHERE id = ?`).get(id) as any;
           if (entity === 'logs_activite' && data) {
             let details = null;
             if (data.details) {

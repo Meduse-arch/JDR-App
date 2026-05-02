@@ -18,7 +18,7 @@ export default function MonPersonnage() {
   const setPnjControle = useStore(s => s.setPnjControle)
   const characterSheetMode = useStore(s => s.characterSheetMode)
   
-  const { personnage, rechargerPersonnage, mettreAJourLocalement, mettreAJourRessourceHybride, chargement } = usePersonnage()
+  const { personnage, rechargerPersonnage, mettreAJourLocalement, mettreAJourRessourceHybride } = usePersonnage()
   const { stats } = useStats()
   const { deltas, updateDelta, adjustDelta, appliquerDelta } = useResourceManagement(personnage, mettreAJourLocalement, mettreAJourRessourceHybride)
   

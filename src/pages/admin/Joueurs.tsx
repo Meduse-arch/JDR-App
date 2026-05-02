@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../supabase'
 import { useStore, type Personnage } from '../../store/useStore'
 import { Card } from '../../components/ui/card'
 import { Button } from '../../components/ui/Button'
@@ -40,14 +39,8 @@ export default function Joueurs() {
         persos = await personnageService.hydraterPersonnages(raw);
       }
     } else {
-      // LOGIQUE JOUEUR : On utilise les personnages connus par le store (WebRTC)
-      // Ou on pourrait demander une liste au MJ via PeerService
-      // Pour l'instant on filtre le store local (qui est mis à jour par les messages STATE_UPDATE)
-      // Mais Joueurs.tsx est surtout une page MJ. Si un joueur y accède, il voit les autres.
-      const { personnagesSession } = useStore.getState() as any; // Si on avait un tel store
-      // En l'absence de store global synchronisé pour TOUS les persos chez le joueur,
-      // on peut demander au MJ.
-      // Mais restons simples : Joueurs.tsx est principalement pour l'Admin/MJ.
+      // LOGIQUE JOUEUR : Joueurs.tsx est principalement pour l'Admin/MJ.
+      // Si un joueur y accède, on peut laisser vide ou implémenter une requête MJ.
     }
     
     // 2. Charger les MJs de la session (Toujours Supabase car c'est au niveau session/auth)

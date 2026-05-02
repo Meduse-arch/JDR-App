@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { competenceService } from '../services/competenceService';
 import { Competence } from '../types';
 import { useStore } from '../store/useStore';
@@ -12,7 +12,6 @@ export function useCompetences(personnageId?: string) {
   
   const [competences, setCompetences] = useState<Competence[]>(libCompetences);
   const [chargement, setChargement] = useState(false);
-  const lastUpdateRef = useRef<number>(0);
 
   // FIX Compétences boucle infinie : Retrait de libCompetences des dépendances
   const chargerCompetences = useCallback(async (isRealtime = false) => {
@@ -57,7 +56,7 @@ export function useCompetences(personnageId?: string) {
 
     const unsubResponse = peerService.onResyncResponse((msg) => {
       if (msg.dataType === 'competences') {
-        const { lib, persoComps } = msg.payload;
+        const { lib } = msg.payload;
         setLibCompetences(lib);
         setCompetences(lib);
         setChargement(false);

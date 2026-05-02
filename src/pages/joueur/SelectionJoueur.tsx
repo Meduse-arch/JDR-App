@@ -7,7 +7,7 @@ import { peerService } from '../../services/peerService'
 import { personnageService } from '../../services/personnageService'
 
 export default function SelectionJoueur() {
-  const { compte, sessionActive, setPersonnageJoueur, setPageCourante } = useStore()
+  const { compte, sessionActive, setPersonnageJoueur, setPageCourante, setPnjControle } = useStore()
   const [mesPersonnages, setMesPersonnages] = useState<Personnage[]>([])
   const [isForging, setIsForging] = useState(false)
   const [chargement, setChargement] = useState(true)

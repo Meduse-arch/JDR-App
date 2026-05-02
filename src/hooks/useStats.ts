@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useStore } from '../store/useStore'
-import { useRealtimeQuery } from './useRealtimeQuery'
 import { statsService, type StatValeur } from '../services/statsService'
 import { statsEngine } from '../utils/statsEngine'
 import { peerService } from '../services/peerService'
@@ -8,10 +7,7 @@ import { peerService } from '../services/peerService'
 export function useStats() {
   const pnjControle = useStore(s => s.pnjControle)
   const personnageJoueur = useStore(s => s.personnageJoueur)
-  const allStats = useStore(s => s.allStats)
   const sessionActive = useStore(s => s.sessionActive)
-  const roleEffectif = useStore(s => s.roleEffectif)
-  const setBuffRoll = useStore(s => s.setBuffRoll)
   const clearBuffRolls = useStore(s => s.clearBuffRolls)
 
   const [stats, setStats] = useState<StatValeur[]>([])
@@ -41,7 +37,7 @@ export function useStats() {
 
     // --- LOGIQUE JOUEUR (Source: Store WebRTC) ---
     if (currentRole === 'joueur') {
-      const perso = state.pnjControle || state.personnageJoueur;
+      const perso = (state.pnjControle || state.personnageJoueur) as any;
       if (perso && perso.id === currentCharacterId) {
         const rawStats = perso.stats || [];
         
@@ -65,9 +61,10 @@ export function useStats() {
         ];
         const SYSTEM_STAT_NAMES = ['PV Max', 'Mana Max', 'Stamina Max', 'hp_max', 'mana_max', 'stam_max', 'HP Max'];
 
-        const formattedStats = rawStats.map((s: any) => {
+        const formattedStats: StatValeur[] = rawStats.map((s: any) => {
+          if (!s) return null;
           const sid = String(s.id_stat);
-          const ref = state.allStats.find((r: any) => String(r.id) === sid);
+          const ref = (state.allStats || []).find((r: any) => String(r.id) === sid);
           const nomStat = s.nom || ref?.nom || FALLBACK_NAMES[sid] || `Stat ${sid}`;
           
           return {
@@ -78,10 +75,10 @@ export function useStats() {
             bonus: s.bonus ?? 0,
             description: ref?.description || ""
           };
-        }).filter(s => !SYSTEM_STAT_IDS.includes(String(s.id)) && !SYSTEM_STAT_NAMES.includes(s.nom));
+        }).filter((s: any) => s && !SYSTEM_STAT_IDS.includes(String(s.id)) && !SYSTEM_STAT_NAMES.includes(s.nom));
         
         const ORDRE_STATS = ['Force', 'Agilité', 'Constitution', 'Intelligence', 'Sagesse', 'Perception', 'Charisme'];
-        const sorted = statsEngine.trierStats(formattedStats, ORDRE_STATS);
+        const sorted = statsEngine.trierStats(formattedStats, ORDRE_STATS) as StatValeur[];
         
         setStats(sorted);
         if (rawStats.length > 0) setChargement(false);

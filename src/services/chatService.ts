@@ -39,11 +39,11 @@ export const chatService = {
     if (!db) return [];
     
     const resCanaux = await db.chat_canaux.getAll();
-    if (!resCanaux.success) return [];
+    if (!resCanaux.success || !resCanaux.data) return [];
     let canaux = resCanaux.data.filter((c: any) => c.id_session === sessionId).sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
     const resParticipants = await db.chat_participants.getAll();
-    const participations = resParticipants.success ? resParticipants.data.filter((p: any) => canaux.some((c: any) => c.id === p.id_canal)) : [];
+    const participations = (resParticipants.success && resParticipants.data) ? resParticipants.data.filter((p: any) => canaux.some((c: any) => c.id === p.id_canal)) : [];
 
     const compteIds = Array.from(new Set(participations.map((p: any) => p.id_compte)));
     const { data: comptesData } = await supabase.from('comptes').select('id, pseudo').in('id', compteIds);
@@ -69,7 +69,7 @@ export const chatService = {
     if (!db) return null;
 
     const resCanaux = await db.chat_canaux.getAll();
-    if (resCanaux.success) {
+    if (resCanaux.success && resCanaux.data) {
       const existing = resCanaux.data.find((c: any) => c.id_session === sessionId && c.type === 'general');
       if (existing) return existing;
     }
@@ -132,7 +132,7 @@ export const chatService = {
     if (!db) return false;
 
     const msgRes = await db.messages.getAll();
-    if (msgRes.success) {
+    if (msgRes.success && msgRes.data) {
       const msgs = msgRes.data.filter((m: any) => m.id_canal === canalId);
       for (const m of msgs) await db.messages.delete(m.id);
     }
@@ -149,7 +149,7 @@ export const chatService = {
     if (!db) return [];
 
     const res = await db.messages.getAll();
-    if (!res.success) return [];
+    if (!res.success || !res.data) return [];
     const msgs = res.data.filter((m: any) => m.id_canal === canalId).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return msgs.slice(0, limit).reverse();
   },

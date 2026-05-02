@@ -18,6 +18,7 @@ export interface EffetActif {
   des_nb?: number | null;
   des_faces?: number | null;
   des_stat_id?: string | null;
+  id_stat_de?: string | null;
   est_cout?: boolean;
   est_jet_de?: boolean;
   stats?: Stat;

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../supabase';
 import { PersonnageCompetence, Personnage } from '../types';
 import { usePersonnage } from './usePersonnage';
 import { competenceService } from '../services/competenceService';

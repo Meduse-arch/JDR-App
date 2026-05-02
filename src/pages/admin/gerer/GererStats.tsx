@@ -35,11 +35,11 @@ export default function GererStats({ personnage, onRecharger }: Props) {
         })
         .filter((d: any) => !STATS_SYSTEME.includes(d.nom))
       
-      const sortedStats = statsEngine.trierStats(s, ORDRE_STATS)
+      const sortedStats = statsEngine.trierStats(s, ORDRE_STATS) as any[]
       setStats(sortedStats)
       const initialTemp: Record<string, number> = {}
       const initialDeltas: Record<string, string> = {}
-      sortedStats.forEach(item => {
+      sortedStats.forEach((item: any) => {
         initialTemp[item.nom] = item.valeur
         initialDeltas[item.nom] = ''
       })

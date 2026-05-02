@@ -1,16 +1,27 @@
 import { LogActivite } from '../types'
+import { peerService } from './peerService'
 
 const getDB = () => (window as any).db;
 
 export const logService = {
   async logAction(entry: Omit<LogActivite, 'id' | 'created_at'>) {
     const db = getDB();
-    if (!db) return;
-    await db.logs_activite.create({
-      ...entry,
-      id: crypto.randomUUID(),
-      created_at: new Date().toISOString()
-    });
+    
+    if (db) {
+      // LOGIQUE MJ : Sauvegarde locale
+      await db.logs_activite.create({
+        ...entry,
+        id: crypto.randomUUID(),
+        created_at: new Date().toISOString()
+      });
+    } else {
+      // LOGIQUE JOUEUR : Envoi WebRTC
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'log_action' as any,
+        payload: entry
+      });
+    }
   },
   
   async getLogs(sessionId: string, personnageId?: string) {

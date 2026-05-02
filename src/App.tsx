@@ -127,9 +127,9 @@ export default function App() {
       case 'possession':     return <Possession />
       case 'gerer-mj':       return <GererMj />
       case 'chat':           return <Chat />
-      default:               return isMJ ? <DashboardAdmin /> : <DashboardJoueur />
+      default:               return isMJMaster ? <DashboardAdmin /> : <DashboardJoueur />
     }
-  }
+    }
 
   // Rendu immédiat pour le mode Pop-out
   if (isPopout && popoutPage) {

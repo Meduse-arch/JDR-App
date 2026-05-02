@@ -21,7 +21,6 @@ interface UseRealtimeQueryOptions {
 
 export function useRealtimeQuery({
   tables,
-  sessionId,
   onReload,
   debounce = 400,
   enabled = true,

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useStore, type Personnage } from '../../store/useStore'
 import { useLogs } from '../../hooks/useLogs'
-import { personnageService } from '../../services/personnageService'
 import { peerService } from '../../services/peerService'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Dices, Zap, Backpack, Heart, Package, ChevronDown } from 'lucide-react'
