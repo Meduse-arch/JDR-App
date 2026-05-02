@@ -19,8 +19,20 @@ export function setupIPC() {
     'item_tags', 'competence_tags', 'chat_participants', 'session_comptes'
   ];
 
+  // SECURITY: Strictly define allowed entities to prevent arbitrary table access
+  const ALLOWED_ENTITIES = new Set([
+    ...masterEntities,
+    ...masterCompositeEntities,
+    ...sessionSingleEntities,
+    ...sessionCompositeEntities
+  ]);
+
   // Helper function to resolve the correct database
   const getDbForEntity = (entity: string) => {
+    if (!ALLOWED_ENTITIES.has(entity)) {
+      throw new Error(`Unauthorized access attempt to entity: ${entity}`);
+    }
+    
     if (masterEntities.includes(entity) || masterCompositeEntities.includes(entity)) {
       return masterDb;
     }

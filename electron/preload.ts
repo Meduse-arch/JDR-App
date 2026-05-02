@@ -1,26 +1,11 @@
 import { ipcRenderer, contextBridge } from 'electron'
 
-// --------- Expose some API to the Renderer process ---------
-contextBridge.exposeInMainWorld('ipcRenderer', {
-  on(...args: Parameters<typeof ipcRenderer.on>) {
-    const [channel, listener] = args
-    return ipcRenderer.on(channel, (event, ...args) => listener(event, ...args))
-  },
-  off(...args: Parameters<typeof ipcRenderer.off>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.off(channel, ...omit)
-  },
-  send(...args: Parameters<typeof ipcRenderer.send>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.send(channel, ...omit)
-  },
-  invoke(...args: Parameters<typeof ipcRenderer.invoke>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.invoke(channel, ...omit)
-  },
-})
+/**
+ * SECURITY: Instead of exposing the entire ipcRenderer, we expose only specific,
+ * restricted methods via contextBridge. This adheres to the Principle of Least Privilege.
+ */
 
-// --------- Expose window.db API ---------
+// Lists of entities defined in the system
 const singleIdEntities = [
   'sessions', 'comptes', 'personnages', 'stats', 'personnage_stats',
   'items', 'inventaire', 'competences', 'personnage_competences',
@@ -34,6 +19,24 @@ const compositeKeyEntities = [
   'item_tags', 'competence_tags', 'chat_participants', 'session_comptes'
 ];
 
+// Helper to create a restricted API for a single entity
+const createEntityAPI = (entity: string) => ({
+  getAll: () => ipcRenderer.invoke(`db:${entity}:getAll`),
+  getById: (id: string) => ipcRenderer.invoke(`db:${entity}:getById`, id),
+  create: (item: any) => ipcRenderer.invoke(`db:${entity}:create`, item),
+  update: (id: string, item: any) => ipcRenderer.invoke(`db:${entity}:update`, id, item),
+  delete: (id: string) => ipcRenderer.invoke(`db:${entity}:delete`, id),
+  deleteByFields: (conditions: Record<string, any>) => ipcRenderer.invoke(`db:${entity}:deleteByFields`, conditions),
+});
+
+// Helper to create a restricted API for a composite entity
+const createCompositeEntityAPI = (entity: string) => ({
+  getAll: () => ipcRenderer.invoke(`db:${entity}:getAll`),
+  create: (item: any) => ipcRenderer.invoke(`db:${entity}:create`, item),
+  deleteByFields: (conditions: Record<string, any>) => ipcRenderer.invoke(`db:${entity}:deleteByFields`, conditions),
+});
+
+// Build the final db API object
 const dbAPI: any = {
   system: {
     initSession: (folderPath: string) => ipcRenderer.invoke('db:system:initSession', folderPath),
@@ -42,22 +45,25 @@ const dbAPI: any = {
 };
 
 singleIdEntities.forEach((entity) => {
-  dbAPI[entity] = {
-    getAll: () => ipcRenderer.invoke(`db:${entity}:getAll`),
-    getById: (id: string) => ipcRenderer.invoke(`db:${entity}:getById`, id),
-    create: (item: any) => ipcRenderer.invoke(`db:${entity}:create`, item),
-    update: (id: string, item: any) => ipcRenderer.invoke(`db:${entity}:update`, id, item),
-    delete: (id: string) => ipcRenderer.invoke(`db:${entity}:delete`, id),
-    deleteByFields: (conditions: Record<string, any>) => ipcRenderer.invoke(`db:${entity}:deleteByFields`, conditions),
-  };
+  dbAPI[entity] = createEntityAPI(entity);
 });
 
 compositeKeyEntities.forEach((entity) => {
-  dbAPI[entity] = {
-    getAll: () => ipcRenderer.invoke(`db:${entity}:getAll`),
-    create: (item: any) => ipcRenderer.invoke(`db:${entity}:create`, item),
-    deleteByFields: (conditions: Record<string, any>) => ipcRenderer.invoke(`db:${entity}:deleteByFields`, conditions),
-  };
+  dbAPI[entity] = createCompositeEntityAPI(entity);
 });
 
+// Expose the restricted database API
 contextBridge.exposeInMainWorld('db', dbAPI);
+
+// SECURITY: Expose only necessary non-DB IPC methods
+contextBridge.exposeInMainWorld('ipcRenderer', {
+  // Listeners
+  onMainProcessMessage: (callback: (message: string) => void) => {
+    const subscription = (_event: any, message: string) => callback(message);
+    ipcRenderer.on('main-process-message', subscription);
+    return () => ipcRenderer.removeListener('main-process-message', subscription);
+  },
+  
+  // Window management
+  openPopout: (pageId: string) => ipcRenderer.send('popout-window', pageId),
+});

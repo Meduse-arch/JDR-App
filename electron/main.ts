@@ -5,6 +5,9 @@ import { setupIPC } from './ipc'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// Add security switch to prevent IP leaks via WebRTC
+app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'default_public_interface_only');
+
 // The built directory structure
 //
 // ├─┬─┬ dist
@@ -43,9 +46,9 @@ function createPopoutWindow(pageId: string) {
     backgroundColor: '#050505', // Fond sombre par défaut pour éviter le flash blanc
     webPreferences: {
       preload: preloadPath,
-      sandbox: false,
-      contextIsolation: true,
-      nodeIntegration: false,
+      sandbox: true,           // Security: Enable sandboxing
+      contextIsolation: true,  // Security: Isolate renderer and preload contexts
+      nodeIntegration: false,  // Security: Disable Node.js integration in renderer
     },
   })
 
@@ -74,6 +77,9 @@ function createWindow() {
     autoHideMenuBar: true, // 👈 C'est CETTE LIGNE qui cache le menu Windows !
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
+      sandbox: true,           // Security: Enable sandboxing
+      contextIsolation: true,  // Security: Isolate renderer and preload contexts
+      nodeIntegration: false,  // Security: Disable Node.js integration in renderer
     },
   })
 
