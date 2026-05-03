@@ -74,16 +74,14 @@ export default function Sessions() {
   }
 
   const rejoindreSession = async (session: Session) => {
-    // Si c'est le MJ, on doit dire à Electron de charger la base de données SQLite de la campagne !
-    if (compte?.role === 'mj' || compte?.role === 'admin') {
-      const db = (window as any).db;
-      try {
-        // On utilise TOUJOURS l'ID réel (UUID) pour le dossier sur disque
-        // folder_path est réservé à l'identifiant PeerJS (WebRTC)
-        await db.system.loadSession(session.id);
-      } catch (e) {
-        console.error("Failed to load session DB", e);
-      }
+    // On demande à Electron de charger la base de données SQLite de la campagne pour tout le monde.
+    // Pour le MJ c'est la source de vérité, pour le Joueur c'est un cache/seed local.
+    const db = (window as any).db;
+    try {
+      // On utilise TOUJOURS l'ID réel (UUID) pour le dossier sur disque
+      await db.system.loadSession(session.id);
+    } catch (e) {
+      console.error("Failed to load session DB", e);
     }
     setEnteringSession({ id: session.id, nom: session.nom })
   }

@@ -28,10 +28,27 @@ export function useMJResyncHandler() {
         try {
           const res = await db.comptes.getById(id);
           if (!res.data) {
-            await db.comptes.create({ id, pseudo, role: 'joueur' });
+            await db.comptes.create({ id, pseudo, mot_de_passe: 'remote_player', role: 'joueur' });
           }
+          
+          // Lier à la session pour qu'il apparaisse dans l'onglet Gérer (comptes de la session)
+          await db.session_comptes.getByIds ? await db.session_comptes.getByIds(sessionActive.id, id) : null;
+          // Comme on n'a pas forcément getByIds, on peut try/catch une création directe (la contrainte PRIMARY KEY l'ignorera si existant)
+          try {
+            await db.session_comptes.create({ id_session: sessionActive.id, id_compte: id });
+            peerService.broadcastToAll({
+              type: 'STATE_UPDATE',
+              entity: 'session',
+              payload: { type: 'player_joined' }
+            });
+          } catch (errSess) {
+             // Ignoré si déjà lié
+          }
+
           console.log(`👤 Joueur '${pseudo}' identifié et lié à la session ${sessionActive?.id}.`);
-        } catch (e) {}
+        } catch (e) {
+          console.error(`Erreur identification joueur:`, e);
+        }
       }
 
       if ((msg.kind as string) === 'request_map_channels') {
@@ -102,6 +119,31 @@ export function useMJResyncHandler() {
         });
       }
 
+      if (msg.kind === 'delete_token') {
+        const { id, channelId } = msg.payload;
+        const { mapService } = await import('../services/mapService');
+        const ok = await mapService.deleteToken(id);
+        if (ok && channelId) {
+          const tokens = await mapService.getTokens(channelId);
+          const resPerso = await db.personnages.getAll();
+          const personnages = resPerso.success ? resPerso.data : [];
+          
+          const imageMap = new Map<string, string | null>(
+            (personnages || []).map((p: any) => [p.id, p.image_url ?? null])
+          );
+          const enrichedTokens = tokens.map(t => ({
+            ...t,
+            image_url: t.image_url || (t.id_personnage ? imageMap.get(t.id_personnage) : null) || t.image_url,
+          }));
+
+          peerService.broadcastToAll({
+            type: 'STATE_UPDATE',
+            entity: 'session',
+            payload: { type: 'map_tokens_update', channelId, tokens: enrichedTokens }
+          });
+        }
+      }
+
       if ((msg.kind as string) === 'add_item') {
         const { personnageId, itemId, quantite } = msg.payload;
         await inventaireService.ajouterItem(personnageId, itemId, quantite);
@@ -130,6 +172,21 @@ export function useMJResyncHandler() {
           await logService.logAction(msg.payload);
         } catch (err) {
           console.error("Erreur log_action:", err);
+        }
+      }
+
+      if ((msg.kind as string) === 'request_logs') {
+        const { sessionId, personnageId } = msg.payload;
+        try {
+          const { logService } = await import('../services/logService');
+          const logs = await logService.getLogs(sessionId, personnageId);
+          peerService.sendToJoueur(fromPeerId, {
+            type: 'STATE_UPDATE',
+            entity: 'logs_update' as any,
+            payload: { sessionId, personnageId, logs }
+          });
+        } catch (err) {
+          console.error("Erreur request_logs:", err);
         }
       }
 
@@ -299,6 +356,26 @@ export function useMJResyncHandler() {
           const lib = await competenceService.getCompetences(sessionActive.id);
           peerService.sendToJoueur(fromPeerId, { type: 'RESYNC_RESPONSE', dataType: 'competences', payload: { persoComps, lib } });
         }
+      } else if (!dataType) {
+        // RESYNC GLOBAL (Demande de bibliothèque)
+        console.log(`[MJ] 📚 Resync global demandé par ${fromPeerId}`);
+        const { itemsService } = await import('../services/itemsService');
+        const items = await itemsService.getItems(sessionActive.id);
+        const resStats = await db.stats.getAll();
+        const stats = resStats.success ? resStats.data : [];
+        
+        peerService.sendToJoueur(fromPeerId, {
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'library_update', items, stats }
+        });
+
+        const libComps = await competenceService.getCompetences(sessionActive.id);
+        peerService.sendToJoueur(fromPeerId, {
+          type: 'STATE_UPDATE',
+          entity: 'session',
+          payload: { type: 'library_update_competences', competences: libComps }
+        });
       }
 
       if (dataType === 'quetes') {

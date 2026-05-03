@@ -27,11 +27,20 @@ export default function CreerPersonnage({ type, isTemplate = false, lieAuCompte,
   const [modeCreation, setModeCreation] = useState<'roll' | 'manuel'>('roll')
   const [maxStat, setMaxStat] = useState(20)
 
+  const allStatsStore = useStore(s => s.allStats)
+
   useEffect(() => {
     const db = (window as any).db;
     db.stats.getAll().then((res: any) => {
-      if (res.success && res.data) {
-        const data = res.data;
+      let data = [];
+      if (res.success && res.data && res.data.length > 0) {
+        data = res.data;
+      } else if (allStatsStore && allStatsStore.length > 0) {
+        // Fallback sur les stats du store (synchronisées via P2P)
+        data = allStatsStore;
+      }
+
+      if (data.length > 0) {
         const STATS_CALCULEES = ['PV Max', 'Mana Max', 'Stamina Max', 'HP Max', 'hp_max', 'mana_max', 'stam_max']
         const filtered = data.filter((s: any) => !STATS_CALCULEES.includes(s.nom))
         const sorted = filtered.sort((a: any, b: any) => ORDRE_STATS.indexOf(a.nom) - ORDRE_STATS.indexOf(b.nom))
@@ -39,7 +48,7 @@ export default function CreerPersonnage({ type, isTemplate = false, lieAuCompte,
         setStatsMax(data.filter((s: any) => STATS_CALCULEES.includes(s.nom)))
       }
     })
-  }, [])
+  }, [allStatsStore])
 
   const genererStats = () => {
     if (stats.length === 0) {

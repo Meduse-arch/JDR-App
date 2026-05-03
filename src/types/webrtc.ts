@@ -12,6 +12,7 @@ export type ActionKind =
   | 'log_action' 
   | 'toggle_competence'
   | 'add_token'
+  | 'delete_token'
   | 'request_map_channels'
   | 'request_map_tokens'
   | 'add_item'
@@ -21,7 +22,8 @@ export type ActionKind =
   | 'request_chat_messages'
   | 'request_chat_membres'
   | 'request_map_chat_canal'
-  | 'create_chat_canal';
+  | 'create_chat_canal'
+  | 'request_logs';
 
 export interface ActionMessage {
   type: 'ACTION';
@@ -41,7 +43,9 @@ export type StateUpdateEntity =
   | 'chat_canaux_update'
   | 'chat_messages_update'
   | 'chat_membres_update'
-  | 'map_chat_canal_update';
+  | 'map_chat_canal_update'
+  | 'logs'
+  | 'logs_update';
 
 export interface StateUpdateMessage {
   type: 'STATE_UPDATE';

@@ -144,10 +144,28 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
     }
   };
 
+  const broadcastTokenPosition = (id: string, x: number, y: number) => {
+    updateTokenLocal(id, x, y);
+    peerService.broadcastToAll({
+      type: 'STATE_UPDATE',
+      entity: 'map_token',
+      payload: { id, x: Math.round(x), y: Math.round(y) }
+    });
+  };
+
   const supprimerToken = async (id: string) => {
-    const ok = await mapService.deleteToken(id);
-    if (ok && channelActif) {
-      chargerTokens(channelActif);
+    if (peerService.isHost) {
+      const ok = await mapService.deleteToken(id);
+      if (ok && channelActif) {
+        chargerTokens(channelActif);
+      }
+    } else {
+      // Le joueur envoie une ACTION au MJ pour supprimer son token
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'delete_token',
+        payload: { id, channelId: channelActif }
+      });
     }
   };
 
@@ -200,6 +218,7 @@ export function useMapTokens(sessionId: string | undefined, channelActif: string
     tokens,
     ajouterToken,
     deplacerToken,
+    broadcastTokenPosition,
     supprimerToken,
     toggleVisibilite,
     setLocalAction

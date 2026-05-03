@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge'
 import { bestiaireService } from '../../services/bestiaireService'
 import { sessionService } from '../../services/sessionService'
 import { personnageService } from '../../services/personnageService'
+import { peerService } from '../../services/peerService'
 import { InvoquerBestiaireModal } from '../../components/ui/modal'
 import CreerPersonnage from '../shared/CreerPersonnage'
 import { Users, Ghost, Search, User, Heart, Zap, Flame, Crown, Skull, Plus, Settings, Trash2, Eye, BookOpen, X } from 'lucide-react'
@@ -59,9 +60,20 @@ export default function GererPersonnage() {
 
     const db = (window as any).db;
 
+    // 0. On récupère d'abord les IDs des personnages dans session_joueurs
+    const resSessJoueurs = await db.session_joueurs.getAll();
+    const persosDansSessionIds = resSessJoueurs.success
+      ? resSessJoueurs.data.filter((sj: any) => sj.id_session === sessionActive.id).map((sj: any) => sj.id_personnage)
+      : [];
+
     // 1. Joueurs & Persos (Local SQLite)
+    // On prend les persos liés à la session ou présents dans session_joueurs
     const resPersos = await db.personnages.getAll();
-    const persosRaw = resPersos.success ? resPersos.data.filter((p: any) => p.id_session === sessionActive.id && p.is_template === 0 && p.type === 'Joueur') : [];
+    const persosRaw = resPersos.success ? resPersos.data.filter((p: any) => 
+       (p.id_session === sessionActive.id || persosDansSessionIds.includes(p.id)) && 
+       p.is_template === 0 && 
+       p.type === 'Joueur'
+    ) : [];
     const persosData = await personnageService.hydraterPersonnages(persosRaw);
     setJoueursPersos(persosData);
     
@@ -75,18 +87,43 @@ export default function GererPersonnage() {
     const resComptes = await db.comptes.getAll();
     const allComptes = resComptes.success ? resComptes.data : [];
     
-    // On récupère les IDs liés via session_comptes (nouveauté)
+    // On récupère les IDs liés via session_comptes
     const resSessComptes = await db.session_comptes.getAll();
     const sessComptesIds = resSessComptes.success 
       ? resSessComptes.data.filter((sc: any) => sc.id_session === sessionActive.id).map((sc: any) => sc.id_compte)
       : [];
 
     // On combine avec ceux qui ont déjà des persos (sécurité) et les MJs
-    const characterAccountIds = persosData.map(p => p.lie_au_compte).filter(Boolean);
+    const characterAccountIds = persosData.map((p: Personnage) => p.lie_au_compte).filter(Boolean);
     const relevantAccountIds = Array.from(new Set([...mjIds, ...characterAccountIds, ...sessComptesIds]));
-    
+
     const relevantComptes = allComptes.filter((c: any) => relevantAccountIds.includes(c.id));
-    setComptes(relevantComptes);
+
+    // Si on a des personnages de type "Joueur" dans la session qui n'ont pas de "lie_au_compte" valide
+    // ou qui ne sont pas dans relevantComptes, on génère une fausse entrée de compte pour les afficher
+    const comptesEtendues = [...relevantComptes];
+    
+    persosData.forEach((p: Personnage) => {
+       // A-t-il un compte affiché ?
+       const aUnCompteAffiche = p.lie_au_compte && comptesEtendues.some(c => c.id === p.lie_au_compte);
+       
+       if (!aUnCompteAffiche) {
+          // Utiliser l'ID de compte existant s'il y en a un pour regrouper les persos du même joueur,
+          // sinon utiliser un ID fake basé sur le personnage.
+          const accountId = p.lie_au_compte || `fake-${p.id}`;
+          
+          // Vérifier si ce faux compte n'a pas déjà été ajouté par un autre personnage du même joueur
+          if (!comptesEtendues.some(c => c.id === accountId)) {
+             comptesEtendues.push({
+                id: accountId,
+                // Si on a un lie_au_compte mais pas de pseudo (hors-ligne/non migré), on indique que c'est un compte.
+                pseudo: p.lie_au_compte ? `Compte Joueur (Hors-ligne)` : `Joueur : ${p.nom}`
+             });
+          }
+       }
+    });
+
+    setComptes(comptesEtendues);
 
     // 4. PNJ & Boss (Local SQLite)
     const instancesPnj = await bestiaireService.getInstances(sessionActive.id, ['PNJ', 'Boss'])
@@ -202,6 +239,17 @@ export default function GererPersonnage() {
   }, [sessionActive, chargerDonnees])
 
   useEffect(() => {
+    if (peerService.isHost) {
+      const unsub = peerService.onStateUpdate((msg) => {
+        if (msg.entity === 'session' && (msg.payload.type === 'player_joined' || msg.payload.type === 'character_created' || msg.payload.type === 'character_deleted')) {
+          chargerDonnees();
+        }
+      });
+      return unsub;
+    }
+  }, [chargerDonnees]);
+
+  useEffect(() => {
     setRecherche('')
     setSelectedJoueur(null)
   }, [activeTab])
@@ -274,7 +322,7 @@ export default function GererPersonnage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start pb-20">
                 {comptesFiltres.map(c => {
-                  const persos = joueursPersos.filter(p => p.lie_au_compte === c.id)
+                  const persos = joueursPersos.filter(p => p.lie_au_compte === c.id || `fake-${p.id}` === c.id)
                   const estMJ = mjsIds.includes(c.id)
                   const isSelected = selectedJoueur?.id === c.id
 
@@ -320,7 +368,7 @@ export default function GererPersonnage() {
                   </div>
                   
                   <div className="flex-1 overflow-y-auto custom-scrollbar p-6 flex flex-col gap-6">
-                    {joueursPersos.filter(p => p.lie_au_compte === selectedJoueur.id).map(p => (
+                    {joueursPersos.filter(p => p.lie_au_compte === selectedJoueur.id || `fake-${p.id}` === selectedJoueur.id).map(p => (
                       <Card key={p.id} className="p-4 bg-card/40 border-theme/20 medieval-border flex flex-col gap-4 relative group">
                         <h4 className="font-cinzel font-black text-lg text-primary uppercase tracking-widest truncate">{p.nom}</h4>
                         <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-60">

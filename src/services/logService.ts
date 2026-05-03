@@ -14,6 +14,12 @@ export const logService = {
         id: crypto.randomUUID(),
         created_at: new Date().toISOString()
       });
+      // Notifie tous les joueurs (et le MJ via le listener local) de la mise à jour
+      peerService.broadcastToAll({
+        type: 'STATE_UPDATE',
+        entity: 'logs',
+        payload: {}
+      });
     } else {
       // LOGIQUE JOUEUR : Envoi WebRTC
       peerService.sendToMJ({

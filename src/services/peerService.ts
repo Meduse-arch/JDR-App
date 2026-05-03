@@ -26,6 +26,7 @@ class PeerService {
   private listCharactersResponseHandlers: Array<(msg: ListCharactersResponseMessage) => void> = [];
 
   private hostConnection: DataConnection | null = null;
+  private messageQueue: WebRTCMessage[] = [];
 
   async initAsMJ(mjPeerId: string): Promise<void> {
     this.destroy(); // Nettoyage préalable
@@ -107,6 +108,8 @@ class PeerService {
           conn.on('open', () => {
             clearTimeout(timeout);
             console.log("Connecté au MJ avec succès !");
+            this.messageQueue.forEach(msg => conn.send(msg));
+            this.messageQueue = [];
             resolve();
           });
           
@@ -138,6 +141,7 @@ class PeerService {
     this.connections.clear();
     this.hostConnection = null;
     this.isHost = false;
+    this.messageQueue = [];
   }
 
   private handleIncomingData(data: WebRTCMessage, fromPeerId: string) {
@@ -169,8 +173,12 @@ class PeerService {
   // --- Méthodes d'Envoi ---
 
   sendToMJ(message: ActionMessage | ResyncRequestMessage | ListCharactersRequestMessage): void {
-    if (!this.isHost && this.hostConnection) {
-      this.hostConnection.send(message);
+    if (!this.isHost) {
+      if (this.hostConnection && this.hostConnection.open) {
+        this.hostConnection.send(message);
+      } else {
+        this.messageQueue.push(message);
+      }
     }
   }
 
@@ -192,16 +200,24 @@ class PeerService {
   // --- Resync ---
 
   requestResync(characterId?: string, dataType?: ResyncDataType): void {
-    if (!this.isHost && this.hostConnection) {
+    if (!this.isHost) {
       const msg: ResyncRequestMessage = { type: 'RESYNC_REQUEST', characterId, dataType };
-      this.hostConnection.send(msg);
+      if (this.hostConnection && this.hostConnection.open) {
+        this.hostConnection.send(msg);
+      } else {
+        this.messageQueue.push(msg);
+      }
     }
   }
 
   requestListCharacters(compteId: string): void {
-    if (!this.isHost && this.hostConnection) {
+    if (!this.isHost) {
       const msg: ListCharactersRequestMessage = { type: 'LIST_CHARACTERS_REQUEST', compteId };
-      this.hostConnection.send(msg);
+      if (this.hostConnection && this.hostConnection.open) {
+        this.hostConnection.send(msg);
+      } else {
+        this.messageQueue.push(msg);
+      }
     }
   }
 

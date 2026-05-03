@@ -24,6 +24,7 @@ export default function CarteMap() {
     toggleChannel,
     ajouterToken,
     deplacerToken,
+    broadcastTokenPosition,
     supprimerToken,
     toggleVisibilite,
   } = useMap(sessionActive?.id);
@@ -117,6 +118,7 @@ export default function CarteMap() {
     handleTouchStart, handleTouchMove, handleTouchEnd,
   } = useMapDrag({
     zoom, activeChannelData, mapRef, deplacerToken,
+    onBroadcastPosition: broadcastTokenPosition,
     isMJ, personnageLocal, isRulerActive,
     selectedTokenId, tokens,
   });

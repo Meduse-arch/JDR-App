@@ -161,6 +161,15 @@ export default function App() {
     
     if (!session && enteringSession.id === 'remote-session') {
       // Cas spécial : Session Distante (P2P uniquement)
+      const db = (window as any).db;
+      if (db) {
+        try {
+          await db.system.loadSession('remote-session');
+        } catch (e) {
+          console.error("Failed to load remote session DB", e);
+        }
+      }
+
       setRoleEffectif('joueur')
       setSessionActive({ 
         id: 'remote-session', 
