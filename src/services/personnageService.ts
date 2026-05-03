@@ -200,10 +200,48 @@ export const personnageService = {
         bonus: s.bonus
       }));
 
-      // S'assurer que les MAX sont bien présents (déjà fait par hydraterPersonnages mais on double-check)
-      perso.hp_max = perso.hp_max || 10;
-      perso.mana_max = perso.mana_max || 10;
-      perso.stam_max = perso.stam_max || 10;
+      // RECALCUL DES MAX BASÉ SUR LES STATS DE BASE (Constitution, etc.) - On utilise .base (l'essence) et non .valeur
+      const getS = (nom: string) => perso.stats?.find((s: any) => s.nom === nom)?.base || 0;
+      const c_ = getS('Constitution');
+      const i_ = getS('Intelligence');
+      const sa_ = getS('Sagesse');
+      const f_ = getS('Force');
+      const a_ = getS('Agilité');
+
+      const calcHpMax = c_ > 0 ? c_ * 4 : (perso.hp_max || 10);
+      const calcManaMax = (i_ > 0 || sa_ > 0) ? Math.round(((i_ + sa_) / 2) * 10) : (perso.mana_max || 10);
+      const calcStamMax = (f_ > 0 || a_ > 0 || c_ > 0) ? Math.round(((f_ + a_ + c_) / 3) * 10) : (perso.stam_max || 10);
+
+      // Appliquer les nouveaux max calculés
+      perso.hp_max = calcHpMax;
+      perso.mana_max = calcManaMax;
+      perso.stam_max = calcStamMax;
+
+      // PERSISTANCE DES MAX DANS personnage_stats (pour que l'UI admin et joueur soit synchrone)
+      const sysStats = [
+        { nom: 'PV Max', val: perso.hp_max, id: 'a1000000-0000-0000-0000-000000000101' },
+        { nom: 'Mana Max', val: perso.mana_max, id: 'a1000000-0000-0000-0000-000000000102' },
+        { nom: 'Stamina Max', val: perso.stam_max, id: 'a1000000-0000-0000-0000-000000000103' }
+      ];
+
+      const resPStats = await db.personnage_stats.getAll();
+      const currentPStats = resPStats.success ? resPStats.data.filter((s: any) => s.id_personnage === idPersonnage) : [];
+
+      for (const ss of sysStats) {
+        const existing = currentPStats.find((s: any) => s.id_stat === ss.id);
+        if (existing) {
+          if (existing.valeur !== ss.val) {
+            await db.personnage_stats.update(existing.id, { valeur: ss.val });
+          }
+        } else {
+          await db.personnage_stats.create({
+            id: crypto.randomUUID(),
+            id_personnage: idPersonnage,
+            id_stat: ss.id,
+            valeur: ss.val
+          });
+        }
+      }
 
       const updates: any = {};
       if (perso.hp > perso.hp_max) updates.hp = perso.hp_max;

@@ -230,21 +230,37 @@ export const competenceService = {
 
   apprendreCompetence: async (idPersonnage: string, idCompetence: string): Promise<boolean> => {
     const db = getDB();
-    if (!db) return false;
-    await db.personnage_competences.create({
-      id: crypto.randomUUID(),
-      id_personnage: idPersonnage,
-      id_competence: idCompetence,
-      niveau: 1,
-      is_active: 0
-    });
-    return true;
+    if (peerService.isHost && db) {
+      await db.personnage_competences.create({
+        id: crypto.randomUUID(),
+        id_personnage: idPersonnage,
+        id_competence: idCompetence,
+        niveau: 1,
+        is_active: 0
+      });
+      return true;
+    } else {
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'learn_competence' as any,
+        payload: { idPersonnage, idCompetence }
+      });
+      return true;
+    }
   },
 
   oublierCompetence: async (idPersonnage: string, idCompetence: string): Promise<boolean> => {
     const db = getDB();
-    if (!db) return false;
-    await db.personnage_competences.deleteByFields({ id_personnage: idPersonnage, id_competence: idCompetence });
-    return true;
+    if (peerService.isHost && db) {
+      await db.personnage_competences.deleteByFields({ id_personnage: idPersonnage, id_competence: idCompetence });
+      return true;
+    } else {
+      peerService.sendToMJ({
+        type: 'ACTION',
+        kind: 'forget_competence' as any,
+        payload: { idPersonnage, idCompetence }
+      });
+      return true;
+    }
   }
 };

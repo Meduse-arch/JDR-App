@@ -23,7 +23,9 @@ export type ActionKind =
   | 'request_chat_membres'
   | 'request_map_chat_canal'
   | 'create_chat_canal'
-  | 'request_logs';
+  | 'request_logs'
+  | 'learn_competence'
+  | 'forget_competence';
 
 export interface ActionMessage {
   type: 'ACTION';

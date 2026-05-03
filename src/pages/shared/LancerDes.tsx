@@ -94,27 +94,26 @@ export default function LancerDes() {
     setDiceResult(results)
 
     if (sessionActive) {
+      const logEntry = {
+        id_session: sessionActive.id,
+        id_personnage: personnage?.id || 'mj-roll',
+        nom_personnage: personnage?.nom || 'Maître de Jeu',
+        type: 'des' as const,
+        action: `Lance ${label}`,
+        details: { resultat: res.des, total: res.total }
+      };
+
       if (personnage) {
         const shouldLog = roleEffectif === 'joueur' ? !useStore.getState().pnjControle : true;
         if (shouldLog) {
-          logService.logAction({
-            id_session: sessionActive.id,
-            id_personnage: personnage.id,
-            nom_personnage: personnage.nom,
-            type: 'des',
-            action: `Lance ${label}`,
-            details: { resultat: res.des, total: res.total }
-          }).catch(console.error);
+          logService.logAction(logEntry).catch(console.error);
         }
       } else if (isMJ) {
-        const newLog = {
-          id: Date.now().toString(),
-          type: 'des',
-          action: `Lance ${label}`,
-          details: { resultat: res.des, total: res.total }
-        }
+        logService.logAction(logEntry).catch(console.error);
+        
+        // On garde quand même un petit historique local rapide pour le panneau "Invocations"
         setHistoriqueMJ(prev => {
-          const up = [newLog, ...prev].slice(0, 20)
+          const up = [{ id: Date.now().toString(), ...logEntry }, ...prev].slice(0, 20)
           localStorage.setItem(`sigil-history-mj-${sessionActive.id}`, JSON.stringify(up))
           return up
         })

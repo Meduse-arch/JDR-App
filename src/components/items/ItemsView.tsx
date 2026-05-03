@@ -450,42 +450,48 @@ export default function ItemsView({ mode, personnage = null }: Props) {
                     </div>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
-                        <span className="font-cinzel font-bold text-sm uppercase tracking-widest text-primary">{item.nom}</span>
+                        <span className="font-cinzel font-bold text-sm uppercase tracking-widest text-primary hover:text-theme-main transition-colors" 
+                          onClick={(e) => { e.stopPropagation(); setDetail(entry || rawEntry); }}
+                        >
+                          {item.nom}
+                        </span>
                         {entry?.equipe && <span className="w-2 h-2 rounded-full bg-theme-main animate-pulse shadow-[0_0_8px_var(--color-main)]" title="Équipé" />}
                       </div>
                       <span className="font-garamond italic text-[11px] text-theme-main/60">{item.categorie}</span>
+                      
+                      {/* AJUSTEMENT QUANTITÉ (SOUS LE NOM EN CODEX) */}
+                      {(isPossede || isLibraryMode) && mode === 'gerer' && (
+                        <div className="flex items-center gap-2 mt-2 bg-black/40 border border-theme/10 rounded-sm p-0.5 w-fit" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const key = isLibraryMode ? item.id : entryId
+                              const newVal = (deltas[key] || 0) - 1
+                              setDeltas(prev => ({ ...prev, [key]: newVal }))
+                              setInputDeltaValues(prev => ({ ...prev, [key]: newVal === 0 ? '' : newVal > 0 ? `+${newVal}` : `${newVal}` }))
+                            }}
+                            className="w-5 h-5 flex items-center justify-center hover:text-red-400 hover:bg-white/5 text-xs"
+                          >−</button>
+                          <span className={`font-cinzel font-black text-[10px] min-w-[20px] text-center ${delta !== 0 ? (delta > 0 ? 'text-green-400' : 'text-red-400') : 'text-primary'}`}>
+                             {mode === 'gerer' && !isLibraryMode ? quantiteFinale : (deltas[item.id] || 0)}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const key = isLibraryMode ? item.id : entryId
+                              const newVal = (deltas[key] || 0) + 1
+                              setDeltas(prev => ({ ...prev, [key]: newVal }))
+                              setInputDeltaValues(prev => ({ ...prev, [key]: newVal > 0 ? `+${newVal}` : `${newVal}` }))
+                            }}
+                            className="w-5 h-5 flex items-center justify-center hover:text-green-400 hover:bg-white/5 text-xs"
+                          >+</button>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
                   {/* Action/Quantity area */}
                   <div className="flex items-center gap-4 mt-2 sm:mt-0 pl-13 sm:pl-0">
-                    {(isPossede || isLibraryMode) && mode === 'gerer' && (
-                      <div className="flex items-center gap-2 bg-black/40 border border-theme/10 rounded-sm p-1" onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const key = isLibraryMode ? item.id : entryId
-                            const newVal = (deltas[key] || 0) - 1
-                            setDeltas(prev => ({ ...prev, [key]: newVal }))
-                            setInputDeltaValues(prev => ({ ...prev, [key]: newVal === 0 ? '' : newVal > 0 ? `+${newVal}` : `${newVal}` }))
-                          }}
-                          className="w-6 h-6 flex items-center justify-center hover:text-red-400 hover:bg-white/5"
-                        >−</button>
-                        <span className={`font-cinzel font-black text-xs w-6 text-center ${delta !== 0 ? (delta > 0 ? 'text-green-400' : 'text-red-400') : 'text-primary'}`}>
-                           {mode === 'gerer' && !isLibraryMode ? quantiteFinale : (deltas[item.id] || 0)}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const key = isLibraryMode ? item.id : entryId
-                            const newVal = (deltas[key] || 0) + 1
-                            setDeltas(prev => ({ ...prev, [key]: newVal }))
-                            setInputDeltaValues(prev => ({ ...prev, [key]: newVal > 0 ? `+${newVal}` : `${newVal}` }))
-                          }}
-                          className="w-6 h-6 flex items-center justify-center hover:text-green-400 hover:bg-white/5"
-                        >+</button>
-                      </div>
-                    )}
                     {isPossede && mode !== 'gerer' && entry && entry.quantite > 1 && (
                       <div className="font-cinzel font-black text-lg text-primary opacity-40">
                         x{entry.quantite}

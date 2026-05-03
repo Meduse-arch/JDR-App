@@ -105,7 +105,7 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
 
   // Data Filtering
   const idsAcquises = new Set(
-    attr.competencesAcquises.map((ca: any) => ca.id_competence || ca.id)
+    attr.competencesAcquises.map((ca: any) => ca.id_competence || ca.competence_id || ca.id)
   )
 
   const listSource = mode === 'forge'
@@ -119,11 +119,10 @@ export default function CompetenceView({ mode, personnage = null }: Props) {
 
   const filteredRaw = listSource.filter((c: any) => {
     const comp = c.competence || c
-    if (mode === 'attribuer' && ongletAttr === 'liste') {
-      if (!idsAcquises.has(comp.id)) return false
-    }
-    if (mode === 'attribuer' && ongletAttr === 'ajouter') {
-      if (idsAcquises.has(comp.id)) return false
+    if (mode === 'attribuer') {
+      const isPossede = idsAcquises.has(comp.id)
+      if (ongletAttr === 'liste' && !isPossede) return false
+      if (ongletAttr === 'ajouter' && isPossede) return false
     }
     return true
   })

@@ -174,26 +174,40 @@ class PeerService {
 
   sendToMJ(message: ActionMessage | ResyncRequestMessage | ListCharactersRequestMessage): void {
     if (!this.isHost) {
+      // Robust sending: if connection exists and is fully open, send. Otherwise queue.
       if (this.hostConnection && this.hostConnection.open) {
-        this.hostConnection.send(message);
+        try {
+          this.hostConnection.send(message);
+        } catch (e) {
+          console.error("[PeerService] Erreur lors de l'envoi au MJ, mise en file d'attente", e);
+          this.messageQueue.push(message);
+        }
       } else {
         this.messageQueue.push(message);
+        // Si on est censé être connecté mais que ça bloque, on pourrait forcer un flush plus tard.
       }
     }
   }
 
   broadcastToAll(message: StateUpdateMessage): void {
     if (this.isHost) {
-      this.connections.forEach(conn => conn.send(message));
+      this.connections.forEach(conn => {
+        if (conn.open) {
+          try { conn.send(message); } catch(e) {}
+        }
+      });
       // Notify the host's own local listeners so their UI updates immediately
-      // when a player's action causes a broadcast.
+      // when a player's action broadcast causes a broadcast.
       this.stateUpdateHandlers.forEach(cb => cb(message));
     }
   }
 
   sendToJoueur(joueurPeerId: string, message: StateUpdateMessage | ResyncResponseMessage | ListCharactersResponseMessage): void {
     if (this.isHost) {
-      this.connections.get(joueurPeerId)?.send(message);
+      const conn = this.connections.get(joueurPeerId);
+      if (conn && conn.open) {
+        try { conn.send(message); } catch(e) {}
+      }
     }
   }
 
@@ -202,22 +216,14 @@ class PeerService {
   requestResync(characterId?: string, dataType?: ResyncDataType): void {
     if (!this.isHost) {
       const msg: ResyncRequestMessage = { type: 'RESYNC_REQUEST', characterId, dataType };
-      if (this.hostConnection && this.hostConnection.open) {
-        this.hostConnection.send(msg);
-      } else {
-        this.messageQueue.push(msg);
-      }
+      this.sendToMJ(msg as any); // Reuse robust logic
     }
   }
 
   requestListCharacters(compteId: string): void {
     if (!this.isHost) {
       const msg: ListCharactersRequestMessage = { type: 'LIST_CHARACTERS_REQUEST', compteId };
-      if (this.hostConnection && this.hostConnection.open) {
-        this.hostConnection.send(msg);
-      } else {
-        this.messageQueue.push(msg);
-      }
+      this.sendToMJ(msg as any); // Reuse robust logic
     }
   }
 

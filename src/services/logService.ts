@@ -7,7 +7,7 @@ export const logService = {
   async logAction(entry: Omit<LogActivite, 'id' | 'created_at'>) {
     const db = getDB();
     
-    if (db) {
+    if (peerService.isHost && db) {
       // LOGIQUE MJ : Sauvegarde locale
       await db.logs_activite.create({
         ...entry,
@@ -17,7 +17,7 @@ export const logService = {
       // Notifie tous les joueurs (et le MJ via le listener local) de la mise à jour
       peerService.broadcastToAll({
         type: 'STATE_UPDATE',
-        entity: 'logs',
+        entity: 'logs_activite' as any,
         payload: {}
       });
     } else {

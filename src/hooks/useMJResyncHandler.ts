@@ -266,6 +266,36 @@ export function useMJResyncHandler() {
         }
       }
 
+      if ((msg.kind as string) === 'learn_competence') {
+        const { idPersonnage, idCompetence } = msg.payload;
+        const { competenceService } = await import('../services/competenceService');
+        await competenceService.apprendreCompetence(idPersonnage, idCompetence);
+        
+        const fullPerso = await personnageService.recalculerStats(idPersonnage);
+        if (fullPerso) {
+          peerService.broadcastToAll({
+            type: 'STATE_UPDATE',
+            entity: 'personnage',
+            payload: { id_personnage: idPersonnage, type: 'full', valeur: fullPerso }
+          });
+        }
+      }
+
+      if ((msg.kind as string) === 'forget_competence') {
+        const { idPersonnage, idCompetence } = msg.payload;
+        const { competenceService } = await import('../services/competenceService');
+        await competenceService.oublierCompetence(idPersonnage, idCompetence);
+        
+        const fullPerso = await personnageService.recalculerStats(idPersonnage);
+        if (fullPerso) {
+          peerService.broadcastToAll({
+            type: 'STATE_UPDATE',
+            entity: 'personnage',
+            payload: { id_personnage: idPersonnage, type: 'full', valeur: fullPerso }
+          });
+        }
+      }
+
       if (msg.kind === 'toggle_competence') {
         const { liaisonId, is_active } = msg.payload;
         await db.personnage_competences.update(liaisonId, { is_active: is_active ? 1 : 0 });
